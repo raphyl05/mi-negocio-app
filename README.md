@@ -11,6 +11,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 2 COMPLETADA ✅** — sistema visual (tema turquesa/cian) + utilidad de dinero RD$ + tests.
 **Fase 3 COMPLETADA ✅** — navegación: stack raíz + 4 pestañas (Inicio, Ventas, Productos, Más).
 **Fase 4 COMPLETADA ✅** — configuración inicial del negocio (nombre, usuario y contraseña con hash).
+**Fase 5 COMPLETADA ✅** — login local: verifica usuario + hash(SHA-256 con sal) y abre las 4 pestañas.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -53,13 +54,19 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] Componente `TextField` (redondeado, borde turquesa al enfocar, mensaje de error en rojo).
 - [x] Tests: `validateSetup` (16 tests en total, pasando).
 
-## Lo que falta (Fases 5–15)
+### Hecho (Fase 5)
+
+- [x] `verifyLogin` en `src/services/setupService.ts`: compara hash del usuario guardado (usuario sin distinguir mayúsculas, contraseña vía SHA-256 con su sal). Nunca revela cuál campo falló.
+- [x] `src/screens/login/LoginScreen.tsx` real: usuario + contraseña, validaciones, banner rojo "Usuario o contraseña incorrectos", botón ENTRAR con estado de carga.
+- [x] `App.tsx` (`BootGate`): login exitoso → `RootNavigator` (4 pestañas: Inicio, Ventas, Productos, Más). La 4.ª pestaña se conectará en la Fase 6.
+- [x] Tests: `validateLogin` (19 tests en total, pasando).
+
+## Lo que falta (Fases 6–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 5 | Login local (verificar usuario + hash) | tests de autenticación |
 | 6 | Apertura de caja | regla "no ventas sin caja abierta" |
 | 7 | Facturación: buscador, categorías (chips), grid 2–3 col, agregar al carrito | flujo manual |
 | 8 | Carrito completo (+/−, eliminar) | tests de subtotal |
