@@ -17,6 +17,8 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 8 COMPLETADA ✅** — carrito completo (+/−/eliminar) y panel opcional de datos del cliente.
 **Fase 9 COMPLETADA ✅** — pago: al cobrar → "Cobrar" o "Guardar orden"; efectivo/transferencia con cambio automático y "Venta completada". Horas en a.m./p.m.
 **Fase 10 COMPLETADA ✅** — productos CRUD (nombre, precio, categoría, estado), imagen por emoji/ícono/foto, stock opcional con descuento al vender y **globito rojo** de órdenes pendientes en la pestaña Ventas.
+**Ajuste ✅** — cantidad manual editable en cada tarjeta de producto y botones − cantidad + más grandes/separados en el carrito.
+**Fase 11 COMPLETADA ✅** — SQLite en Android/iOS (productos, stock y órdenes persistidas) con abstracción por repositorios: en memoria para web.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -118,13 +120,22 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **Carrito**: los botones **− cantidad +** ahora son más grandes y están más separados (área de toque 42px, contenedor con espaciado) para evitar toques por error.
 - [x] Tests: 54 pasando.
 
-## Lo que falta (Fases 11–15)
+### Hecho (Fase 11)
+
+- [x] **SQLite** con `expo-sqlite@~57.0.3` (android/ios/Expo Go, sin configuración extra): BD `micaja.db` con tablas `products`, `orders` y `order_meta` (números consecutivos), índices por estado y fecha, `PRAGMA journal_mode = WAL` y **migración automática** (crea tablas y siembra el catálogo si la BD está vacía).
+- [x] **Repositorios con dos implementaciones**: `createSqliteProductRepository` / `createSqliteOrderRepository` (SQLite) y las de **en memoria** (web). Los singletons `productRepository` y `orderRepository` son **fachadas perezosas**: en Android/iOS abren SQLite; en el navegador siguen en memoria. Las pantallas no cambian.
+- [x] Datos de ventas/stock ya **persisten entre reinicios** en el teléfono (productos creados, stock, órdenes guardadas y pagadas). Web sigue siendo por sesión (opción acordada).
+- [x] La capa SQLite vive en archivos `.native.ts` (+ stubs `.ts`): **`expo-sqlite` jamás entra al bundle web** (verificado grepeando el export).
+- [x] Config/sesión/negocio siguen en AsyncStorage (decisión acordada: solo ventas/stock en SQLite).
+- [x] Se movió el catálogo de prueba a `src/data/seedProducts.ts` (compartido por memoria y SQLite).
+- [x] Tests: 54 pasando. Dependencia nueva justificada: `expo-sqlite`.
+
+## Lo que falta (Fases 12–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 11 | SQLite con `expo-sqlite` + repositorios con **abstracción para web en memoria** | funciona en Android y navegador |
 | 12 | Órdenes guardadas: lista de pendientes; abrir = editar carrito / cobrar / eliminar; buscar por fecha, hora y texto libre (nombre, apellido, teléfono, dirección, descripción, n.º de orden) | consultas + tests de búsqueda |
 | 13 | Historial de ventas pagadas + detalle + el mismo buscador (fecha, hora, texto libre) | consultas |
 | 14 | Resumen del día + cierre de caja (efectivo esperado vs contado) | tests de diferencia |
