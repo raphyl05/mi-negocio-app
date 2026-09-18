@@ -12,6 +12,7 @@ type TextFieldProps = {
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: TextInputProps['autoCapitalize'];
+  multiline?: boolean;
 };
 
 export default function TextField({
@@ -23,6 +24,7 @@ export default function TextField({
   placeholder,
   keyboardType,
   autoCapitalize = 'sentences',
+  multiline = false,
 }: TextFieldProps) {
   const { colors, spacing, typography } = useTheme();
   const [focused, setFocused] = useState(false);
@@ -45,6 +47,7 @@ export default function TextField({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
+        multiline={multiline}
         style={[
           styles.input,
           {
@@ -56,6 +59,7 @@ export default function TextField({
             color: colors.textPrimary,
             fontSize: typography.sizes.body,
           },
+          multiline ? styles.multiline : undefined,
         ]}
       />
       {error ? (
@@ -74,6 +78,10 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 52,
+  },
+  multiline: {
+    minHeight: 96,
+    textAlignVertical: 'top',
   },
   error: {
     marginLeft: 4,

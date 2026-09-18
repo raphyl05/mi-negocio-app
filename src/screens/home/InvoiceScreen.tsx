@@ -1,13 +1,16 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import Screen from '../../components/Screen';
+import { useCart } from '../../contexts/CartContext';
 import type { CashRegister } from '../../models/cashRegister';
+import type { RootStackParamList } from '../../navigation/types';
 import type { Product } from '../../models/product';
 import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
-import { useCart } from '../../contexts/CartContext';
 import { formatTime } from '../../utils/datetime';
 import { formatMoney } from '../../utils/money';
 
@@ -17,6 +20,7 @@ type InvoiceScreenProps = {
 
 export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   const { colors, spacing, typography } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { count, subtotalCents, add } = useCart();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -122,21 +126,25 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
         }
       />
 
-      <View style={[styles.cartBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+      <Pressable
+        onPress={() => navigation.navigate('Cart')}
+        style={({ pressed }) => [styles.cartBar, { backgroundColor: colors.surface, borderTopColor: colors.border, opacity: pressed ? 0.9 : 1 }]}
+      >
         <View style={styles.cartInfo}>
-          <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
-            {count === 0 ? 'Carrito vacío' : `${count} ${count === 1 ? 'producto' : 'productos'}`}
-          </Text>
+          <View>
+            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+              {count === 0 ? 'Carrito vacío' : `${count} ${count === 1 ? 'producto' : 'productos'}`}
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Toca para ver el carrito</Text>
+          </View>
           {count > 0 ? (
             <MoneyDisplay cents={subtotalCents} size="large" />
           ) : (
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>RD$0.00</Text>
           )}
         </View>
-        <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
-          El carrito completo llega en la Fase 8
-        </Text>
-      </View>
+        <Ionicons name="chevron-up" size={20} color={colors.textSecondary} />
+      </Pressable>
     </Screen>
   );
 }

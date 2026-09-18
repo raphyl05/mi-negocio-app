@@ -1,4 +1,12 @@
-import { addProductToCart, cartCount, cartSubtotal } from '../src/utils/cart';
+import {
+  addProductToCart,
+  cartCount,
+  cartSubtotal,
+  clearCart,
+  decreaseItem,
+  increaseItem,
+  removeItem,
+} from '../src/utils/cart';
 import type { CartItem } from '../src/utils/cart';
 import type { Product } from '../src/models/product';
 
@@ -53,5 +61,32 @@ describe('carrito', () => {
   it('carrito vacío tiene subtotal y conteo en cero', () => {
     expect(cartSubtotal([])).toBe(0);
     expect(cartCount([])).toBe(0);
+  });
+
+  it('incrementa una línea existente', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 1 }];
+    const result = increaseItem(items, 'p1');
+    expect(result[0].quantity).toBe(2);
+  });
+
+  it('decrementa y elimina la línea al llegar a cero', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 2 }];
+    expect(decreaseItem(items, 'p1')[0].quantity).toBe(1);
+    expect(decreaseItem([{ product: burger, quantity: 1 }], 'p1')).toHaveLength(0);
+  });
+
+  it('elimina una línea completa', () => {
+    const items: CartItem[] = [
+      { product: burger, quantity: 1 },
+      { product: soda, quantity: 3 },
+    ];
+    const result = removeItem(items, 'p1');
+    expect(result).toHaveLength(1);
+    expect(result[0].product.id).toBe('p2');
+  });
+
+  it('limpia el carrito', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 1 }];
+    expect(clearCart()).toHaveLength(0);
   });
 });

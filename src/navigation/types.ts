@@ -1,5 +1,6 @@
 export type RootStackParamList = {
   Main: undefined;
+  Cart: undefined;
 };
 
 export type TabParamList = {
