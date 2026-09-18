@@ -45,3 +45,10 @@ export function cartSubtotal(items: CartItem[]): number {
 export function cartCount(items: CartItem[]): number {
   return items.reduce((total, item) => total + item.quantity, 0);
 }
+
+export function parseCartQuantity(text: string): number {
+  const cleaned = text.trim();
+  if (!/^\d+$/.test(cleaned)) return 1;
+  const quantity = parseInt(cleaned, 10);
+  return quantity > 0 ? quantity : 1;
+}

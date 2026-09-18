@@ -129,12 +129,12 @@ function CartRow({ item }: { item: CartItem }) {
 
       <View style={styles.rowRight}>
         <View style={[styles.stepper, { borderColor: colors.border }]}>
-          <Pressable onPress={() => decrease(product.id)} style={[styles.stepButton, { backgroundColor: colors.surfaceMuted }]}>
-            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>−</Text>
+          <Pressable onPress={() => decrease(product.id)} style={[styles.stepButton, { backgroundColor: colors.surfaceMuted }]} hitSlop={4}>
+            <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700' }}>−</Text>
           </Pressable>
-          <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '700' }}>{quantity}</Text>
-          <Pressable onPress={() => increase(product.id)} style={[styles.stepButton, { backgroundColor: colors.primary }]}>
-            <Text style={{ color: colors.textOnPrimary, fontSize: 16, fontWeight: '700' }}>+</Text>
+          <Text style={[styles.stepCount, { color: colors.textPrimary }]}>{quantity}</Text>
+          <Pressable onPress={() => increase(product.id)} style={[styles.stepButton, { backgroundColor: colors.primary }]} hitSlop={4}>
+            <Text style={{ color: colors.textOnPrimary, fontSize: 18, fontWeight: '700' }}>+</Text>
           </Pressable>
         </View>
         <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '700' }}>
@@ -191,15 +191,23 @@ const styles = StyleSheet.create({
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    padding: 4,
   },
   stepButton: {
-    width: 32,
-    height: 32,
+    width: 42,
+    height: 36,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stepCount: {
+    minWidth: 24,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
   },
   deleteButton: {
     marginLeft: 6,

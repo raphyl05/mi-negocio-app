@@ -112,6 +112,12 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] Dependencia nueva: `expo-image-picker@~57.0.19` (oficial Expo; galería en Android/iOS/Expo Go y web, sin permisos extra en navegador).
 - [x] Tests: validateProduct + productRepository + stock (53 tests en total, pasando).
 
+### Ajuste (después de la Fase 10)
+
+- [x] **Cantidad manual en la tarjeta de producto**: cada producto de la facturación tiene un recuadro de cantidad; el botón **+** sigue agregando (por defecto 1, o la cantidad escrita, validada contra el stock). `parseCartQuantity` en `src/utils/cart.ts` interpreta el texto.
+- [x] **Carrito**: los botones **− cantidad +** ahora son más grandes y están más separados (área de toque 42px, contenedor con espaciado) para evitar toques por error.
+- [x] Tests: 54 pasando.
+
 ## Lo que falta (Fases 11–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.

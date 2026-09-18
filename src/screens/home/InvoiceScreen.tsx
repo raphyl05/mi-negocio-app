@@ -14,6 +14,7 @@ import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
 import { formatTime } from '../../utils/datetime';
 import { formatMoney } from '../../utils/money';
+import { parseCartQuantity } from '../../utils/cart';
 
 type InvoiceScreenProps = {
   register: CashRegister;
@@ -28,6 +29,7 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('Todos');
   const [stockError, setStockError] = useState<string | null>(null);
+  const [quantities, setQuantities] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const all = await productRepository.list();
@@ -57,17 +59,25 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
     });
 
   const handleAdd = (product: Product) => {
+    const quantity = parseCartQuantity(quantities[product.id] ?? '1');
     if (product.trackStock) {
       const inCart = items
         .filter((item) => item.product.id === product.id)
         .reduce((sum, item) => sum + item.quantity, 0);
-      if (inCart >= product.stockQuantity) {
+      if (inCart + quantity > product.stockQuantity) {
         setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
         return;
       }
     }
     setStockError(null);
-    add(product);
+    for (let i = 0; i < quantity; i++) {
+      add(product);
+    }
+  };
+
+  const setQuantity = (id: string, text: string) => {
+    setQuantities((current) => ({ ...current, [id]: text }));
+    setStockError(null);
   };
 
   return (
@@ -78,7 +88,14 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
         numColumns={2}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.gridContent}
-        renderItem={({ item }) => <ProductCard product={item} onAdd={() => handleAdd(item)} />}
+        renderItem={({ item }) => (
+          <ProductCard
+            product={item}
+            quantity={quantities[item.id] ?? '1'}
+            onChangeQuantity={(text) => setQuantity(item.id, text)}
+            onAdd={() => handleAdd(item)}
+          />
+        )}
         ListHeaderComponent={
           <View>
             <View style={styles.header}>
@@ -184,7 +201,17 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   );
 }
 
-function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }) {
+function ProductCard({
+  product,
+  quantity,
+  onChangeQuantity,
+  onAdd,
+}: {
+  product: Product;
+  quantity: string;
+  onChangeQuantity: (text: string) => void;
+  onAdd: () => void;
+}) {
   const { colors, spacing, typography, shadows } = useTheme();
   const outOfStock = product.trackStock && product.stockQuantity <= 0;
   const lowStock = !outOfStock && product.trackStock && product.stockQuantity <= 5;
@@ -212,16 +239,30 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
           {outOfStock ? 'Agotado' : lowStock ? `¡Solo quedan ${product.stockQuantity}!` : `Quedan ${product.stockQuantity}`}
         </Text>
       ) : null}
-      <Pressable
-        onPress={onAdd}
-        disabled={outOfStock}
-        style={({ pressed }) => [
-          styles.addButton,
-          { backgroundColor: colors.primary, opacity: outOfStock ? 0.35 : pressed ? 0.85 : 1 },
-        ]}
-      >
-        <Text style={{ color: colors.textOnPrimary, fontSize: 20, fontWeight: '700', lineHeight: 22 }}>+</Text>
-      </Pressable>
+
+      <View style={styles.addRow}>
+        <TextInput
+          value={quantity}
+          onChangeText={onChangeQuantity}
+          keyboardType="number-pad"
+          placeholder="1"
+          placeholderTextColor={colors.textSecondary}
+          style={[
+            styles.quantityInput,
+            { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.textPrimary },
+          ]}
+        />
+        <Pressable
+          onPress={onAdd}
+          disabled={outOfStock}
+          style={({ pressed }) => [
+            styles.addButton,
+            { backgroundColor: colors.primary, opacity: outOfStock ? 0.35 : pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Text style={{ color: colors.textOnPrimary, fontSize: 20, fontWeight: '700', lineHeight: 22 }}>+</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -277,7 +318,7 @@ const styles = StyleSheet.create({
   productCard: {
     flex: 1,
     padding: 14,
-    minHeight: 160,
+    minHeight: 176,
   },
   productName: {
     flex: 1,
@@ -287,13 +328,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 6,
   },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  quantityInput: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    textAlign: 'center',
+    fontSize: 15,
+  },
   addButton: {
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 46,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

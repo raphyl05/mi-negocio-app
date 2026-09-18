@@ -5,6 +5,7 @@ import {
   clearCart,
   decreaseItem,
   increaseItem,
+  parseCartQuantity,
   removeItem,
 } from '../src/utils/cart';
 import type { CartItem } from '../src/utils/cart';
@@ -91,8 +92,17 @@ describe('carrito', () => {
     expect(result[0].product.id).toBe('p2');
   });
 
-  it('limpia el carrito', () => {
+it('limpia el carrito', () => {
     const items: CartItem[] = [{ product: burger, quantity: 1 }];
     expect(clearCart()).toHaveLength(0);
+  });
+
+  it('parseCartQuantity interpreta la cantidad escrita', () => {
+    expect(parseCartQuantity('3')).toBe(3);
+    expect(parseCartQuantity('12')).toBe(12);
+    expect(parseCartQuantity('')).toBe(1);
+    expect(parseCartQuantity('abc')).toBe(1);
+    expect(parseCartQuantity('0')).toBe(1);
+    expect(parseCartQuantity('-2')).toBe(1);
   });
 });
