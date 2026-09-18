@@ -1,4 +1,4 @@
-import { formatMoney, calcSubtotal, calcChange, calcDifference } from '../src/utils/money';
+import { formatMoney, calcSubtotal, calcChange, calcDifference, parseMoney } from '../src/utils/money';
 
 describe('formatMoney', () => {
   it('formatea pesos dominicanos con dos decimales', () => {
@@ -55,5 +55,27 @@ describe('calcDifference', () => {
     expect(calcDifference(475000, 470000)).toBe(5000);
     expect(calcDifference(475000, 475000)).toBe(0);
     expect(calcDifference(475000, 480000)).toBe(-5000);
+  });
+});
+
+describe('parseMoney', () => {
+  it('convierte texto a centavos', () => {
+    expect(parseMoney('500')).toBe(50000);
+    expect(parseMoney('500.50')).toBe(50050);
+    expect(parseMoney('500,50')).toBe(50050);
+    expect(parseMoney('0')).toBe(0);
+    expect(parseMoney(' 1500 ')).toBe(150000);
+  });
+
+  it('acepta hasta dos decimales', () => {
+    expect(parseMoney('10.5')).toBe(1050);
+  });
+
+  it('rechaza entradas inválidas', () => {
+    expect(parseMoney('')).toBeNull();
+    expect(parseMoney('abc')).toBeNull();
+    expect(parseMoney('-5')).toBeNull();
+    expect(parseMoney('12.345')).toBeNull();
+    expect(parseMoney('500 pesos')).toBeNull();
   });
 });

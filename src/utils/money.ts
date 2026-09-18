@@ -31,3 +31,13 @@ export function calcChange(totalCents: number, receivedCents: number): number {
 export function calcDifference(expectedCents: number, countedCents: number): number {
   return expectedCents - countedCents;
 }
+
+const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
+
+export function parseMoney(text: string): number | null {
+  const normalized = text.trim().replace(',', '.').replace(/\s+/g, '');
+  if (!AMOUNT_PATTERN.test(normalized)) return null;
+
+  const [intPart, decPart = ''] = normalized.split('.');
+  return parseInt(intPart, 10) * 100 + parseInt(decPart.padEnd(2, '0'), 10);
+}
