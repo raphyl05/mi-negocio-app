@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { CartProvider } from './src/contexts/CartContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import LoginScreen from './src/screens/login/LoginScreen';
 import SetupScreen from './src/screens/setup/SetupScreen';
@@ -44,8 +45,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <StatusBar style="dark" />
-        <BootGate />
+        <CartProvider>
+          <StatusBar style="dark" />
+          <BootGate />
+        </CartProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
