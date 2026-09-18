@@ -11,6 +11,7 @@
     "expo": "~57.0.24",
     "expo-crypto": "~57.0.3",
     "expo-image-picker": "~57.0.19",
+    "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -37,6 +38,10 @@
   },
   "private": true,
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^(\\.\\.?/.*)\\.native$": "$1.ts",
+      "^(\\.\\.?/.*Sqlite(?:Product|Order)Repository)$": "$1.ts"
+    }
   }
 }

@@ -1,0 +1,99 @@
+import * as SQLite from 'expo-sqlite';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { SEED_PRODUCTS } from '../data/seedProducts';
+
+export const DATABASE_NAME = 'micaja.db';
+
+let dbPromise: Promise<SQLiteDatabase> | null = null;
+
+export function getDatabase(): Promise<SQLiteDatabase> {
+  if (!dbPromise) {
+    dbPromise = openAndMigrate();
+  }
+  return dbPromise;
+}
+
+async function openAndMigrate(): Promise<SQLiteDatabase> {
+  const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
+
+  await db.execAsync(`
+PRAGMA journal_mode = WAL;
+CREATE TABLE IF NOT EXISTS products (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  priceCents INTEGER NOT NULL,
+  category TEXT NOT NULL,
+  imageType TEXT NOT NULL DEFAULT 'emoji',
+  emoji TEXT,
+  icon TEXT,
+  imageUri TEXT,
+  trackStock INTEGER NOT NULL DEFAULT 0,
+  stockQuantity INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS orders (
+  id TEXT PRIMARY KEY NOT NULL,
+  number INTEGER NOT NULL,
+  items TEXT NOT NULL,
+  subtotalCents INTEGER NOT NULL,
+  customerName TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  paymentMethod TEXT,
+  receivedCents INTEGER,
+  changeCents INTEGER,
+  createdAt TEXT NOT NULL,
+  paidAt TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status);
+CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON orders (createdAt);
+CREATE TABLE IF NOT EXISTS order_meta (
+  key TEXT PRIMARY KEY NOT NULL,
+  value TEXT NOT NULL
+);
+`);
+
+  const productCount = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM products');
+  if (!productCount || productCount.count === 0) {
+    for (const product of SEED_PRODUCTS) {
+      await db.runAsync(
+        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, trackStock, stockQuantity, active, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          product.id,
+          product.name,
+          product.priceCents,
+          product.category,
+          product.imageType,
+          product.emoji ?? null,
+          product.icon ?? null,
+          product.imageUri ?? null,
+          product.trackStock ? 1 : 0,
+          product.stockQuantity,
+          product.active ? 1 : 0,
+          product.createdAt,
+        ],
+      );
+    }
+  }
+
+  return db;
+}
+
+export async function getNextOrderNumber(db: SQLiteDatabase): Promise<number> {
+  const row = await db.getFirstAsync<{ value: string }>(
+    `SELECT value FROM order_meta WHERE key = 'nextNumber'`,
+  );
+  return row ? parseInt(row.value, 10) : 1;
+}
+
+export async function setNextOrderNumber(db: SQLiteDatabase, next: number): Promise<void> {
+  await db.runAsync(
+    `INSERT INTO order_meta (key, value) VALUES ('nextNumber', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    String(next),
+  );
+}
