@@ -12,6 +12,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 3 COMPLETADA ✅** — navegación: stack raíz + 4 pestañas (Inicio, Ventas, Productos, Más).
 **Fase 4 COMPLETADA ✅** — configuración inicial del negocio (nombre, usuario y contraseña con hash).
 **Fase 5 COMPLETADA ✅** — login local: verifica usuario + hash(SHA-256 con sal) y abre las 4 pestañas.
+**Fase 6 COMPLETADA ✅** — apertura de caja: sin caja abierta no hay ventas; estado visible en Inicio y en "Más".
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -61,20 +62,27 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] `App.tsx` (`BootGate`): login exitoso → `RootNavigator` (4 pestañas: Inicio, Ventas, Productos, Más). La 4.ª pestaña se conectará en la Fase 6.
 - [x] Tests: `validateLogin` (19 tests en total, pasando).
 
-## Lo que falta (Fases 6–15)
+### Hecho (Fase 6)
+
+- [x] Modelo `cashRegister.ts` + `src/services/cashRegisterService.ts` (AsyncStorage): `getOpenRegister` y `openRegister(efectivo inicial en centavos)`.
+- [x] **Regla "no ventas sin caja abierta"**: la pestaña **Inicio** revisa al enfocar si hay caja abierta; si no, muestra la pantalla **"Abrir caja"** (efectivo inicial, validado). Al abrirla, Inicio muestra la caja activa.
+- [x] Pestaña **Más**: tarjeta del negocio (de la configuración) + tarjeta de **Caja** (abierta desde HH:mm + monto inicial, o cerrada).
+- [x] `parseMoney` en `money.ts` (texto → centavos, con 0–2 decimales y coma/punto) y `formatTime` en `datetime.ts`.
+- [x] Tests: parseMoney + formatTime (24 tests en total, pasando).
+
+## Lo que falta (Fases 7–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 6 | Apertura de caja | regla "no ventas sin caja abierta" |
 | 7 | Facturación: buscador, categorías (chips), grid 2–3 col, agregar al carrito | flujo manual |
-| 8 | Carrito completo (+/−, eliminar) | tests de subtotal |
-| 9 | Pago efectivo/transferencia, cambio automático, "Venta completada" | tests de cambio |
+| 8 | Carrito completo (+/−, eliminar) + panel opcional "Datos del cliente" (nombre y apellido, teléfono, dirección, descripción) | tests de subtotal |
+| 9 | Pago: al COBRAR → "Cobrar" o "Guardar orden" (quedan pendientes); efectivo/transferencia, cambio automático, "Venta completada" | tests de cambio |
 | 10 | Productos CRUD (nombre, precio, categoría, emoji/estado) | formulario + validaciones |
 | 11 | SQLite con `expo-sqlite` + repositorios con **abstracción para web en memoria** | funciona en Android y navegador |
-| 12 | Guardar ventas transaccional (venta + items) | venta visible en historial |
-| 13 | Historial del día + detalle de venta | consultas |
+| 12 | Órdenes guardadas: lista de pendientes; abrir = editar carrito / cobrar / eliminar; buscar por fecha, hora y texto libre (nombre, apellido, teléfono, dirección, descripción, n.º de orden) | consultas + tests de búsqueda |
+| 13 | Historial de ventas pagadas + detalle + el mismo buscador (fecha, hora, texto libre) | consultas |
 | 14 | Resumen del día + cierre de caja (efectivo esperado vs contado) | tests de diferencia |
 | 15 | Abstracción `PrinterService` (sin imprimir aún) | hook inactivo presente |
 
