@@ -8,6 +8,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 ## Estado actual
 
 **Fase 1 COMPLETADA ✅** — proyecto creado, web habilitado, tipo de app configurado, repositorio conectado.
+**Fase 2 COMPLETADA ✅** — sistema visual (tema turquesa/cian) + utilidad de dinero RD$ + tests.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -22,13 +23,21 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] Git: rama `main`, remoto `https://github.com/raphyl05/mi-negocio-app`. Subido y actualizado.
 - [x] Estructura base del proyecto lista.
 
-## Lo que falta (Fases 2–15)
+### Hecho (Fase 2)
+
+- [x] Theme centralizado en `src/theme/`: colores (turquesa `#00B8A9`), espaciados, tipografía, sombras, `ThemeProvider` + hook `useTheme`.
+- [x] `src/utils/money.ts`: `formatMoney` (RD$ con miles y centavos, permite negativos y ocultar decimales) + `calcSubtotal`, `calcChange`, `calcDifference`. Todo en **centavos (int)**.
+- [x] Componentes base del sistema visual: `Card` (blanca, redondeada, sombra suave), `PrimaryButton` (grande, variantes primary/outline, feedback al tocar), `MoneyDisplay` (números grandes tabulares).
+- [x] Pantalla de previsualización del tema en `App.tsx` (marca MiCaja + tarjeta de ventas + botones) para verlo en el navegador.
+- [x] Testing con **Jest** (`jest-expo`): 9 tests de dinero, 100% pasando. Scripts `npm test` y `npm run typecheck`.
+- [x] Dependencia nueva justificada: `react-native-safe-area-context` (oficial Expo, áreas seguras en teléfonos; la navegación la usará).
+
+## Lo que falta (Fases 3–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 2 | Sistema visual: tema turquesa/cian, tarjetas redondeadas, botones grandes, `utils/money.ts` (formato RD$ y aritmética en centavos) | tests de moneda |
 | 3 | Navegación: stack + bottom tabs (Inicio, Ventas, Productos, Más) | navegar 4 pestañas |
 | 4 | Configuración inicial del negocio (nombre, usuario, contraseña → hash) | formulario + validaciones |
 | 5 | Login local (verificar usuario + hash) | tests de autenticación |
@@ -77,6 +86,8 @@ Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltipl
   - No agregar `allowScripts` a `package.json`: no resuelve el problema (probado).
 - **Encoding:** no escribir `package.json` (ni ningún .json de Expo) con BOM (UTF-8 con marca) — Expo falla al parsearlo (`Unexpected token`). Salidas de PowerShell con `Set-Content -Encoding UTF8` y algunos editores añaden BOM. Verificar primer byte (debe ser `{` = 123, no 239).
 - **`.git`** fue inicializado por `create-expo-app` automáticamente; se renombró la rama a `main`.
+- **JSX requiere `.tsx`**: un archivo `.ts` con JSX (como el Provider del theme) falla en typecheck.
+- En `tsconfig.json` se declaró `"types": ["jest"]` para que la base de Expo reconozca `describe/it/expect`.
 - Estructura del proyecto (Fases 2+):
 
 ```
@@ -96,3 +107,4 @@ __tests__/         # tests de la calculadora (subtotal, total, cambio, diferenci
 - `5fc354d` Initial commit (generado por create-expo-app)
 - `ecd9414` Inicializar app con Expo y Git
 - `6ed00cf` Corregir encoding de package.json
+- `e821eb6` Agregar README con estado y plan del proyecto
