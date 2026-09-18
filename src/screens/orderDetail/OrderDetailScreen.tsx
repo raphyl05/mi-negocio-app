@@ -1,0 +1,285 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import MoneyDisplay from '../../components/MoneyDisplay';
+import PrimaryButton from '../../components/PrimaryButton';
+import ProductImage from '../../components/ProductImage';
+import Screen from '../../components/Screen';
+import { useCart } from '../../contexts/CartContext';
+import type { Order } from '../../models/order';
+import type { RootStackParamList } from '../../navigation/types';
+import { orderRepository } from '../../repositories/orderRepository';
+import { useTheme } from '../../theme';
+import { formatDate, formatTime } from '../../utils/datetime';
+import { formatMoney } from '../../utils/money';
+
+type Props = {
+  route: RouteProp<RootStackParamList, 'OrderDetail'>;
+};
+
+export default function OrderDetailScreen({ route }: Props) {
+  const { colors, spacing, typography } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { restore } = useCart();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const found = await orderRepository.getById(route.params.orderId);
+    setOrder(found);
+    setLoading(false);
+  }, [route.params.orderId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  const handleEdit = async () => {
+    if (!order) return;
+    restore(order.items, order.customer);
+    await orderRepository.remove(order.id);
+    navigation.replace('Cart');
+  };
+
+  const handleDelete = () => {
+    if (!order) return;
+    Alert.alert('Eliminar orden', `Se eliminará la orden #${order.number}. Esta acción no se puede deshacer.`, [
+      { text: 'Volver', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          await orderRepository.remove(order.id);
+          navigation.goBack();
+        },
+      },
+    ]);
+  };
+
+  const handleBack = () => navigation.goBack();
+
+  if (loading) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!order) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body, textAlign: 'center' }}>
+            Esta orden ya no existe.
+          </Text>
+          <View style={styles.backWrap}>
+            <PrimaryButton label="Volver" onPress={handleBack} />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
+  const hasCustomer = Boolean(
+    order.customer.customerName.trim() || order.customer.phone || order.customer.address || order.customer.description,
+  );
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Pressable onPress={handleBack} style={[styles.backButton, { backgroundColor: colors.surfaceMuted }]} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </Pressable>
+          <View style={styles.headerInfo}>
+            <Text
+              style={[
+                styles.title,
+                { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+              ]}
+            >
+              Orden #{order.number}
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+              {formatDate(order.createdAt)} · {formatTime(order.createdAt)}
+            </Text>
+          </View>
+          <View style={[styles.statusChip, { backgroundColor: colors.warning + '1F' }]}>
+            <Ionicons name="time" size={14} color={colors.warning} />
+            <Text style={{ color: colors.warning, fontSize: typography.sizes.caption, fontWeight: '700' }}>Pendiente</Text>
+          </View>
+        </View>
+
+        {hasCustomer ? (
+          <View style={[styles.card, { backgroundColor: colors.surface, borderRadius: 16 }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+              CLIENTE
+            </Text>
+            {order.customer.customerName ? (
+              <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                {order.customer.customerName}
+              </Text>
+            ) : null}
+            {order.customer.phone ? (
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>{order.customer.phone}</Text>
+            ) : null}
+            {order.customer.address ? (
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>{order.customer.address}</Text>
+            ) : null}
+            {order.customer.description ? (
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
+                {order.customer.description}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          PRODUCTOS
+        </Text>
+        {order.items.map((item) => (
+          <View key={item.product.id} style={[styles.itemRow, { backgroundColor: colors.surface, borderRadius: 14 }]}>
+            <ProductImage product={item.product} size={38} />
+            <View style={styles.itemInfo}>
+              <Text
+                numberOfLines={1}
+                style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold }}
+              >
+                {item.product.name}
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                {item.quantity} × {formatMoney(item.product.priceCents)}
+              </Text>
+            </View>
+            <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '700' }}>
+              {formatMoney(item.product.priceCents * item.quantity)}
+            </Text>
+          </View>
+        ))}
+
+        <View style={[styles.totalCard, { backgroundColor: colors.surface, borderRadius: 16 }]}>
+          <View style={styles.totalRow}>
+            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>Total</Text>
+            <MoneyDisplay cents={order.subtotalCents} size="large" />
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <PrimaryButton label="Cobrar orden" onPress={() => navigation.replace('PaymentMethod', { orderId: order.id })} />
+          <View style={styles.actionsGap} />
+          <PrimaryButton label="Editar carrito" variant="outline" onPress={handleEdit} />
+          <View style={styles.actionsGap} />
+          <Pressable
+            onPress={handleDelete}
+            style={({ pressed }) => [styles.deleteButton, { borderColor: colors.danger + '55', opacity: pressed ? 0.75 : 1 }]}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            <Text style={[styles.deleteLabel, { color: colors.danger }]}>Eliminar orden</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 24,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 32,
+  },
+  backWrap: {
+    alignSelf: 'stretch',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  title: {
+    letterSpacing: -0.5,
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  card: {
+    padding: 16,
+    gap: 4,
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  itemInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  totalCard: {
+    padding: 18,
+    marginTop: 8,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  actions: {
+    marginTop: 24,
+  },
+  actionsGap: {
+    marginTop: 12,
+  },
+  deleteButton: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  deleteLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+});

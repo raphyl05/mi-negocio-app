@@ -6,3 +6,10 @@ export function formatTime(iso: string): string {
   const suffix = hours < 12 ? 'a.m.' : 'p.m.';
   return `${hh}:${mm} ${suffix}`;
 }
+
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  const dd = date.getDate().toString().padStart(2, '0');
+  const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${dd}/${mm}/${date.getFullYear()}`;
+}

@@ -1,35 +1,100 @@
 import { useNavigation } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import { useCart } from '../../contexts/CartContext';
-import type { PaymentMethod } from '../../models/order';
+import type { Order, PaymentMethod } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
 import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
 import { calcChange, formatMoney, parseMoney } from '../../utils/money';
 import { buildOrder } from '../../utils/order';
+import type { CartItem } from '../../utils/cart';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
 
-export default function PaymentMethodScreen() {
+type Props = {
+  route: RouteProp<RootStackParamList, 'PaymentMethod'>;
+};
+
+export default function PaymentMethodScreen({ route }: Props) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { items, subtotalCents, customer, clear } = useCart();
+  const { items: cartItems, subtotalCents: cartSubtotal, customer: cartCustomer, clear } = useCart();
 
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [receivedText, setReceivedText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const orderId = route.params?.orderId;
+  const [existing, setExisting] = useState<Order | null>(null);
+  const [loadingOrder, setLoadingOrder] = useState(Boolean(orderId));
+
+  useEffect(() => {
+    if (!orderId) return;
+    let active = true;
+    setLoadingOrder(true);
+    orderRepository.getById(orderId).then((found) => {
+      if (!active) return;
+      setExisting(found);
+      setLoadingOrder(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [orderId]);
+
+  const items: CartItem[] = existing ? existing.items : cartItems;
+  const subtotalCents = existing ? existing.subtotalCents : cartSubtotal;
+  const customer = existing ? existing.customer : cartCustomer;
+
   const receivedCents = parseMoney(receivedText);
   const showChange = receivedCents !== null && receivedCents >= subtotalCents;
   const changeCents = showChange ? calcChange(subtotalCents, receivedCents) : null;
+
+  const decrementStocks = async (orderItems: CartItem[]) => {
+    for (const item of orderItems) {
+      if (item.product.trackStock) {
+        await productRepository.decreaseStock(item.product.id, item.quantity);
+      }
+    }
+  };
+
+  const completePayment = async (payMethod: PaymentMethod, received?: number) => {
+    setSaving(true);
+    try {
+      if (existing) {
+        const change = received !== undefined ? calcChange(existing.subtotalCents, received) : undefined;
+        const paid: Order = {
+          ...existing,
+          status: 'paid',
+          paymentMethod: payMethod,
+          receivedCents: received,
+          changeCents: change,
+          paidAt: new Date().toISOString(),
+        };
+        await orderRepository.update(paid);
+        await decrementStocks(existing.items);
+        navigation.replace('OrderComplete', { orderId: existing.id });
+        return;
+      }
+
+      const order = buildOrder({ items, customer, status: 'paid', paymentMethod: payMethod, receivedCents: received });
+      const saved = await orderRepository.save(order);
+      await decrementStocks(items);
+      clear();
+      navigation.replace('OrderComplete', { orderId: saved.id });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleConfirm = async () => {
     if (method === 'cash') {
@@ -42,45 +107,36 @@ export default function PaymentMethodScreen() {
         setError(`El efectivo recibido es menor al total (${formatMoney(subtotalCents)}).`);
         return;
       }
-      await confirmCash(cents);
+      await completePayment('cash', cents);
     } else {
-      await confirmTransfer();
+      await completePayment('transfer');
     }
   };
 
-  const decrementStocks = async () => {
-    for (const item of items) {
-      if (item.product.trackStock) {
-        await productRepository.decreaseStock(item.product.id, item.quantity);
-      }
-    }
-  };
+  if (loadingOrder) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </Screen>
+    );
+  }
 
-  const confirmCash = async (received: number) => {
-    setSaving(true);
-    try {
-      const order = buildOrder({ items, customer, status: 'paid', paymentMethod: 'cash', receivedCents: received });
-      const saved = await orderRepository.save(order);
-      await decrementStocks();
-      clear();
-      navigation.replace('OrderComplete', { orderId: saved.id });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const confirmTransfer = async () => {
-    setSaving(true);
-    try {
-      const order = buildOrder({ items, customer, status: 'paid', paymentMethod: 'transfer' });
-      const saved = await orderRepository.save(order);
-      await decrementStocks();
-      clear();
-      navigation.replace('OrderComplete', { orderId: saved.id });
-    } finally {
-      setSaving(false);
-    }
-  };
+  if (orderId && !existing) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body, textAlign: 'center' }}>
+            Esta orden ya no existe.
+          </Text>
+          <View style={styles.centerAction}>
+            <PrimaryButton label="Volver" onPress={() => navigation.goBack()} />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -91,7 +147,7 @@ export default function PaymentMethodScreen() {
             { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
           ]}
         >
-          ¿Cómo cobra?
+          {existing ? 'Cobrar orden guardada' : '¿Cómo cobra?'}
         </Text>
 
         <View style={[styles.total, { backgroundColor: colors.surface, borderRadius: 16 }]}>
@@ -99,6 +155,11 @@ export default function PaymentMethodScreen() {
             TOTAL A COBRAR
           </Text>
           <MoneyDisplay cents={subtotalCents} size="large" />
+          {existing ? (
+            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: 6 }}>
+              Orden #{existing.number}
+            </Text>
+          ) : null}
         </View>
 
         <MethodSelector method={method} onSelect={setMethod} />
@@ -206,6 +267,16 @@ const styles = StyleSheet.create({
   title: {
     letterSpacing: -0.5,
     marginBottom: 20,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 32,
+  },
+  centerAction: {
+    alignSelf: 'stretch',
   },
   total: {
     padding: 20,

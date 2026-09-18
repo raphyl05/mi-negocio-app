@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
@@ -23,7 +23,7 @@ type InvoiceScreenProps = {
 export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { count, subtotalCents, add, items } = useCart();
+  const { count, subtotalCents, add, decrease, increase, items } = useCart();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
@@ -58,13 +58,13 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
       return matchesCategory && matchesQuery;
     });
 
+  const cartQtyOf = (productId: string) =>
+    items.filter((item) => item.product.id === productId).reduce((sum, item) => sum + item.quantity, 0);
+
   const handleAdd = (product: Product) => {
     const quantity = parseCartQuantity(quantities[product.id] ?? '1');
     if (product.trackStock) {
-      const inCart = items
-        .filter((item) => item.product.id === product.id)
-        .reduce((sum, item) => sum + item.quantity, 0);
-      if (inCart + quantity > product.stockQuantity) {
+      if (cartQtyOf(product.id) + quantity > product.stockQuantity) {
         setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
         return;
       }
@@ -73,6 +73,18 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
     for (let i = 0; i < quantity; i++) {
       add(product);
     }
+    Keyboard.dismiss();
+  };
+
+  const handleIncrease = (product: Product) => {
+    if (product.trackStock) {
+      if (cartQtyOf(product.id) >= product.stockQuantity) {
+        setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
+        return;
+      }
+    }
+    setStockError(null);
+    increase(product.id);
   };
 
   const setQuantity = (id: string, text: string) => {
@@ -82,18 +94,25 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
 
   return (
     <Screen>
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.gridRow}
-        contentContainerStyle={styles.gridContent}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.screenSurround}>
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            columnWrapperStyle={styles.gridRow}
+            contentContainerStyle={styles.gridContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
         renderItem={({ item }) => (
           <ProductCard
             product={item}
             quantity={quantities[item.id] ?? '1'}
             onChangeQuantity={(text) => setQuantity(item.id, text)}
             onAdd={() => handleAdd(item)}
+            inCart={cartQtyOf(item.id)}
+            onIncrease={() => handleIncrease(item)}
+            onDecrease={() => decrease(item.id)}
           />
         )}
         ListHeaderComponent={
@@ -196,7 +215,9 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
           )}
         </View>
         <Ionicons name="chevron-up" size={20} color={colors.textSecondary} />
-      </Pressable>
+        </Pressable>
+        </View>
+      </TouchableWithoutFeedback>
     </Screen>
   );
 }
@@ -206,11 +227,17 @@ function ProductCard({
   quantity,
   onChangeQuantity,
   onAdd,
+  inCart,
+  onIncrease,
+  onDecrease,
 }: {
   product: Product;
   quantity: string;
   onChangeQuantity: (text: string) => void;
   onAdd: () => void;
+  inCart: number;
+  onIncrease: () => void;
+  onDecrease: () => void;
 }) {
   const { colors, spacing, typography, shadows } = useTheme();
   const outOfStock = product.trackStock && product.stockQuantity <= 0;
@@ -241,33 +268,61 @@ function ProductCard({
       ) : null}
 
       <View style={styles.addRow}>
-        <TextInput
-          value={quantity}
-          onChangeText={onChangeQuantity}
-          keyboardType="number-pad"
-          placeholder="1"
-          placeholderTextColor={colors.textSecondary}
-          style={[
-            styles.quantityInput,
-            { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.textPrimary },
-          ]}
-        />
-        <Pressable
-          onPress={onAdd}
-          disabled={outOfStock}
-          style={({ pressed }) => [
-            styles.addButton,
-            { backgroundColor: colors.primary, opacity: outOfStock ? 0.35 : pressed ? 0.85 : 1 },
-          ]}
-        >
-          <Text style={{ color: colors.textOnPrimary, fontSize: 20, fontWeight: '700', lineHeight: 22 }}>+</Text>
-        </Pressable>
+        {inCart > 0 ? (
+          <View style={[styles.cardStepper, { borderColor: colors.border }]}>
+            <Pressable
+              onPress={onDecrease}
+              style={[styles.cardStepButton, { backgroundColor: colors.surfaceMuted }]}
+              hitSlop={4}
+            >
+              <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '700' }}>−</Text>
+            </Pressable>
+            <Text style={[styles.cardStepCount, { color: colors.textPrimary }]}>{inCart}</Text>
+            <Pressable
+              onPress={onIncrease}
+              style={({ pressed }) => [
+                styles.cardStepButton,
+                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+              ]}
+              hitSlop={4}
+            >
+              <Text style={{ color: colors.textOnPrimary, fontSize: 17, fontWeight: '700' }}>+</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <TextInput
+              value={quantity}
+              onChangeText={onChangeQuantity}
+              keyboardType="number-pad"
+              placeholder="1"
+              placeholderTextColor={colors.textSecondary}
+              style={[
+                styles.quantityInput,
+                { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+            <Pressable
+              onPress={onAdd}
+              disabled={outOfStock}
+              style={({ pressed }) => [
+                styles.addButton,
+                { backgroundColor: colors.primary, opacity: outOfStock ? 0.35 : pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={{ color: colors.textOnPrimary, fontSize: 20, fontWeight: '700', lineHeight: 22 }}>+</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenSurround: {
+    flex: 1,
+  },
   header: {
     paddingHorizontal: 24,
     paddingTop: 24,
@@ -348,6 +403,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 3,
+  },
+  cardStepButton: {
+    width: 36,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardStepCount: {
+    minWidth: 22,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '700',
   },
   stockError: {
     flexDirection: 'row',

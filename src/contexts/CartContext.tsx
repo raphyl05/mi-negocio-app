@@ -31,6 +31,7 @@ type CartContextType = {
   decrease: (productId: string) => void;
   remove: (productId: string) => void;
   clear: () => void;
+  restore: (items: CartItem[], customer: CustomerInfo) => void;
   setCustomerField: <K extends keyof CustomerInfo>(field: K, value: string) => void;
 };
 
@@ -45,6 +46,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const decrease = useCallback((productId: string) => setItems((current) => decreaseItem(current, productId)), []);
   const remove = useCallback((productId: string) => setItems((current) => removeItem(current, productId)), []);
   const clear = useCallback(() => setItems(clearCart()), []);
+
+  const restore = useCallback((newItems: CartItem[], newCustomer: CustomerInfo) => {
+    setItems(newItems);
+    setCustomer(newCustomer);
+  }, []);
 
   const setCustomerField = useCallback(
     <K extends keyof CustomerInfo>(field: K, value: string) =>
@@ -63,9 +69,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       decrease,
       remove,
       clear,
+      restore,
       setCustomerField,
     }),
-    [items, customer, add, increase, decrease, remove, clear, setCustomerField],
+    [items, customer, add, increase, decrease, remove, clear, restore, setCustomerField],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

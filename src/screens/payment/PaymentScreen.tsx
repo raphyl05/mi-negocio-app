@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
@@ -36,6 +36,24 @@ export default function PaymentScreen() {
     navigation.popToTop();
   };
 
+  const handleModify = () => {
+    navigation.goBack();
+  };
+
+  const handleCancel = () => {
+    Alert.alert('Cancelar orden', 'Se vaciará el carrito actual y volverás a la facturación.', [
+      { text: 'Seguir editando', style: 'cancel' },
+      {
+        text: 'Cancelar orden',
+        style: 'destructive',
+        onPress: () => {
+          clear();
+          navigation.popToTop();
+        },
+      },
+    ]);
+  };
+
   if (savedOrder) {
     return (
       <Screen>
@@ -53,7 +71,7 @@ export default function PaymentScreen() {
           </Text>
           <Text style={[styles.successText, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
             La orden {savedOrder.number} quedó guardada sin pagar. Podrás cobrarla o editarla desde "Órdenes
-            guardadas" (Fase 12).
+            guardadas".
           </Text>
           <View style={styles.btnWrap}>
             <PrimaryButton label="Volver al inicio" onPress={handleBackToHome} />
@@ -94,6 +112,18 @@ export default function PaymentScreen() {
         <PrimaryButton label="Cobrar" onPress={() => navigation.navigate('PaymentMethod')} />
         <View style={styles.actionsGap} />
         <PrimaryButton label="Guardar orden" variant="outline" onPress={handleSaveOrder} loading={saving} />
+        <View style={styles.actionsGap} />
+        <PrimaryButton label="Modificar orden" variant="outline" onPress={handleModify} />
+        <View style={styles.actionsGap} />
+        <Pressable
+          onPress={handleCancel}
+          style={({ pressed }) => [
+            styles.cancelButton,
+            { borderColor: colors.danger + '55', opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
+          <Text style={[styles.cancelLabel, { color: colors.danger }]}>Cancelar orden</Text>
+        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -120,6 +150,19 @@ const styles = StyleSheet.create({
   },
   actionsGap: {
     marginTop: 12,
+  },
+  cancelButton: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  cancelLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    fontWeight: '700',
+    fontSize: 14,
   },
   center: {
     flex: 1,

@@ -130,13 +130,22 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] Se movió el catálogo de prueba a `src/data/seedProducts.ts` (compartido por memoria y SQLite).
 - [x] Tests: 54 pasando. Dependencia nueva justificada: `expo-sqlite`.
 
-## Lo que falta (Fases 12–15)
+### Hecho (Fase 12)
+
+- [x] **Órdenes guardadas funcionales** (`SalesScreen`): lista de pendientes con buscador de texto libre que coincide con nº de orden, nombre, teléfono, dirección, descripción, productos, fecha y hora (sin tildes/búsqueda normalizada en `src/utils/orderSearch.ts`). Tocar una orden abre el detalle.
+- [x] Pantalla `OrderDetailScreen` (navegación): muestra nº, fecha/hora, datos del cliente, líneas de productos (nombre, cantidad × precio, subtotal) y total; botones **Cobrar orden**, **Editar carrito** (restaura productos + cliente en el carrito, elimina la orden pendiente y abre el carrito) y **Eliminar orden** (con confirmación).
+- [x] **Cobrar una orden guardada** (`PaymentMethodScreen`): acepta opcionalmente `orderId`; si viene de una orden guardada, cobra esa orden preservando su número (se marca `paid`, se descuenta stock y se abre `OrderComplete`); si es nuevo, usa el carrito como antes.
+- [x] **Ajuste cantidades en facturación**: en la tarjeta de producto de `InvoiceScreen`, cuando el producto ya está en el carrito se muestra un stepper **− cantidad +** para editarlo sin ir al carrito; si no está, mantiene el recuadro de cantidad + botón **+**.
+- [x] **Teclado**: en `InvoiceScreen`, toca fuera del campo para cerrar el teclado (`TouchableWithoutFeedback` + `Keyboard.dismiss`, `keyboardDismissMode="on-drag"` en la lista).
+- [x] **Pago**: `PaymentScreen` añade los botones **Modificar orden** (vuelve al carrito) y **Cancelar orden** (Alert de confirmación → vacía carrito y vuelve al inicio).
+- [x] Tests nuevos: `orderSearch.test.ts` (11 tests). Total: **63 tests pasando**. Nueva carpeta `src/screens/orderDetail/`.
+
+## Lo que falta (Fases 13–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 12 | Órdenes guardadas: lista de pendientes; abrir = editar carrito / cobrar / eliminar; buscar por fecha, hora y texto libre (nombre, apellido, teléfono, dirección, descripción, n.º de orden) | consultas + tests de búsqueda |
 | 13 | Historial de ventas pagadas + detalle + el mismo buscador (fecha, hora, texto libre) | consultas |
 | 14 | Resumen del día + cierre de caja (efectivo esperado vs contado) | tests de diferencia |
 | 15 | Abstracción `PrinterService` (sin imprimir aún) | hook inactivo presente |
@@ -181,14 +190,14 @@ Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltipl
 
 ```
 src/
-  models/          # business, user, product, sale, saleItem, cashRegister
-  screens/         # setup, login, cashRegister, invoicing, cart, payment, sales, products, settings
+  models/          # business, user, product, order, cashRegister
+  screens/         # setup, login, cashRegister, invoicing, cart, payment, orderDetail, sales, products, settings
   navigation/      # stack + tabs
   components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
   services/        # database, repositories, auth, printer, session
   theme/           # colors, typography, spacing, componentes
-  utils/           # money.ts (formato + cálculo centavos)
-__tests__/         # tests de la calculadora (subtotal, total, cambio, diferencia)
+  utils/           # money.ts (formato + cálculo centavos), orderSearch.ts
+__tests__/         # tests de dinero, carrito, buildOrder, repositorios, validaciones, orderSearch
 ```
 
 ## Registro de commits

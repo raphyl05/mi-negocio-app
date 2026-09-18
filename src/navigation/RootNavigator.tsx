@@ -2,6 +2,7 @@ import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { usePendingOrders } from '../contexts/PendingOrdersContext';
 import CartScreen from '../screens/cart/CartScreen';
+import OrderDetailScreen from '../screens/orderDetail/OrderDetailScreen';
 import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
 import OrderCompleteScreen from '../screens/payment/OrderCompleteScreen';
 import PaymentScreen from '../screens/payment/PaymentScreen';
@@ -38,6 +39,7 @@ export default function RootNavigator() {
         <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="OrderComplete" component={OrderCompleteScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="ProductForm" component={ProductFormScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ animation: 'slide_from_right' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
