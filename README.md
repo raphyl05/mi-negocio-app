@@ -14,6 +14,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 5 COMPLETADA ✅** — login local: verifica usuario + hash(SHA-256 con sal) y abre las 4 pestañas.
 **Fase 6 COMPLETADA ✅** — apertura de caja: sin caja abierta no hay ventas; estado visible en Inicio y en "Más".
 **Fase 7 COMPLETADA ✅** — facturación: catálogo de prueba, buscador, categorías y grid (agregar al carrito).
+**Fase 8 COMPLETADA ✅** — carrito completo (+/−/eliminar) y panel opcional de datos del cliente.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -78,13 +79,20 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] Pantalla de **Facturación** en Inicio (con caja abierta): buscador de productos, chips de categorías, grid 2 columnas, botón **+** para agregar, barra inferior con cuenta + subtotal.
 - [x] Tests: `cart.ts` (29 tests en total, pasando).
 
-## Lo que falta (Fases 8–15)
+### Hecho (Fase 8)
+
+- [x] Carrito editable en `src/screens/cart/CartScreen.tsx` (pantalla arriba de las pestañas): filas con emoji, precio unitario, stepper **− / cantidad / +**, total por línea y **eliminar** (ícono basura).
+- [x] Barra inferior de facturación ahora es botón → abre el carrito.
+- [x] Panel plegable **"Datos del cliente (opcional)"**: nombre y apellido, teléfono, dirección y descripción (multilínea), guardados en el contexto del carrito para la Fase 9.
+- [x] `TextField` soporta multilínea.
+- [x] Tests: increase/decrease/remove/clear del carrito (33 tests en total, pasando).
+
+## Lo que falta (Fases 9–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 8 | Carrito completo (+/−, eliminar) + panel opcional "Datos del cliente" (nombre y apellido, teléfono, dirección, descripción) | tests de subtotal |
 | 9 | Pago: al COBRAR → "Cobrar" o "Guardar orden" (quedan pendientes); efectivo/transferencia, cambio automático, "Venta completada" | tests de cambio |
 | 10 | Productos CRUD (nombre, precio, categoría, emoji/estado) | formulario + validaciones |
 | 11 | SQLite con `expo-sqlite` + repositorios con **abstracción para web en memoria** | funciona en Android y navegador |
