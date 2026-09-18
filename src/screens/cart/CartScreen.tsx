@@ -93,9 +93,9 @@ export default function CartScreen() {
               <MoneyDisplay cents={subtotalCents} size="large" />
             </View>
 
-            <PrimaryButton label="Continuar" onPress={() => {}} disabled />
+            <PrimaryButton label="Continuar" onPress={() => navigation.navigate('Payment')} />
             <Text style={[styles.footerNote, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-              El pago llega en la Fase 9
+              Al continuar podrás cobrar o guardar la orden
             </Text>
           </View>
         </>
