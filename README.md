@@ -9,6 +9,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 
 **Fase 1 COMPLETADA ✅** — proyecto creado, web habilitado, tipo de app configurado, repositorio conectado.
 **Fase 2 COMPLETADA ✅** — sistema visual (tema turquesa/cian) + utilidad de dinero RD$ + tests.
+**Fase 3 COMPLETADA ✅** — navegación: stack raíz + 4 pestañas (Inicio, Ventas, Productos, Más).
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -32,13 +33,21 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] Testing con **Jest** (`jest-expo`): 9 tests de dinero, 100% pasando. Scripts `npm test` y `npm run typecheck`.
 - [x] Dependencia nueva justificada: `react-native-safe-area-context` (oficial Expo, áreas seguras en teléfonos; la navegación la usará).
 
-## Lo que falta (Fases 3–15)
+### Hecho (Fase 3)
+
+- [x] Navegación con **React Navigation 7**: `@react-navigation/native` + `bottom-tabs` + `native-stack` + `react-native-screens` (versiones fijadas por npm directo, ver nota EALLOWSCRIPTS).
+- [x] `src/navigation/types.ts` con `RootStackParamList` (stack raíz; aquí se conectan después Setup/Login/Apertura de caja) y `TabParamList` (4 pestañas).
+- [x] `RootNavigator` (NavigationContainer + stack) y `BottomTabs` (Inicio, Ventas, Productos, Más) con iconos `@expo/vector-icons` (Ionicons), color activo turquesa y barra blanca.
+- [x] Pantallas base conectadas al tema: `HomeScreen` (previsualización MiCaja), `SalesScreen`, `ProductsScreen`, `SettingsScreen` (con `EmptyState`).
+- [x] Componentes auxiliares: `Screen` (SafeArea + fondo del tema) y `EmptyState` (placeholder elegante).
+- [x] Verificado: typecheck OK, 9 tests OK, bundle web compila.
+
+## Lo que falta (Fases 4–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 3 | Navegación: stack + bottom tabs (Inicio, Ventas, Productos, Más) | navegar 4 pestañas |
 | 4 | Configuración inicial del negocio (nombre, usuario, contraseña → hash) | formulario + validaciones |
 | 5 | Login local (verificar usuario + hash) | tests de autenticación |
 | 6 | Apertura de caja | regla "no ventas sin caja abierta" |
