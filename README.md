@@ -13,6 +13,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 4 COMPLETADA ✅** — configuración inicial del negocio (nombre, usuario y contraseña con hash).
 **Fase 5 COMPLETADA ✅** — login local: verifica usuario + hash(SHA-256 con sal) y abre las 4 pestañas.
 **Fase 6 COMPLETADA ✅** — apertura de caja: sin caja abierta no hay ventas; estado visible en Inicio y en "Más".
+**Fase 7 COMPLETADA ✅** — facturación: catálogo de prueba, buscador, categorías y grid (agregar al carrito).
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -70,13 +71,19 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] `parseMoney` en `money.ts` (texto → centavos, con 0–2 decimales y coma/punto) y `formatTime` en `datetime.ts`.
 - [x] Tests: parseMoney + formatTime (24 tests en total, pasando).
 
-## Lo que falta (Fases 7–15)
+### Hecho (Fase 7)
+
+- [x] Modelo `product.ts` + repositorio con **abstracción** (`src/repositories/productRepository.ts`): implementación en memoria con **catálogo de prueba** (comidas, bebidas, postres). SQLite lo reemplazará en la Fase 11 sin tocar pantallas.
+- [x] `src/contexts/CartContext.tsx` (carrito compartido entre pantallas) + utilidades puras en `src/utils/cart.ts` (agregar, subtotal, conteo).
+- [x] Pantalla de **Facturación** en Inicio (con caja abierta): buscador de productos, chips de categorías, grid 2 columnas, botón **+** para agregar, barra inferior con cuenta + subtotal.
+- [x] Tests: `cart.ts` (29 tests en total, pasando).
+
+## Lo que falta (Fases 8–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 7 | Facturación: buscador, categorías (chips), grid 2–3 col, agregar al carrito | flujo manual |
 | 8 | Carrito completo (+/−, eliminar) + panel opcional "Datos del cliente" (nombre y apellido, teléfono, dirección, descripción) | tests de subtotal |
 | 9 | Pago: al COBRAR → "Cobrar" o "Guardar orden" (quedan pendientes); efectivo/transferencia, cambio automático, "Venta completada" | tests de cambio |
 | 10 | Productos CRUD (nombre, precio, categoría, emoji/estado) | formulario + validaciones |
