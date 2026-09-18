@@ -15,6 +15,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 6 COMPLETADA ✅** — apertura de caja: sin caja abierta no hay ventas; estado visible en Inicio y en "Más".
 **Fase 7 COMPLETADA ✅** — facturación: catálogo de prueba, buscador, categorías y grid (agregar al carrito).
 **Fase 8 COMPLETADA ✅** — carrito completo (+/−/eliminar) y panel opcional de datos del cliente.
+**Fase 9 COMPLETADA ✅** — pago: al cobrar → "Cobrar" o "Guardar orden"; efectivo/transferencia con cambio automático y "Venta completada". Horas en a.m./p.m.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -87,13 +88,22 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] `TextField` soporta multilínea.
 - [x] Tests: increase/decrease/remove/clear del carrito (33 tests en total, pasando).
 
-## Lo que falta (Fases 9–15)
+### Hecho (Fase 9)
+
+- [x] Modelo `order.ts` (estado `pending`/`paid`, método de pago, cliente, recibido/cambio) + `src/utils/order.ts` (`buildOrder`).
+- [x] Repositorio de órdenes con **abstracción** (`src/repositories/orderRepository.ts`): en memoria, números consecutivos, separa pendientes/pagadas.
+- [x] **"Cobrar" o "Guardar orden"** en `PaymentScreen`: guardar deja la orden pendiente y limpia el carrito (aviso "Orden guardada").
+- [x] **Cobrar** → `PaymentMethodScreen`: efectivo (con chips rápidos RD$100/200/500/1000, "Exacto" y **cambio automático**) o transferencia.
+- [x] **"Venta completada"** (`OrderCompleteScreen`): resumen con método, recibido, cambio y total.
+- [x] **Horas en formato a.m./p.m.** (`datetime.ts`): ej. "8:43 a.m.", "6:09 p.m.".
+- [x] Tests: buildOrder + repositorio (42 tests en total, pasando).
+
+## Lo que falta (Fases 10–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 9 | Pago: al COBRAR → "Cobrar" o "Guardar orden" (quedan pendientes); efectivo/transferencia, cambio automático, "Venta completada" | tests de cambio |
 | 10 | Productos CRUD (nombre, precio, categoría, emoji/estado) | formulario + validaciones |
 | 11 | SQLite con `expo-sqlite` + repositorios con **abstracción para web en memoria** | funciona en Android y navegador |
 | 12 | Órdenes guardadas: lista de pendientes; abrir = editar carrito / cobrar / eliminar; buscar por fecha, hora y texto libre (nombre, apellido, teléfono, dirección, descripción, n.º de orden) | consultas + tests de búsqueda |
