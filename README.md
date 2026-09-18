@@ -16,6 +16,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 7 COMPLETADA ✅** — facturación: catálogo de prueba, buscador, categorías y grid (agregar al carrito).
 **Fase 8 COMPLETADA ✅** — carrito completo (+/−/eliminar) y panel opcional de datos del cliente.
 **Fase 9 COMPLETADA ✅** — pago: al cobrar → "Cobrar" o "Guardar orden"; efectivo/transferencia con cambio automático y "Venta completada". Horas en a.m./p.m.
+**Fase 10 COMPLETADA ✅** — productos CRUD (nombre, precio, categoría, estado), imagen por emoji/ícono/foto, stock opcional con descuento al vender y **globito rojo** de órdenes pendientes en la pestaña Ventas.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -98,13 +99,25 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **Horas en formato a.m./p.m.** (`datetime.ts`): ej. "8:43 a.m.", "6:09 p.m.".
 - [x] Tests: buildOrder + repositorio (42 tests en total, pasando).
 
-## Lo que falta (Fases 10–15)
+### Hecho (Fase 10)
+
+- [x] Modelo `product.ts` ampliado: `imageType` (`emoji`/`icon`/`photo`), `emoji`, `icon` (Ionicons), `imageUri`, `trackStock` y `stockQuantity`.
+- [x] Repositorio de productos con **CRUD** (`create`, `update`, `remove`) y `decreaseStock` (nunca pasa de 0). Catálogo de prueba ahora con stock (hamburguesa 50, sándwich 20, refresco 100, helado 30).
+- [x] **Editar/crear productos** (`ProductFormScreen`): nombre, precio RD$, categoría (con chips de las existentes), activo/inactivo, imagen con 3 fuentes (emoji, ícono de la librería, foto de galería vía `expo-image-picker`) y stock opcional (switch + cantidad). Validado con mensajes claros.
+- [x] **Lista de productos** (`ProductsScreen`): filas con imagen, precio y stock; los inactivos se atenúan y se ocultan de la facturación.
+- [x] **Stock funcional en la venta**: al agregar al carrito no supera el stock (aviso "Stock insuficiente"), tarjetas muestran "Agotado"/"Quedan N" (rojo/amarillo cuando queda poco) y **se descuentan las existencias al cobrar** (efectivo o transferencia).
+- [x] Imagen del producto usada en facturación, carrito y lista (`ProductImage` con foto recortada circular/cuadrada).
+- [x] **Globito rojo de órdenes pendientes**: pestaña Ventas muestra el conteo con badge rojo (`tabBarBadge`) que se refresca al navegar; su lista **"Órdenes guardadas"** ya muestra nº de orden, hora, cliente y total (editar/cobrar/eliminar/búsqueda en Fase 12).
+- [x] `PendingOrdersContext` centraliza el conteo de pendientes.
+- [x] Dependencia nueva: `expo-image-picker@~57.0.19` (oficial Expo; galería en Android/iOS/Expo Go y web, sin permisos extra en navegador).
+- [x] Tests: validateProduct + productRepository + stock (53 tests en total, pasando).
+
+## Lo que falta (Fases 11–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 10 | Productos CRUD (nombre, precio, categoría, emoji/estado) | formulario + validaciones |
 | 11 | SQLite con `expo-sqlite` + repositorios con **abstracción para web en memoria** | funciona en Android y navegador |
 | 12 | Órdenes guardadas: lista de pendientes; abrir = editar carrito / cobrar / eliminar; buscar por fecha, hora y texto libre (nombre, apellido, teléfono, dirección, descripción, n.º de orden) | consultas + tests de búsqueda |
 | 13 | Historial de ventas pagadas + detalle + el mismo buscador (fecha, hora, texto libre) | consultas |
