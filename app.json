@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MI-NEGOCIO-APP",
-    "slug": "MI-NEGOCIO-APP",
+    "name": "MiCaja",
+    "slug": "mi-negocio-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
