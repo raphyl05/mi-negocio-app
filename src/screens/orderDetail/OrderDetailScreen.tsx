@@ -165,12 +165,46 @@ export default function OrderDetailScreen({ route }: Props) {
           </View>
         ))}
 
-        <View style={[styles.totalCard, { backgroundColor: colors.surface, borderRadius: 16 }]}>
-          <View style={styles.totalRow}>
-            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>Total</Text>
-            <MoneyDisplay cents={order.subtotalCents} size="large" />
+          <View style={[styles.totalCard, { backgroundColor: colors.surface, borderRadius: 16 }]}>
+            <View style={styles.totalRow}>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>Total</Text>
+              <MoneyDisplay cents={order.subtotalCents} size="large" />
+            </View>
+            {order.status === 'paid' ? (
+              <>
+                <View style={[styles.paidRow, { borderTopColor: colors.border, borderTopWidth: 1 }]}>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Método</Text>
+                  <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                    {order.paymentMethod === 'cash' ? '💵 Efectivo' : '🏦 Transferencia'}
+                  </Text>
+                </View>
+                {order.receivedCents !== undefined ? (
+                  <View style={styles.paidRow}>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Efectivo recibido</Text>
+                    <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body }}>
+                      {formatMoney(order.receivedCents)}
+                    </Text>
+                  </View>
+                ) : null}
+                {order.changeCents !== undefined && order.changeCents > 0 ? (
+                  <View style={styles.paidRow}>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Cambio</Text>
+                    <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                      {formatMoney(order.changeCents)}
+                    </Text>
+                  </View>
+                ) : null}
+                {order.paidAt ? (
+                  <View style={styles.paidRow}>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Pagada el</Text>
+                    <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body }}>
+                      {formatDate(order.paidAt)} · {formatTime(order.paidAt)}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
           </View>
-        </View>
 
         <View style={styles.actions}>
           <PrimaryButton label="Cobrar orden" onPress={() => navigation.replace('PaymentMethod', { orderId: order.id })} />
@@ -255,6 +289,12 @@ const styles = StyleSheet.create({
   totalCard: {
     padding: 18,
     marginTop: 8,
+  },
+  paidRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: 4,
   },
   totalRow: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ import {
   decreaseItem,
   increaseItem,
   removeItem,
+  updateItemQuantity,
 } from '../utils/cart';
 import type { CartItem } from '../utils/cart';
 
@@ -32,6 +33,7 @@ type CartContextType = {
   remove: (productId: string) => void;
   clear: () => void;
   restore: (items: CartItem[], customer: CustomerInfo) => void;
+  updateQuantity: (productId: string, quantityText: string) => void;
   setCustomerField: <K extends keyof CustomerInfo>(field: K, value: string) => void;
 };
 
@@ -46,6 +48,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const decrease = useCallback((productId: string) => setItems((current) => decreaseItem(current, productId)), []);
   const remove = useCallback((productId: string) => setItems((current) => removeItem(current, productId)), []);
   const clear = useCallback(() => setItems(clearCart()), []);
+
+  const updateQuantity = useCallback(
+    (productId: string, quantityText: string) =>
+      setItems((current) => updateItemQuantity(current, productId, quantityText)),
+    [],
+  );
 
   const restore = useCallback((newItems: CartItem[], newCustomer: CustomerInfo) => {
     setItems(newItems);
@@ -70,9 +78,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove,
       clear,
       restore,
+      updateQuantity,
       setCustomerField,
     }),
-    [items, customer, add, increase, decrease, remove, clear, restore, setCustomerField],
+    [items, customer, add, increase, decrease, remove, clear, restore, updateQuantity, setCustomerField],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

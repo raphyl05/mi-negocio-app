@@ -116,9 +116,13 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 
 ### Ajuste (después de la Fase 10)
 
-- [x] **Cantidad manual en la tarjeta de producto**: cada producto de la facturación tiene un recuadro de cantidad; el botón **+** sigue agregando (por defecto 1, o la cantidad escrita, validada contra el stock). `parseCartQuantity` en `src/utils/cart.ts` interpreta el texto.
-- [x] **Carrito**: los botones **− cantidad +** ahora son más grandes y están más separados (área de toque 42px, contenedor con espaciado) para evitar toques por error.
+- [x] **Cantidad manual en la tarjeta de producto**: cada producto de la facturación tiene un recuadro de cantidad con valor **1 por defecto**; el botón **+** agrega esa cantidad al carrito y se puede cambiar escribiendo antes de sumar. `parseCartQuantity` interpreta el texto.
+- [x] **Carrito**: los botones **− cantidad +** ahora son más grandes y están más separados (área de toque 42px, contenedor con espaciado) para evitar toques por error. Además, la cantidad ahora también es **editable manualmente** (campo de texto numérico) en cada línea, además de los steppers.
 - [x] Tests: 54 pasando.
+
+### Ajuste posterior a la Fase 12
+
+- [x] **Carrito**: la cantidad de cada línea es editable directamente (input numérico bajo los steppers −/+); al perder el foco se cierra el teclado. Añadido `updateQuantity` en el contexto y `updateItemQuantity` en `cart.ts`.
 
 ### Hecho (Fase 11)
 
@@ -146,7 +150,6 @@ Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la a
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 13 | Historial de ventas pagadas + detalle + el mismo buscador (fecha, hora, texto libre) | consultas |
 | 14 | Resumen del día + cierre de caja (efectivo esperado vs contado) | tests de diferencia |
 | 15 | Abstracción `PrinterService` (sin imprimir aún) | hook inactivo presente |
 

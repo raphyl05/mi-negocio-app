@@ -13,4 +13,5 @@ export type TabParamList = {
   Sales: undefined;
   Products: undefined;
   Settings: undefined;
+  History: undefined;
 };

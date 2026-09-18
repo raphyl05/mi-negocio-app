@@ -52,3 +52,13 @@ export function parseCartQuantity(text: string): number {
   const quantity = parseInt(cleaned, 10);
   return quantity > 0 ? quantity : 1;
 }
+
+export function updateItemQuantity(items: CartItem[], productId: string, quantityText: string): CartItem[] {
+  const quantity = parseCartQuantity(quantityText);
+  if (quantity <= 0) {
+    return removeItem(items, productId);
+  }
+  return items.map((item) =>
+    item.product.id === productId ? { ...item, quantity } : item,
+  );
+}

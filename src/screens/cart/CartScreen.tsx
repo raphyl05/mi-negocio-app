@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Card from '../../components/Card';
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
@@ -19,7 +19,7 @@ import type { CartItem } from '../../utils/cart';
 export default function CartScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { items, subtotalCents, customer, setCustomerField } = useCart();
+  const { items, subtotalCents, customer, updateQuantity, setCustomerField } = useCart();
   const [showCustomer, setShowCustomer] = useState(false);
 
   return (
@@ -107,7 +107,7 @@ export default function CartScreen() {
 
 function CartRow({ item }: { item: CartItem }) {
   const { colors, spacing, typography } = useTheme();
-  const { increase, decrease, remove } = useCart();
+  const { increase, decrease, remove, updateQuantity } = useCart();
   const { product, quantity } = item;
   const lineTotal = product.priceCents * quantity;
 
@@ -132,7 +132,14 @@ function CartRow({ item }: { item: CartItem }) {
           <Pressable onPress={() => decrease(product.id)} style={[styles.stepButton, { backgroundColor: colors.surfaceMuted }]} hitSlop={4}>
             <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700' }}>−</Text>
           </Pressable>
-          <Text style={[styles.stepCount, { color: colors.textPrimary }]}>{quantity}</Text>
+          <TextInput
+            value={String(quantity)}
+            onChangeText={(text) => updateQuantity(product.id, text)}
+            onBlur={() => Keyboard.dismiss()}
+            keyboardType="number-pad"
+            style={[styles.stepCount, { color: colors.textPrimary, backgroundColor: 'transparent' }]}
+            textAlign="center"
+          />
           <Pressable onPress={() => increase(product.id)} style={[styles.stepButton, { backgroundColor: colors.primary }]} hitSlop={4}>
             <Text style={{ color: colors.textOnPrimary, fontSize: 18, fontWeight: '700' }}>+</Text>
           </Pressable>
