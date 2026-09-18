@@ -4,6 +4,7 @@ export type RootStackParamList = {
   Payment: undefined;
   PaymentMethod: undefined;
   OrderComplete: { orderId: string };
+  ProductForm: { productId?: string } | undefined;
 };
 
 export type TabParamList = {

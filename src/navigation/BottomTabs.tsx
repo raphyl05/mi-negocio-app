@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
+import { usePendingOrders } from '../contexts/PendingOrdersContext';
 import HomeScreen from '../screens/home/HomeScreen';
 import ProductsScreen from '../screens/products/ProductsScreen';
 import SalesScreen from '../screens/sales/SalesScreen';
@@ -21,6 +22,7 @@ const ICONS: Record<keyof TabParamList, { active: IconName; inactive: IconName }
 
 export default function BottomTabs() {
   const { colors, typography } = useTheme();
+  const { pendingCount } = usePendingOrders();
 
   return (
     <Tab.Navigator
@@ -45,7 +47,21 @@ export default function BottomTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Inicio' }} />
-      <Tab.Screen name="Sales" component={SalesScreen} options={{ title: 'Ventas' }} />
+      <Tab.Screen
+        name="Sales"
+        component={SalesScreen}
+        options={{
+          title: 'Ventas',
+          tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.danger,
+            color: colors.white,
+            fontSize: 10,
+            fontWeight: '800',
+            minWidth: 18,
+          },
+        }}
+      />
       <Tab.Screen name="Products" component={ProductsScreen} options={{ title: 'Productos' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Más' }} />
     </Tab.Navigator>

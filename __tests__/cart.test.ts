@@ -15,7 +15,10 @@ const burger: Product = {
   name: 'Hamburguesa',
   priceCents: 25000,
   category: 'Comidas',
+  imageType: 'emoji',
   emoji: '🍔',
+  trackStock: false,
+  stockQuantity: 0,
   active: true,
   createdAt: '2026-01-01T00:00:00.000Z',
 };
@@ -25,7 +28,10 @@ const soda: Product = {
   name: 'Refresco',
   priceCents: 10000,
   category: 'Bebidas',
-  emoji: '🥤',
+  imageType: 'emoji',
+emoji: '🥤',
+  trackStock: false,
+  stockQuantity: 0,
   active: true,
   createdAt: '2026-01-01T00:00:00.000Z',
 };

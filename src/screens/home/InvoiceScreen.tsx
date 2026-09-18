@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
+import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
 import { useCart } from '../../contexts/CartContext';
 import type { CashRegister } from '../../models/cashRegister';
@@ -21,28 +22,53 @@ type InvoiceScreenProps = {
 export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { count, subtotalCents, add } = useCart();
+  const { count, subtotalCents, add, items } = useCart();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('Todos');
+  const [stockError, setStockError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const all = await productRepository.list();
     setProducts(all);
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!stockError) return;
+    const timer = setTimeout(() => setStockError(null), 3000);
+    return () => clearTimeout(timer);
+  }, [stockError]);
 
   const categories = ['Todos', ...Array.from(new Set(products.map((p) => p.category)))];
 
-  const filtered = products.filter((product) => {
-    const matchesCategory = category === 'Todos' || product.category === category;
-    const matchesQuery = product.name.toLowerCase().includes(query.trim().toLowerCase());
-    return matchesCategory && matchesQuery;
-  });
+  const filtered = products
+    .filter((product) => product.active)
+    .filter((product) => {
+      const matchesCategory = category === 'Todos' || product.category === category;
+      const matchesQuery = product.name.toLowerCase().includes(query.trim().toLowerCase());
+      return matchesCategory && matchesQuery;
+    });
+
+  const handleAdd = (product: Product) => {
+    if (product.trackStock) {
+      const inCart = items
+        .filter((item) => item.product.id === product.id)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      if (inCart >= product.stockQuantity) {
+        setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
+        return;
+      }
+    }
+    setStockError(null);
+    add(product);
+  };
 
   return (
     <Screen>
@@ -52,7 +78,7 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
         numColumns={2}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.gridContent}
-        renderItem={({ item }) => <ProductCard product={item} onAdd={() => add(item)} />}
+        renderItem={({ item }) => <ProductCard product={item} onAdd={() => handleAdd(item)} />}
         ListHeaderComponent={
           <View>
             <View style={styles.header}>
@@ -68,6 +94,15 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
                 Caja abierta desde las {formatTime(register.openedAt)}
               </Text>
             </View>
+
+            {stockError ? (
+              <View style={[styles.stockError, { backgroundColor: colors.danger + '1A', borderColor: colors.danger + '66' }]}>
+                <Ionicons name="alert-circle" size={18} color={colors.danger} />
+                <Text style={[styles.stockErrorText, { color: colors.danger, fontSize: typography.sizes.caption }]}>
+                  {stockError}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={styles.search}>
               <TextInput
@@ -151,10 +186,12 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
 
 function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }) {
   const { colors, spacing, typography, shadows } = useTheme();
+  const outOfStock = product.trackStock && product.stockQuantity <= 0;
+  const lowStock = !outOfStock && product.trackStock && product.stockQuantity <= 5;
 
   return (
     <View style={[styles.productCard, { backgroundColor: colors.surface, borderRadius: 16, boxShadow: shadows.card }]}>
-      <Text style={styles.emoji}>{product.emoji ?? '🍽️'}</Text>
+      <ProductImage product={product} size={44} />
       <Text
         numberOfLines={2}
         style={[styles.productName, { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold }]}
@@ -164,11 +201,23 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
       <Text style={[styles.productPrice, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>
         {formatMoney(product.priceCents)}
       </Text>
+      {product.trackStock ? (
+        <Text
+          style={{
+            color: outOfStock ? colors.danger : lowStock ? colors.warning : colors.textSecondary,
+            fontSize: typography.sizes.caption,
+            fontWeight: lowStock || outOfStock ? '700' : '400',
+          }}
+        >
+          {outOfStock ? 'Agotado' : lowStock ? `¡Solo quedan ${product.stockQuantity}!` : `Quedan ${product.stockQuantity}`}
+        </Text>
+      ) : null}
       <Pressable
         onPress={onAdd}
+        disabled={outOfStock}
         style={({ pressed }) => [
           styles.addButton,
-          { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+          { backgroundColor: colors.primary, opacity: outOfStock ? 0.35 : pressed ? 0.85 : 1 },
         ]}
       >
         <Text style={{ color: colors.textOnPrimary, fontSize: 20, fontWeight: '700', lineHeight: 22 }}>+</Text>
@@ -228,14 +277,11 @@ const styles = StyleSheet.create({
   productCard: {
     flex: 1,
     padding: 14,
-    minHeight: 132,
-  },
-  emoji: {
-    fontSize: 32,
-    marginBottom: 8,
+    minHeight: 160,
   },
   productName: {
     flex: 1,
+    marginTop: 8,
   },
   productPrice: {
     fontWeight: '600',
@@ -250,6 +296,20 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stockError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  stockErrorText: {
+    flex: 1,
+    fontWeight: '600',
   },
   cartBar: {
     borderTopWidth: 1,

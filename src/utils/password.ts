@@ -12,6 +12,15 @@ export async function generateSalt(): Promise<string> {
     .join('');
 }
 
+function fallbackId(): string {
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function generateId(): string {
-  return Crypto.randomUUID();
+  try {
+    const id = Crypto.randomUUID();
+    return id || fallbackId();
+  } catch {
+    return fallbackId();
+  }
 }

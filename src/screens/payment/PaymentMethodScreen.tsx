@@ -10,6 +10,7 @@ import { useCart } from '../../contexts/CartContext';
 import type { PaymentMethod } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
+import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
 import { calcChange, formatMoney, parseMoney } from '../../utils/money';
 import { buildOrder } from '../../utils/order';
@@ -47,11 +48,20 @@ export default function PaymentMethodScreen() {
     }
   };
 
+  const decrementStocks = async () => {
+    for (const item of items) {
+      if (item.product.trackStock) {
+        await productRepository.decreaseStock(item.product.id, item.quantity);
+      }
+    }
+  };
+
   const confirmCash = async (received: number) => {
     setSaving(true);
     try {
       const order = buildOrder({ items, customer, status: 'paid', paymentMethod: 'cash', receivedCents: received });
       const saved = await orderRepository.save(order);
+      await decrementStocks();
       clear();
       navigation.replace('OrderComplete', { orderId: saved.id });
     } finally {
@@ -64,6 +74,7 @@ export default function PaymentMethodScreen() {
     try {
       const order = buildOrder({ items, customer, status: 'paid', paymentMethod: 'transfer' });
       const saved = await orderRepository.save(order);
+      await decrementStocks();
       clear();
       navigation.replace('OrderComplete', { orderId: saved.id });
     } finally {

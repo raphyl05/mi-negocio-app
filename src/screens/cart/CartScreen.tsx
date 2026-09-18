@@ -7,6 +7,7 @@ import Card from '../../components/Card';
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
+import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import { useCart } from '../../contexts/CartContext';
@@ -112,7 +113,7 @@ function CartRow({ item }: { item: CartItem }) {
 
   return (
     <View style={[styles.row, { backgroundColor: colors.surface, borderRadius: 16 }]}>
-      <Text style={styles.emoji}>{product.emoji ?? '🍽️'}</Text>
+      <ProductImage product={product} size={40} />
 
       <View style={styles.rowInfo}>
         <Text
@@ -175,13 +176,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     padding: 14,
     borderWidth: 1,
     borderColor: 'transparent',
-  },
-  emoji: {
-    fontSize: 30,
-    marginRight: 12,
   },
   rowInfo: {
     flex: 1,
