@@ -32,6 +32,22 @@ export async function getUser(): Promise<User | null> {
   return JSON.parse(raw) as User;
 }
 
+export async function verifyLogin(username: string, password: string): Promise<User | null> {
+  const user = await getUser();
+  if (!user) return null;
+
+  if (user.username.trim().toLowerCase() !== username.trim().toLowerCase()) {
+    return null;
+  }
+
+  const hash = await hashPassword(password, user.passwordSalt);
+  if (hash !== user.passwordHash) {
+    return null;
+  }
+
+  return user;
+}
+
 export async function saveSetup({ name, ownerName, phone, address, username, password }: SetupPayload): Promise<void> {
   const salt = await generateSalt();
   const passwordHash = await hashPassword(password, salt);

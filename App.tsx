@@ -2,17 +2,20 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import RootNavigator from './src/navigation/RootNavigator';
 import LoginScreen from './src/screens/login/LoginScreen';
 import SetupScreen from './src/screens/setup/SetupScreen';
 import { isSetupDone } from './src/services/setupService';
 import { ThemeProvider, useTheme } from './src/theme';
 
+type BootStatus = 'loading' | 'setup' | 'loggedOut' | 'main';
+
 function BootGate() {
   const { colors, typography } = useTheme();
-  const [status, setStatus] = useState<'loading' | 'setup' | 'configured'>('loading');
+  const [status, setStatus] = useState<BootStatus>('loading');
 
   useEffect(() => {
-    isSetupDone().then((done) => setStatus(done ? 'configured' : 'setup'));
+    isSetupDone().then((done) => setStatus(done ? 'loggedOut' : 'setup'));
   }, []);
 
   if (status === 'loading') {
@@ -27,10 +30,14 @@ function BootGate() {
   }
 
   if (status === 'setup') {
-    return <SetupScreen onCompleted={() => setStatus('configured')} />;
+    return <SetupScreen onCompleted={() => setStatus('loggedOut')} />;
   }
 
-  return <LoginScreen />;
+  if (status === 'loggedOut') {
+    return <LoginScreen onLogin={() => setStatus('main')} />;
+  }
+
+  return <RootNavigator />;
 }
 
 export default function App() {
