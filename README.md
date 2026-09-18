@@ -10,6 +10,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 1 COMPLETADA ✅** — proyecto creado, web habilitado, tipo de app configurado, repositorio conectado.
 **Fase 2 COMPLETADA ✅** — sistema visual (tema turquesa/cian) + utilidad de dinero RD$ + tests.
 **Fase 3 COMPLETADA ✅** — navegación: stack raíz + 4 pestañas (Inicio, Ventas, Productos, Más).
+**Fase 4 COMPLETADA ✅** — configuración inicial del negocio (nombre, usuario y contraseña con hash).
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -42,13 +43,22 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] Componentes auxiliares: `Screen` (SafeArea + fondo del tema) y `EmptyState` (placeholder elegante).
 - [x] Verificado: typecheck OK, 9 tests OK, bundle web compila.
 
-## Lo que falta (Fases 4–15)
+### Hecho (Fase 4)
+
+- [x] Modelos `business.ts` y `user.ts`.
+- [x] `expo-crypto` (SHA-256, funciona en Android/iOS/Web): `src/utils/password.ts` con `hashPassword` (solo hash con sal, nunca texto plano), `generateSalt` y `generateId`.
+- [x] `@react-native-async-storage/async-storage`: `src/services/setupService.ts` guarda negocio + usuario; si ya hay negocio, el arranque **salta la configuración**. Decisión: config/sesión en AsyncStorage, datos de ventas en SQLite (Fase 11).
+- [x] Pantalla **"Configura tu negocio"**: nombre*, usuario*, contraseña* + confirmación (opcionales: propietario, teléfono, dirección), validaciones con mensajes claros, botón grande CONTINUAR con estado de carga y pantalla de confirmación "¡Todo listo!" → Login.
+- [x] Lógica de arranque en `App.tsx` (`BootGate`): splash → Setup si no configurado → Login placeholder (se completa en Fase 5).
+- [x] Componente `TextField` (redondeado, borde turquesa al enfocar, mensaje de error en rojo).
+- [x] Tests: `validateSetup` (16 tests en total, pasando).
+
+## Lo que falta (Fases 5–15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 4 | Configuración inicial del negocio (nombre, usuario, contraseña → hash) | formulario + validaciones |
 | 5 | Login local (verificar usuario + hash) | tests de autenticación |
 | 6 | Apertura de caja | regla "no ventas sin caja abierta" |
 | 7 | Facturación: buscador, categorías (chips), grid 2–3 col, agregar al carrito | flujo manual |
