@@ -50,6 +50,12 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **Caja cerrada = app bloqueada:** con la caja cerrada solo se puede editar el inventario; la pestaña **Ventas** queda bloqueada hasta abrir caja desde Inicio, y si había productos en el carrito se **limpian** al quedar la caja cerrada (todo empieza como un día nuevo).
 - **Ventas:** se quitó la búsqueda por rango de fechas (Desde/Hasta).
 
+**Fase 32 COMPLETADA ✅** — diseño afinado por tamaño de pantalla (iPads/tablets):
+
+- **Datos del cliente a pantalla completa:** en el carrito, los datos del cliente ahora se abren como **pantalla completa** con botón **Continuar** (ya no es una hoja que sube desde abajo); el teclado se cierra al deslizar y el formulario queda en columna centrada.
+- **Columna centrada de 560dp para formularios:** nuevo componente `Column` de 560dp de ancho máximo centrado, aplicado a todas las pantallas de formulario/confirmación: Configura tu negocio, Iniciar sesión y Recuperar contraseña, Carrito, Cobrar, ¿Cómo cobrar?, Venta completada, Detalle de orden, Mi negocio, Editar producto, Abrir caja, Resumen del día y Datos y respaldo. En teléfonos se ve igual que antes; en tablets/iPad el contenido queda compacto y centrado (estilo diálogo). Las listas (Inicio, Ventas, Productos, Ajustes) siguen con ancho fluido de 840dp.
+- **Calendario de Ventas renovado:** corregido el bug de días duplicados en la semana y el rango Desde/Hasta ahora se elige desde cada campo (uno a la vez), se lista solo si queda invertido y permite limpiar por campo o el rango completo.
+
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
 > https://docs.expo.dev/versions/v57.0.0/
@@ -257,7 +263,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
 
 ## Lo que falta
-**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, y la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y el respaldo en la nube.
+**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y el respaldo en la nube.
 
 ## Cómo correr la app
 
@@ -304,7 +310,7 @@ src/
   models/          # business, user, product, order, cashRegister, customer, provider
   screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, settings, customers, providers
   navigation/      # stack + tabs
-  components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
+  components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton, Column (columna 560dp), CalendarModal...
   services/        # database, repositories, auth (setupService), session (cashRegisterService), stock (stockService), printer (printerService + carpeta printer/), backup (backupService.ts)
   hooks/           # usePrinter (reactivo al estado de la impresora), useCart
   theme/           # colors, typography, spacing, componentes
@@ -315,6 +321,7 @@ src/
 
 ## Registro de commits
 
+- `34193d1` Fase 32: datos del cliente a pantalla completa con Continuar, columna 560dp centrada (Column) para las pantallas de formulario en iPad/tablet y calendario de Ventas renovado (rango por campo, automático y con bug de llaves duplicadas corregido)
 - `9750f2c` Pestana Mas limpia: esencial (negocio, caja, tema, cerrar sesion) y pantalla Configuracion aparte
 - `2188426` Fase 31: ajustes detallados - pie del carrito fijo, logo y mensaje del ticket en Mi negocio, Drive fuera de la vista (sin sync al cerrar), cierre de caja con total contado, app bloqueada con caja cerrada (solo inventario) y Ventas sin rango de fechas
 - `ebfa324` Fase 30: sincronizacion Google Drive - upload auto post-cierre, cola offline, restore manual Drive
