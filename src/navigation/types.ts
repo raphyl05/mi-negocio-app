@@ -11,6 +11,7 @@ export type RootStackParamList = {
   InvoiceConfig: undefined;
   Dashboard: undefined;
   Security: undefined;
+  Customers: undefined;
 };
 
 export type TabParamList = {

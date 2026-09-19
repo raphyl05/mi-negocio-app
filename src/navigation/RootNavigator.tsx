@@ -12,6 +12,7 @@ import BusinessEditScreen from '../screens/settings/BusinessEditScreen';
 import DashboardScreen from '../screens/settings/DashboardScreen';
 import InvoiceConfigScreen from '../screens/settings/InvoiceConfigScreen';
 import SecurityScreen from '../screens/settings/SecurityScreen';
+import CustomersScreen from '../screens/settings/CustomersScreen';
 import { useTheme } from '../theme';
 import BottomTabs from './BottomTabs';
 import type { RootStackParamList } from './types';
@@ -50,6 +51,7 @@ export default function RootNavigator() {
         <Stack.Screen name="InvoiceConfig" component={InvoiceConfigScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Security" component={SecurityScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Customers" component={CustomersScreen} options={{ animation: 'slide_from_right' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

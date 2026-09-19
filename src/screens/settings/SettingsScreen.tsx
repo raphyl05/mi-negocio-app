@@ -96,6 +96,20 @@ export default function SettingsScreen() {
         <View style={styles.gap} />
 
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          CLIENTES
+        </Text>
+        <Card style={styles.cardList}>
+          <SettingsRow
+            icon="people-outline"
+            title="Directorio de clientes"
+            subtitle="Agrega, edita y elimina clientes"
+            onPress={() => navigation.navigate('Customers')}
+          />
+        </Card>
+
+        <View style={styles.gap} />
+
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           CAJA
         </Text>
         <Card style={styles.cardList}>
