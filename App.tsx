@@ -20,9 +20,12 @@ function BootGate() {
   const [status, setStatus] = useState<BootStatus>('loading');
 
   useEffect(() => {
-    isSetupDone().then((done) => setStatus(done ? 'ready' : 'setup'));
     printerService.init();
   }, []);
+
+  useEffect(() => {
+    isSetupDone().then((done) => setStatus(done ? 'ready' : 'setup'));
+  }, [authed]);
 
   if (status === 'loading') {
     return (

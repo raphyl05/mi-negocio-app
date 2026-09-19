@@ -45,6 +45,10 @@ export function createInMemoryProviderRepository(): ProviderRepository {
 class LazyProviderRepository implements ProviderRepository {
   private implPromise: Promise<ProviderRepository> | null = null;
 
+  reset(): void {
+    this.implPromise = null;
+  }
+
   private ready(): Promise<ProviderRepository> {
     if (!this.implPromise) {
       this.implPromise =
@@ -77,3 +81,7 @@ class LazyProviderRepository implements ProviderRepository {
 }
 
 export const providerRepository: ProviderRepository = new LazyProviderRepository();
+
+export function resetProviderRepository(): void {
+  (providerRepository as LazyProviderRepository).reset();
+}

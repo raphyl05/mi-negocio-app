@@ -1,4 +1,4 @@
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
@@ -11,9 +11,6 @@ const EDGES: ReadonlyArray<'top' | 'bottom' | 'left' | 'right'> = Platform.selec
   default: ['top', 'left', 'right'],
 });
 
-// En pantallas anchas (tablet/web) el contenido se centra como columna de teléfono.
-const MAX_CONTENT_WIDTH = 560;
-
 type ScreenProps = {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -21,10 +18,12 @@ type ScreenProps = {
 
 export default function Screen({ children, style }: ScreenProps) {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const contentMaxWidth = width >= 720 ? 840 : 560;
 
   return (
     <SafeAreaView edges={EDGES} style={[styles.safe, { backgroundColor: colors.background }]}>
-      <View style={[styles.content, style]}>{children}</View>
+      <View style={[styles.content, style, { maxWidth: contentMaxWidth }]}>{children}</View>
     </SafeAreaView>
   );
 }
@@ -36,7 +35,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     width: '100%',
-    maxWidth: MAX_CONTENT_WIDTH,
     alignSelf: 'center',
   },
 });

@@ -45,6 +45,10 @@ export function createInMemoryCustomerRepository(): CustomerRepository {
 class LazyCustomerRepository implements CustomerRepository {
   private implPromise: Promise<CustomerRepository> | null = null;
 
+  reset(): void {
+    this.implPromise = null;
+  }
+
   private ready(): Promise<CustomerRepository> {
     if (!this.implPromise) {
       this.implPromise =
@@ -77,3 +81,7 @@ class LazyCustomerRepository implements CustomerRepository {
 }
 
 export const customerRepository: CustomerRepository = new LazyCustomerRepository();
+
+export function resetCustomerRepository(): void {
+  (customerRepository as LazyCustomerRepository).reset();
+}

@@ -6,10 +6,15 @@ import { Alert, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import Screen from '../../components/Screen';
+import TicketPreviewModal from '../../components/TicketPreviewModal';
+import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
+import { getBusiness } from '../../services/setupService';
+import { buildTicket } from '../../services/printerService';
 import { releaseOrderStock } from '../../services/stockService';
+import { usePrinter } from '../../hooks/usePrinter';
 import { useTheme } from '../../theme';
 import { formatTime, inDateRange, parseDateInput } from '../../utils/datetime';
 import { invoiceCodeFor } from '../../utils/invoice';
@@ -28,9 +33,17 @@ export default function VentasScreen() {
   const [toText, setToText] = useState('');
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
+  const { available } = usePrinter();
 
   const load = useCallback(async () => {
-    const [pendingOrders, paidOrders] = await Promise.all([orderRepository.listPending(), orderRepository.listPaid()]);
+    const [businessData, pendingOrders, paidOrders] = await Promise.all([
+      getBusiness(),
+      orderRepository.listPending(),
+      orderRepository.listPaid(),
+    ]);
+    setBusiness(businessData);
     setPending(pendingOrders);
     setPaid(paidOrders);
     setSelected(new Set());
@@ -92,6 +105,14 @@ export default function VentasScreen() {
         },
       ],
     );
+  };
+
+  const handlePrint = (order: Order) => {
+    if (!business) {
+      Alert.alert('Sin configurar', 'Configura los datos del negocio primero.');
+      return;
+    }
+    setPreviewOrder(order);
   };
 
   const showPending = segment === 'pending';
@@ -248,20 +269,29 @@ export default function VentasScreen() {
                   setSelecting(true);
                   setSelected(new Set([item.id]));
                 }}
+                onPrint={handlePrint}
               />
             ) : (
-              <PaidRow order={item} onPress={() => navigation.navigate('OrderDetail', { orderId: item.id })} />
+              <PaidRow order={item} onPress={() => navigation.navigate('OrderDetail', { orderId: item.id })} onPrint={handlePrint} />
             )
           }
           ListFooterComponent={
             <Text style={[styles.footer, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
               {showPending
                 ? 'Toca una orden para verla, editarla o cobrarla. Mantenla presionada para seleccionar varias.'
-                : 'Toca una venta para ver su detalle o reimprimir el ticket.'}
+                : 'Toca una venta para ver su detalle o imprimir el ticket rápido.'}
             </Text>
           }
         />
       )}
+
+      {previewOrder && business ? (
+        <TicketPreviewModal
+          visible={true}
+          ticket={buildTicket(previewOrder, business)}
+          onClose={() => setPreviewOrder(null)}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -310,12 +340,14 @@ function PendingRow({
   checked,
   onPress,
   onLongPress,
+  onPrint,
 }: {
   order: Order;
   selecting: boolean;
   checked: boolean;
   onPress: () => void;
   onLongPress: () => void;
+  onPrint: (order: Order) => void;
 }) {
   const { colors, spacing, typography } = useTheme();
   const hasCustomer = Boolean(order.customer.customerName.trim());
@@ -365,12 +397,19 @@ function PendingRow({
         </Text>
       </View>
       <MoneyDisplay cents={order.subtotalCents} size="small" />
-      {!selecting ? <Ionicons name="chevron-forward" size={16} color={colors.warning} /> : null}
+      {!selecting ? (
+        <>
+          <Pressable onPress={(e) => { e.stopPropagation(); onPrint(order); }} hitSlop={8} style={styles.printIcon}>
+            <Ionicons name="print-outline" size={18} color={colors.primary} />
+          </Pressable>
+          <Ionicons name="chevron-forward" size={16} color={colors.warning} />
+        </>
+      ) : null}
     </Pressable>
   );
 }
 
-function PaidRow({ order, onPress }: { order: Order; onPress: () => void }) {
+function PaidRow({ order, onPress, onPrint }: { order: Order; onPress: () => void; onPrint: (order: Order) => void }) {
   const { colors, spacing, typography } = useTheme();
   const hasCustomer = Boolean(order.customer.customerName.trim());
 
@@ -394,6 +433,9 @@ function PaidRow({ order, onPress }: { order: Order; onPress: () => void }) {
         </Text>
       </View>
       <MoneyDisplay cents={order.subtotalCents} size="small" />
+      <Pressable onPress={(e) => { e.stopPropagation(); onPrint(order); }} hitSlop={8} style={styles.printIcon}>
+        <Ionicons name="print-outline" size={18} color={colors.primary} />
+      </Pressable>
       <Ionicons name="checkmark-circle" size={16} color={colors.success} />
     </Pressable>
   );
@@ -491,6 +533,11 @@ const styles = StyleSheet.create({
   },
   rowInfo: {
     flex: 1,
+  },
+  printIcon: {
+    padding: 4,
+    marginRight: -4,
+    borderRadius: 8,
   },
   footer: {
     textAlign: 'center',

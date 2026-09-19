@@ -14,10 +14,11 @@ import type { CashRegister } from '../../models/cashRegister';
 import type { RootStackParamList } from '../../navigation/types';
 import { getOpenRegister } from '../../services/cashRegisterService';
 import { getBusiness } from '../../services/setupService';
+import { deleteAccountAndData } from '../../services/backupService';
 import { useTheme } from '../../theme';
 import { formatTime } from '../../utils/datetime';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
+type IconName = string;
 
 export default function SettingsScreen() {
   const { colors, spacing, typography, dark, setDark } = useTheme();
@@ -38,6 +39,21 @@ export default function SettingsScreen() {
     Alert.alert('Cerrar sesión', 'Se cerrará tu sesión. Tus datos se conservan en el dispositivo.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar sesión', style: 'destructive', onPress: logout },
+    ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert('Borrar cuenta', 'Se borrarán TODOS los datos de este dispositivo. ¿Continuar?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Borrar todo',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteAccountAndData();
+          logout();
+          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+        },
+      },
     ]);
   };
 
@@ -184,6 +200,20 @@ export default function SettingsScreen() {
         </Text>
         <Card style={styles.cardList}>
           <SettingsRow
+            icon="download-outline"
+            title="Exportar respaldo"
+            subtitle="Guarda copia local en un archivo"
+            onPress={() => navigation.navigate('DatosYRespaldo')}
+          />
+          <RowDivider />
+          <SettingsRow
+            icon="upload-outline"
+            title="Restaurar respaldo"
+            subtitle="Importa un archivo anterior"
+            onPress={() => navigation.navigate('DatosYRespaldo')}
+          />
+          <RowDivider />
+          <SettingsRow
             icon="shield-checkmark-outline"
             title="Seguridad"
             subtitle="Pregunta secreta y contraseña"
@@ -219,6 +249,15 @@ export default function SettingsScreen() {
           <Text style={{ color: colors.danger, fontSize: typography.sizes.body, fontWeight: '700' }}>Cerrar sesión</Text>
         </Pressable>
 
+        <Pressable
+          onPress={handleDeleteAccount}
+          hitSlop={8}
+          style={({ pressed }) => [styles.deleteAccountRow, { opacity: pressed ? 0.75 : 1 }]}
+        >
+          <Ionicons name="trash-outline" size={20} color={colors.danger} />
+          <Text style={{ color: colors.danger, fontSize: typography.sizes.body, fontWeight: '700' }}>Borrar cuenta</Text>
+        </Pressable>
+
         <Text style={[styles.footer, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           Los datos se guardan solo en este dispositivo.
         </Text>
@@ -245,7 +284,7 @@ function SettingsRow({
       style={({ pressed }) => [styles.rowIcon, { opacity: pressed ? 0.75 : 1 }]}
     >
       <View style={[styles.iconCircle, { backgroundColor: colors.surfaceMuted }]}>
-        <Ionicons name={icon} size={22} color={colors.textPrimary} />
+        <Ionicons name={icon as any} size={22} color={colors.textPrimary} />
       </View>
       <View style={styles.rowText}>
         <Text style={[styles.rowTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>{title}</Text>
@@ -321,6 +360,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     marginTop: 24,
+  },
+  deleteAccountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 10,
   },
   footer: {
     textAlign: 'center',

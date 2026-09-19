@@ -87,6 +87,10 @@ export function createInMemoryProductRepository(): ProductRepository {
 class LazyProductRepository implements ProductRepository {
   private implPromise: Promise<ProductRepository> | null = null;
 
+  reset(): void {
+    this.implPromise = null;
+  }
+
   private ready(): Promise<ProductRepository> {
     if (!this.implPromise) {
       this.implPromise =
@@ -139,3 +143,9 @@ class LazyProductRepository implements ProductRepository {
 }
 
 export const productRepository: ProductRepository = new LazyProductRepository();
+
+// Descarta la implementación cacheada; la próxima llamada recrea el repo
+// (y, en nativo, reabre la BD sembrada si el archivo fue borrado).
+export function resetProductRepository(): void {
+  (productRepository as LazyProductRepository).reset();
+}

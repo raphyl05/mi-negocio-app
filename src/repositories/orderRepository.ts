@@ -60,6 +60,10 @@ export function createInMemoryOrderRepository(): OrderRepository {
 class LazyOrderRepository implements OrderRepository {
   private implPromise: Promise<OrderRepository> | null = null;
 
+  reset(): void {
+    this.implPromise = null;
+  }
+
   private ready(): Promise<OrderRepository> {
     if (!this.implPromise) {
       this.implPromise =
@@ -96,3 +100,7 @@ class LazyOrderRepository implements OrderRepository {
 }
 
 export const orderRepository: OrderRepository = new LazyOrderRepository();
+
+export function resetOrderRepository(): void {
+  (orderRepository as LazyOrderRepository).reset();
+}

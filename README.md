@@ -37,6 +37,8 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 27 COMPLETADA ✅** — directorio de proveedores (CRUD igual que clientes, más sección en "Más" y campo proveedor en los productos) + interfaz adaptativa: safe areas por plataforma (borde inferior solo en Android) y contenido centrado con ancho máximo en pantallas grandes.
 **Fase 28 COMPLETADA ✅** — impresora configurable y funcional: pantalla en Más → Impresora (activar, buscar, conectar, imprimir prueba), impresión por el sistema/integrada con `expo-print`, soporte Bluetooth preparado para el módulo nativo (dev build), botones de imprimir donde corresponde solo con impresora activa y auto-reconexión cuando la impresora vuelve a encenderse.
 
+**Fase 29 COMPLETADA ✅** — impresión rápida desde Ventas (pendientes y cobradas, con marca clara de pendiente/pagada), soporte tablet mejorado (ancho de contenido 840dp en pantallas ≥720dp y grilla de facturación de 3–4 columnas), respaldo/restore offline por archivo JSON y opción de borrar cuenta + datos desde Más → Datos y respaldo.
+
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
 > https://docs.expo.dev/versions/v57.0.0/
@@ -235,8 +237,16 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **Servicio reactivo**: `usePrinter` ahora se suscribe al estado del servicio; la fila **Impresora** en **Más** muestra el estado en vivo y su subtítulo.
 - [x] Tests nuevos (`printerFlow.test.ts`): generador ESC/POS (bytes), flujo conectar/imprimir/desconectar, reconexión y persistencia de la configuración. Total: **163 tests, 20 suites, pasando**. Dependencia nueva justificada: `expo-print`.
 
+### Hecho (Fase 29)
+
+- [x] **Impresión rápida desde Ventas**: en la pestaña Ventas, cada orden (pendiente o cobrada) tiene un botón de imprimir que envía el ticket directo si hay impresora activa o abre el preview del ticket si no; las pendientes siempre muestran `PENDIENTE` y el aviso `*** PAGO PENDIENTE ***`, y las cobradas muestran `Pagada`.
+- [x] **Soporte tablet mejorado**: `Screen` usa ancho máximo de **840** cuando el ancho es ≥720dp (560 en teléfono); la pantalla de facturación muestra **3 columnas** en tablets y **4** en pantallas anchas (2 en teléfono).
+- [x] **Respaldo/restore offline**: desde **Más → Datos y respaldo** se exporta un JSON (negocio, usuario, caja, cierres, impresora, productos, pedidos, clientes, proveedores) vía hoja de sistema y se restaura importándolo; se advierte que el archivo es tan sensible como la contraseña.
+- [x] **Borrar cuenta**: desde **Más → Datos y respaldo** se eliminan todos los datos locales (storage + SQLite) y se vuelve a la pantalla de setup.
+- [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
+
 ## Lo que falta
-**El MVP (Fases 1–26) está completo.** Con la Fase 27 ya hay proveedores y una interfaz adaptativa; con la Fase 28 ya se imprime por el sistema/integrada y por Bluetooth queda listo de código para cuando se agregue el módulo nativo (dev build). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: impresión térmica Bluetooth real (módulo nativo), códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
+**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y con la Fase 29 se añadió impresión rápida desde Ventas, soporte tablet optimizado, respaldo/restore offline por archivo y borrado de cuenta. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: impresión térmica Bluetooth real (módulo nativo + dev build), códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
 
 ## Cómo correr la app
 
@@ -283,15 +293,17 @@ src/
   screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, settings, customers, providers
   navigation/      # stack + tabs
   components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
-  services/        # database, repositories, auth (setupService), session (cashRegisterService), stock (stockService), printer (printerService + carpeta printer/)
-  hooks/           # usePrinter (reactivo al estado de la impresora)
+  services/        # database, repositories, auth (setupService), session (cashRegisterService), stock (stockService), printer (printerService + carpeta printer/), backup (backupService.ts)
+  hooks/           # usePrinter (reactivo al estado de la impresora), useCart
   theme/           # colors, typography, spacing, componentes
-  utils/           # money.ts (formato + cálculo centavos), orderSearch.ts, cashClosure.ts
-__tests__/         # tests de dinero, carrito, buildOrder, repositorios (incl. customer/provider), validaciones, orderSearch, cashClosure, printer y flujo de impresión
+  utils/           # backup.ts (serializar/parsear respaldo), money.ts (formato + cálculo centavos), orderSearch.ts, cashClosure.ts, invoice.ts
+  models/          # product, order, customer, provider, business, user, cashRegister
+ __tests__/         # tests de dinero, carrito, buildOrder, repositorios (incl. customer/provider), validaciones, orderSearch, cashClosure, printer, flujo de impresión y backup
 ```
 
 ## Registro de commits
 
+- `NUEVO` Fase 29: impresion rapida en Ventas (pendientes y cobradas), tablet responsive (840dp y grilla 3-4 col), backup/restore por archivo JSON y borrar cuenta/datos
 - `3e64b3c` Fase 28: impresora configurable (sistema/integrada, Bluetooth y demo) con auto-reconexion, botones de impresion y tickets ESC/POS
 - `5931004` Fase 27: proveedores como clientes (directorio, SQLite y proveedor en productos) y UI adaptativa (safe areas por plataforma y ancho maximo centrado)
 - `5bf96b9` Fase 26: stock reservado en pendientes con devolucion al cancelar, codigo FAC visible y buscable, guardar clientes desde facturacion y safe-area Android

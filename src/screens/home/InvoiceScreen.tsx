@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
@@ -31,6 +31,9 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   const [stockError, setStockError] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
+
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 1024 ? 4 : width >= 720 ? 3 : 2;
 
   const load = useCallback(async () => {
     const all = await productRepository.list();
@@ -87,7 +90,8 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          numColumns={2}
+          key={`grid-${numColumns}`}
+          numColumns={numColumns}
           columnWrapperStyle={styles.gridRow}
           contentContainerStyle={styles.gridContent}
           extraData={filtered}

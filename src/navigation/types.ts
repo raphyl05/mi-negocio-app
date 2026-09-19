@@ -14,6 +14,7 @@ export type RootStackParamList = {
   Security: undefined;
   Customers: undefined;
   Providers: undefined;
+  DatosYRespaldo: undefined;
 };
 
 export type TabParamList = {

@@ -132,3 +132,13 @@ export async function setNextOrderNumber(db: SQLiteDatabase, next: number): Prom
     String(next),
   );
 }
+
+// Usado por "Eliminar cuenta" para devolver la base a su estado de fábrica:
+// cierra conexiones y borra el archivo; la próxima llamada crea una BD limpia.
+export async function deleteDatabaseFile(): Promise<void> {
+  try {
+    await SQLite.deleteDatabaseAsync(DATABASE_NAME);
+  } finally {
+    dbPromise = null;
+  }
+}
