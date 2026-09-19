@@ -5,6 +5,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import CalendarModal from '../../components/CalendarModal';
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -21,11 +22,18 @@ import { buildTicket } from '../../services/printerService';
 import { releaseOrderStock } from '../../services/stockService';
 import { usePrinter } from '../../hooks/usePrinter';
 import { useTheme } from '../../theme';
-import { formatTime } from '../../utils/datetime';
+import { formatTime, inDateRange, parseDateInput } from '../../utils/datetime';
+import { isOrderInRegister } from '../../utils/cashClosure';
 import { invoiceCodeFor } from '../../utils/invoice';
 import { filterOrders } from '../../utils/orderSearch';
 
 type Segment = 'pending' | 'paid';
+
+function formatDateInput(date: Date): string {
+  const dd = date.getDate().toString().padStart(2, '0');
+  const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${dd}/${mm}/${date.getFullYear()}`;
+}
 
 type VentasNav = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'Sales'>,
@@ -38,7 +46,12 @@ export default function VentasScreen() {
   const [segment, setSegment] = useState<Segment>('pending');
   const [pending, setPending] = useState<Order[]>([]);
   const [paid, setPaid] = useState<Order[]>([]);
-  const [query, setQuery] = useState('');
+  const [queryGuardadas, setQueryGuardadas] = useState('');
+  const [queryCobradas, setQueryCobradas] = useState('');
+  const [fromText, setFromText] = useState('');
+  const [toText, setToText] = useState('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<'from' | 'to'>('from');
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [business, setBusiness] = useState<Business | null>(null);
@@ -65,20 +78,46 @@ export default function VentasScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setQuery('');
+      setQueryGuardadas('');
+      setQueryCobradas('');
+      setFromText('');
+      setToText('');
+      setSelected(new Set());
+      setSelecting(false);
       load();
     }, [load]),
   );
 
+  const hasRange = fromText.trim().length > 0 || toText.trim().length > 0;
+
   const filteredPending = useMemo(() => {
-    const textMatch = filterOrders(pending, query);
+    const textMatch = filterOrders(pending, queryGuardadas);
     if (!selecting && textMatch.length === pending.length) return pending;
     return textMatch;
-  }, [pending, query, selecting]);
+  }, [pending, queryGuardadas, selecting]);
 
   const filteredPaid = useMemo(() => {
-    return filterOrders(paid, query);
-  }, [paid, query]);
+    const base = hasRange
+      ? paid.filter((order) => {
+          const from = parseDateInput(fromText);
+          const to = parseDateInput(toText);
+          return inDateRange(order.createdAt, from ?? undefined, to ?? undefined);
+        })
+      : register
+        ? paid.filter((order) => isOrderInRegister(order, register.openedAt))
+        : paid;
+    return filterOrders(base, queryCobradas);
+  }, [paid, queryCobradas, fromText, toText, hasRange, register]);
+
+  const switchSegment = (next: Segment) => {
+    setSegment(next);
+    setQueryGuardadas('');
+    setQueryCobradas('');
+    setFromText('');
+    setToText('');
+    setSelected(new Set());
+    setSelecting(false);
+  };
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -90,6 +129,23 @@ export default function VentasScreen() {
       }
       return next;
     });
+  };
+
+  const applySingle = (target: 'from' | 'to', value: Date) => {
+    if (target === 'from') {
+      setFromText(formatDateInput(value));
+      const to = parseDateInput(toText);
+      if (to && to < value) setToText(formatDateInput(value));
+    } else {
+      setToText(formatDateInput(value));
+      const from = parseDateInput(fromText);
+      if (from && from > value) setFromText(formatDateInput(value));
+    }
+  };
+
+  const clearField = (target: 'from' | 'to') => {
+    if (target === 'from') setFromText('');
+    else setToText('');
   };
 
   const handleDeleteSelected = () => {
@@ -125,6 +181,7 @@ export default function VentasScreen() {
 
   const showPending = segment === 'pending';
   const list = showPending ? filteredPending : filteredPaid;
+  const showSearchControls = showPending ? pending.length > 0 : paid.length > 0 || hasRange;
 
   if (!checked) {
     return (
@@ -175,14 +232,14 @@ export default function VentasScreen() {
         </Text>
         <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
           {segment === 'pending'
-            ? `${pending.length} ${pending.length === 1 ? 'venta guardada' : 'ventas guardadas'} · las pendientes siempre se conservan`
-            : `${paid.length} ${paid.length === 1 ? 'venta' : 'ventas'} cobradas`}
+            ? `${list.length} ${list.length === 1 ? 'venta guardada' : 'ventas guardadas'} · las pendientes siempre se conservan`
+            : `${list.length} ${list.length === 1 ? 'venta' : 'ventas'} cobradas · ${hasRange ? 'rango seleccionado' : 'esta caja'}`}
         </Text>
       </View>
 
       <View style={styles.segmentRow}>
-        <SegmentButton label="Guardadas" count={pending.length} active={segment === 'pending'} onPress={() => setSegment('pending')} />
-        <SegmentButton label="Cobradas" count={paid.length} active={segment === 'paid'} onPress={() => setSegment('paid')} />
+        <SegmentButton label="Guardadas" count={pending.length} active={segment === 'pending'} onPress={() => switchSegment('pending')} />
+        <SegmentButton label="Cobradas" count={paid.length} active={segment === 'paid'} onPress={() => switchSegment('paid')} />
       </View>
 
       {segment === 'pending' && selecting ? (
@@ -212,11 +269,11 @@ export default function VentasScreen() {
         </View>
       ) : null}
 
-      {list.length > 0 ? (
+      {showSearchControls ? (
         <View style={styles.search}>
           <TextInput
-            value={query}
-            onChangeText={setQuery}
+            value={showPending ? queryGuardadas : queryCobradas}
+            onChangeText={showPending ? setQueryGuardadas : setQueryCobradas}
             placeholder={showPending ? 'Buscar por nombre, teléfono, código…' : 'Buscar por cliente, teléfono, código…'}
             placeholderTextColor={colors.textSecondary}
             returnKeyType="done"
@@ -231,7 +288,45 @@ export default function VentasScreen() {
               },
             ]}
           />
-          {!showPending ? null : null}
+          {!showPending ? (
+            <View style={styles.rangeRow}>
+              <Pressable
+                onPress={() => {
+                  setPickerTarget('from');
+                  setCalendarOpen(true);
+                }}
+                style={[styles.rangeField, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Text style={{ color: fromText ? colors.textPrimary : colors.textSecondary, fontSize: typography.sizes.body, fontWeight: fromText ? '700' : '400' }}>
+                  {fromText || 'Desde'}
+                </Text>
+              </Pressable>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>a</Text>
+              <Pressable
+                onPress={() => {
+                  setPickerTarget('to');
+                  setCalendarOpen(true);
+                }}
+                style={[styles.rangeField, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Text style={{ color: toText ? colors.textPrimary : colors.textSecondary, fontSize: typography.sizes.body, fontWeight: toText ? '700' : '400' }}>
+                  {toText || 'Hasta'}
+                </Text>
+              </Pressable>
+              {hasRange ? (
+                <Pressable
+                  onPress={() => {
+                    setFromText('');
+                    setToText('');
+                  }}
+                  hitSlop={8}
+                  style={styles.rangeClear}
+                >
+                  <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -245,8 +340,12 @@ export default function VentasScreen() {
         ) : (
           <EmptyState
             icon="time-outline"
-            title="Sin ventas cobradas"
-            subtitle="Las ventas pagadas aparecen aquí con su detalle y ticket."
+            title={hasRange ? 'Sin resultados para el rango' : 'Sin ventas cobradas en esta caja'}
+            subtitle={
+              hasRange
+                ? 'Prueba con otro rango de fechas usando el calendario.'
+                : 'Las ventas pagadas de la caja actual aparecen aquí. Usa el rango de fechas para buscar días anteriores.'
+            }
           />
         )
       ) : (
@@ -295,6 +394,16 @@ export default function VentasScreen() {
           onClose={() => setPreviewOrder(null)}
         />
       ) : null}
+
+      <CalendarModal
+        visible={calendarOpen}
+        mode="single"
+        title={pickerTarget === 'from' ? 'Fecha desde' : 'Fecha hasta'}
+        singleValue={pickerTarget === 'from' ? fromText : toText}
+        onApply={(from) => applySingle(pickerTarget, from)}
+        onClear={() => clearField(pickerTarget)}
+        onClose={() => setCalendarOpen(false)}
+      />
     </Screen>
   );
 }
@@ -500,13 +609,22 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 16,
   },
-  dateRow: {
+  rangeRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 10,
     marginTop: 10,
   },
-  dateField: {
+  rangeField: {
     flex: 1,
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  rangeClear: {
+    padding: 4,
   },
   center: {
     flex: 1,

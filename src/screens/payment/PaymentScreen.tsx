@@ -87,14 +87,15 @@ export default function PaymentScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text
-          style={[
-            styles.title,
-            { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
-          ]}
-        >
-          Cobrar
-        </Text>
+        <View style={styles.column}>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+            ]}
+          >
+            Cobrar
+          </Text>
 
         <View style={[styles.summary, { backgroundColor: colors.surface, borderRadius: 16 }]}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
@@ -126,7 +127,8 @@ export default function PaymentScreen() {
           ]}
         >
           <Text style={[styles.cancelLabel, { color: colors.danger }]}>Cancelar orden</Text>
-        </Pressable>
+          </Pressable>
+        </View>
       </ScrollView>
     </Screen>
   );
@@ -135,6 +137,11 @@ export default function PaymentScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 24,
+  },
+  column: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   title: {
     letterSpacing: -0.5,

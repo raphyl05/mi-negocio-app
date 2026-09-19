@@ -4,6 +4,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Column from '../../components/Column';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
@@ -53,7 +54,8 @@ export default function OrderCompleteScreen({ route }: Props) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.centerCol}>
+        <Column>
+          <View style={styles.centerCol}>
           <View style={[styles.successIcon, { backgroundColor: colors.success }]}>
             <Ionicons name="checkmark" size={44} color={colors.white} />
           </View>
@@ -112,6 +114,7 @@ export default function OrderCompleteScreen({ route }: Props) {
           <View style={styles.actionsGap} />
           <PrimaryButton label="Nueva venta" onPress={() => navigation.popToTop()} />
         </View>
+        </Column>
       </ScrollView>
 
       {order && business ? (

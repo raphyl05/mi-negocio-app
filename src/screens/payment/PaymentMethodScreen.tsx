@@ -3,6 +3,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Column from '../../components/Column';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
@@ -154,14 +155,15 @@ export default function PaymentMethodScreen({ route }: Props) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text
-          style={[
-            styles.title,
-            { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
-          ]}
-        >
-          {existing ? 'Cobrar orden guardada' : '¿Cómo cobra?'}
-        </Text>
+        <Column>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+            ]}
+          >
+            {existing ? 'Cobrar orden guardada' : '¿Cómo cobra?'}
+          </Text>
 
         <View style={[styles.total, { backgroundColor: colors.surface, borderRadius: 16 }]}>
           <Text style={[styles.totalLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
@@ -219,6 +221,7 @@ export default function PaymentMethodScreen({ route }: Props) {
         <View style={styles.action}>
           <PrimaryButton label="Confirmar pago" onPress={handleConfirm} loading={saving} />
         </View>
+        </Column>
       </ScrollView>
     </Screen>
   );

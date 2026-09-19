@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Card from '../../components/Card';
+import Column from '../../components/Column';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
@@ -87,14 +88,15 @@ export default function BusinessEditScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <Text
-          style={[
-            styles.title,
-            { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
-          ]}
-        >
-          Mi negocio
-        </Text>
+        <Column>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+            ]}
+          >
+            Mi negocio
+          </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
           Estos datos y el logo aparecen en el ticket y la factura de impresión.
         </Text>
@@ -142,6 +144,7 @@ export default function BusinessEditScreen() {
           <PrimaryButton label="Guardar cambios" onPress={handleSave} loading={saving} />
           <PrimaryButton label="Cancelar" variant="outline" onPress={() => navigation.goBack()} />
         </View>
+        </Column>
       </ScrollView>
     </Screen>
   );

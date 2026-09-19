@@ -6,6 +6,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import Column from '../../components/Column';
 import PrimaryButton from '../../components/PrimaryButton';
 import QuickEditModal from '../../components/QuickEditModal';
 import Screen from '../../components/Screen';
@@ -243,7 +244,8 @@ export default function ProductFormScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <Column>
+          <View style={styles.header}>
           <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={[styles.backButton, { backgroundColor: colors.surfaceMuted }]}>
             <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </Pressable>
@@ -499,6 +501,7 @@ export default function ProductFormScreen() {
             </Pressable>
           ) : null}
         </View>
+        </Column>
       </ScrollView>
 
       <QuickEditModal

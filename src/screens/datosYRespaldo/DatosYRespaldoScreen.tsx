@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Card from '../../components/Card';
+import Column from '../../components/Column';
 import Screen from '../../components/Screen';
 import { useTheme } from '../../theme';
 import { exportBackupToShare, restoreBackupFromFile, deleteAccountAndData } from '../../services/backupService';
@@ -33,9 +34,10 @@ export default function DatosYRespaldoScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.pageTitle, { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold }]}>
-          Datos y respaldo
-        </Text>
+        <Column>
+          <Text style={[styles.pageTitle, { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold }]}>
+            Datos y respaldo
+          </Text>
 
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           ARCHIVO (universal)
@@ -83,6 +85,7 @@ export default function DatosYRespaldoScreen() {
         <Text style={[styles.footer, { color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: spacing.xl }]}>
           Los datos se guardan solo en este dispositivo.
         </Text>
+        </Column>
       </ScrollView>
     </Screen>
   );

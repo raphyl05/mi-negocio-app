@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Column from '../../components/Column';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
@@ -47,6 +48,7 @@ export default function OpenCashScreen({ onOpened }: OpenCashScreenProps) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <Column>
           <View style={styles.header}>
             <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
               <Ionicons name="cash-outline" size={36} color={colors.primary} />
@@ -84,6 +86,7 @@ export default function OpenCashScreen({ onOpened }: OpenCashScreenProps) {
           <View style={styles.action}>
             <PrimaryButton label="Abrir caja" onPress={handleOpen} loading={loading} />
           </View>
+        </Column>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>

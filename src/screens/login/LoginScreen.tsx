@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Column from '../../components/Column';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
@@ -70,63 +71,65 @@ function LoginForm({ onLogin, onForgot }: { onLogin: () => void; onForgot: () =>
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.header}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
-              <Image source={require('../../../assets/logo-vendelo-app.png')} style={styles.logo} resizeMode="contain" />
+          <Column>
+            <View style={styles.header}>
+              <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
+                <Image source={require('../../../assets/logo-vendelo-app.png')} style={styles.logo} resizeMode="contain" />
+              </View>
+              <Text
+                style={[
+                  styles.title,
+                  { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+                ]}
+              >
+                Iniciar sesión
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
+                Ingresa con tu usuario y contraseña
+              </Text>
             </View>
-            <Text
-              style={[
-                styles.title,
-                { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
-              ]}
-            >
-              Iniciar sesión
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-              Ingresa con tu usuario y contraseña
-            </Text>
-          </View>
 
-          {generalError ? (
-            <View style={[styles.banner, { backgroundColor: colors.danger }]}>
-              <Text style={[styles.bannerText, { color: colors.white }]}>{generalError}</Text>
+            {generalError ? (
+              <View style={[styles.banner, { backgroundColor: colors.danger }]}>
+                <Text style={[styles.bannerText, { color: colors.white }]}>{generalError}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.form}>
+              <TextField
+                label="Usuario"
+                value={username}
+                onChangeText={(text) => {
+                  setUsername(text);
+                  setGeneralError(null);
+                }}
+                error={errors.username}
+                placeholder="Tu usuario"
+                autoCapitalize="none"
+              />
+              <TextField
+                label="Contraseña"
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setGeneralError(null);
+                }}
+                error={errors.password}
+                secureTextEntry
+                placeholder="Tu contraseña"
+              />
             </View>
-          ) : null}
 
-          <View style={styles.form}>
-            <TextField
-              label="Usuario"
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-                setGeneralError(null);
-              }}
-              error={errors.username}
-              placeholder="Tu usuario"
-              autoCapitalize="none"
-            />
-            <TextField
-              label="Contraseña"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                setGeneralError(null);
-              }}
-              error={errors.password}
-              secureTextEntry
-              placeholder="Tu contraseña"
-            />
-          </View>
+            <View style={styles.action}>
+              <PrimaryButton label="Entrar" onPress={handleSubmit} loading={loading} />
+            </View>
 
-          <View style={styles.action}>
-            <PrimaryButton label="Entrar" onPress={handleSubmit} loading={loading} />
-          </View>
-
-          <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotLink}>
-            <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '600' }}>
-              ¿Olvidaste tu contraseña?
-            </Text>
-          </Pressable>
+            <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotLink}>
+              <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                ¿Olvidaste tu contraseña?
+              </Text>
+            </Pressable>
+          </Column>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -224,7 +227,8 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.header}>
+          <Column>
+            <View style={styles.header}>
             <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
               <Ionicons name="shield-checkmark-outline" size={36} color={colors.primary} />
             </View>
@@ -324,6 +328,7 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
               <PrimaryButton label="Guardar nueva contraseña" onPress={handleNewPassword} loading={loading} />
             </View>
           ) : null}
+        </Column>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>

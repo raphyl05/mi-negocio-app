@@ -4,6 +4,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Column from '../../components/Column';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import ProductImage from '../../components/ProductImage';
@@ -125,7 +126,8 @@ export default function OrderDetailScreen({ route }: Props) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <Column>
+          <View style={styles.header}>
           <Pressable onPress={handleBack} style={[styles.backButton, { backgroundColor: colors.surfaceMuted }]} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
           </Pressable>
@@ -276,6 +278,7 @@ export default function OrderDetailScreen({ route }: Props) {
             <Text style={[styles.deleteLabel, { color: colors.danger }]}>Eliminar orden</Text>
           </Pressable>
         </View>
+        </Column>
       </ScrollView>
 
       <TicketPreviewModal

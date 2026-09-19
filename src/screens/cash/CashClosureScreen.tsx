@@ -4,6 +4,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Card from '../../components/Card';
+import Column from '../../components/Column';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import ReceiptPreviewModal from '../../components/ReceiptPreviewModal';
@@ -177,14 +178,15 @@ export default function CashClosureScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <Text
-          style={[
-            styles.title,
-            { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
-          ]}
-        >
-          Resumen del día
-        </Text>
+        <Column>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+            ]}
+          >
+            Resumen del día
+          </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           Caja abierta con {money(summary.openingAmountCents)} · {summary.orderCount}{' '}
           {summary.orderCount === 1 ? 'venta' : 'ventas'} pagadas en el turno.
@@ -200,9 +202,6 @@ export default function CashClosureScreen() {
         <Card style={styles.card}>
           <Text style={styles.sectionLabel}>EFECTIVO EN CAJA</Text>
           <MoneyDisplay cents={countingDone ? countedCents : 0} size="large" />
-          <Text style={[styles.hint, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-            El total que contaste hoy (apertura + ventas en efectivo), sin suponer.
-          </Text>
         </Card>
 
         <Card style={styles.card}>
@@ -269,6 +268,7 @@ export default function CashClosureScreen() {
           <PrimaryButton label="Cerrar caja" onPress={handleClose} loading={closing} />
           <PrimaryButton label="Volver" variant="outline" onPress={() => navigation.goBack()} />
         </View>
+        </Column>
       </ScrollView>
 
       <ReceiptPreviewModal

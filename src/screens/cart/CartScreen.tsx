@@ -2,8 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import Card from '../../components/Card';
+import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -73,8 +72,24 @@ export default function CartScreen() {
     setTimeout(() => setSavedFlash(false), 2500);
   };
 
+  const openCustomerPanel = () => {
+    setShowCustomer(true);
+  };
+
+  const closeCustomerPanel = () => {
+    setShowCustomer(false);
+    Keyboard.dismiss();
+  };
+
+  const continueFromCustomer = () => {
+    setShowCustomer(false);
+    Keyboard.dismiss();
+    navigation.navigate('Payment');
+  };
+
   return (
     <Screen>
+      <View style={styles.column}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
         <Text
@@ -105,107 +120,12 @@ export default function CartScreen() {
           />
 
           <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-            <Pressable onPress={() => setShowCustomer((prev) => !prev)} style={styles.customerToggle}>
-              <Ionicons name={showCustomer ? 'chevron-down' : 'chevron-up'} size={18} color={colors.textSecondary} />
+            <Pressable onPress={openCustomerPanel} style={styles.customerToggle}>
+              <Ionicons name="chevron-up" size={18} color={colors.textSecondary} />
               <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
                 Datos del cliente (opcional)
               </Text>
             </Pressable>
-
-            {showCustomer ? (
-              <View style={styles.customerPanelWrap}>
-                <ScrollView
-                  style={styles.customerScroll}
-                  contentContainerStyle={styles.customerPanel}
-                  keyboardShouldPersistTaps="handled"
-                  keyboardDismissMode="on-drag"
-                  showsVerticalScrollIndicator={false}
-                >
-                  <TextField
-                    label="Nombre y apellido"
-                    value={customer.customerName}
-                    onChangeText={(text) => setCustomerField('customerName', text)}
-                    autoCapitalize="words"
-                    placeholder="Ej. Juan Pérez"
-                  />
-                  {filteredSuggestions.length > 0 ? (
-                    <View style={[styles.suggestions, { borderColor: colors.border }]}>
-                      {filteredSuggestions.map((saved) => (
-                        <Pressable
-                          key={saved.id}
-                          onPress={() => useSavedCustomer(saved)}
-                          style={({ pressed }) => [
-                            styles.suggestionRow,
-                            { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.75 : 1 },
-                          ]}
-                        >
-                          <View style={styles.savedRowText}>
-                            <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>
-                              {saved.name}
-                            </Text>
-                            {saved.phone ? (
-                              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
-                                {saved.phone}
-                              </Text>
-                            ) : null}
-                          </View>
-                          <Ionicons name="download-outline" size={18} color={colors.primary} />
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
-                  <TextField
-                    label="Teléfono"
-                    value={customer.phone}
-                    onChangeText={(text) => setCustomerField('phone', text)}
-                    keyboardType="phone-pad"
-                    placeholder="809-000-0000"
-                    formatOnFocus={unformatPhoneFocus}
-                    formatOnBlur={formatPhoneBlur}
-                    sanitize={sanitizePhoneInput}
-                  />
-                  <TextField
-                    label="Dirección"
-                    value={customer.address}
-                    onChangeText={(text) => setCustomerField('address', text)}
-                    placeholder="Dirección de entrega"
-                  />
-                  <TextField
-                    label="Descripción"
-                    value={customer.description}
-                    onChangeText={(text) => setCustomerField('description', text)}
-                    multiline
-                    placeholder="Notas, aclaraciones…"
-                  />
-                  <Pressable
-                    onPress={handleSaveCustomer}
-                    disabled={!canSaveCustomer}
-                    style={({ pressed }) => [
-                      styles.saveRow,
-                      {
-                        backgroundColor: savedFlash ? colors.success + '1A' : colors.surfaceMuted,
-                        opacity: !canSaveCustomer || pressed ? 0.6 : 1,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={savedFlash ? 'checkmark-circle' : 'bookmark-outline'}
-                      size={18}
-                      color={savedFlash ? colors.success : colors.primary}
-                    />
-                    <Text
-                      style={{
-                        color: savedFlash ? colors.success : colors.primary,
-                        fontSize: typography.sizes.body,
-                        fontWeight: '700',
-                      }}
-                    >
-                      {savedFlash ? 'Cliente guardado' : 'Guardar cliente'}
-                    </Text>
-                  </Pressable>
-                </ScrollView>
-              </View>
-            ) : null}
 
             <View style={styles.subtotalRow}>
               <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>Subtotal</Text>
@@ -220,6 +140,133 @@ export default function CartScreen() {
         </>
       )}
       </KeyboardAvoidingView>
+      </View>
+
+      <Modal
+        visible={showCustomer}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={closeCustomerPanel}
+      >
+        <Screen>
+          <View style={styles.column}>
+            <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              <View style={[styles.customerHeader, { borderBottomColor: colors.border }]}>
+                <View style={styles.customerHeaderSpacer} />
+                <Text
+                  style={[
+                    styles.customerTitle,
+                    { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+                  ]}
+                >
+                  Datos del cliente
+                </Text>
+                <Pressable onPress={closeCustomerPanel} style={[styles.closeButton, { backgroundColor: colors.surfaceMuted }]}>
+                  <Ionicons name="chevron-down" size={24} color={colors.textPrimary} />
+                </Pressable>
+              </View>
+
+              <ScrollView
+                style={styles.flex}
+                contentContainerStyle={styles.customerBody}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                showsVerticalScrollIndicator={false}
+              >
+              <TextField
+                label="Nombre y apellido"
+                value={customer.customerName}
+                onChangeText={(text) => setCustomerField('customerName', text)}
+                autoCapitalize="words"
+                placeholder="Ej. Juan Pérez"
+              />
+              {filteredSuggestions.length > 0 ? (
+                <View style={[styles.suggestions, { borderColor: colors.border }]}>
+                  {filteredSuggestions.map((saved) => (
+                    <Pressable
+                      key={saved.id}
+                      onPress={() => useSavedCustomer(saved)}
+                      style={({ pressed }) => [
+                        styles.suggestionRow,
+                        { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.75 : 1 },
+                      ]}
+                    >
+                      <View style={styles.savedRowText}>
+                        <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                          {saved.name}
+                        </Text>
+                        {saved.phone ? (
+                          <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                            {saved.phone}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Ionicons name="download-outline" size={18} color={colors.primary} />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              <TextField
+                label="Teléfono"
+                value={customer.phone}
+                onChangeText={(text) => setCustomerField('phone', text)}
+                keyboardType="phone-pad"
+                placeholder="809-000-0000"
+                formatOnFocus={unformatPhoneFocus}
+                formatOnBlur={formatPhoneBlur}
+                sanitize={sanitizePhoneInput}
+              />
+              <TextField
+                label="Dirección"
+                value={customer.address}
+                onChangeText={(text) => setCustomerField('address', text)}
+                placeholder="Dirección de entrega"
+              />
+              <TextField
+                label="Descripción"
+                value={customer.description}
+                onChangeText={(text) => setCustomerField('description', text)}
+                multiline
+                placeholder="Notas, aclaraciones…"
+              />
+              <Pressable
+                onPress={handleSaveCustomer}
+                disabled={!canSaveCustomer}
+                style={({ pressed }) => [
+                  styles.saveRow,
+                  {
+                    backgroundColor: savedFlash ? colors.success + '1A' : colors.surfaceMuted,
+                    opacity: !canSaveCustomer || pressed ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={savedFlash ? 'checkmark-circle' : 'bookmark-outline'}
+                  size={18}
+                  color={savedFlash ? colors.success : colors.primary}
+                />
+                <Text
+                  style={{
+                    color: savedFlash ? colors.success : colors.primary,
+                    fontSize: typography.sizes.body,
+                    fontWeight: '700',
+                  }}
+                >
+                  {savedFlash ? 'Cliente guardado' : 'Guardar cliente'}
+                </Text>
+              </Pressable>
+            </ScrollView>
+
+            <View style={[styles.customerFooter, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+              <PrimaryButton label="Continuar" onPress={continueFromCustomer} />
+              <Text style={[styles.footerNote, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+                Al continuar podrás cobrar o guardar la orden
+              </Text>
+            </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Screen>
+      </Modal>
     </Screen>
   );
 }
@@ -354,15 +401,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  customerPanelWrap: {
-    maxHeight: 300,
+  customerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
-  customerScroll: {
-    flexGrow: 0,
+  customerHeaderSpacer: {
+    width: 40,
   },
-  customerPanel: {
-    gap: 12,
-    paddingBottom: 4,
+  customerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  customerFooter: {
+    borderTopWidth: 1,
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 8,
+  },
+  column: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+  },
+  customerBody: {
+    padding: 24,
+    gap: 16,
+    paddingBottom: 40,
   },
   suggestions: {
     borderRadius: 16,
