@@ -89,7 +89,7 @@ export function renderTicketText(ticket: PrintTicket): string {
     lines.push(ticket.businessAddress);
   }
   lines.push(divider);
-  lines.push(ticket.status === 'paid' ? `Factura ${invoiceCodeFor(ticket.orderNumber)}` : `Ticket Nº ${ticket.orderNumber}`);
+  lines.push(ticket.status === 'paid' ? `Factura ${invoiceCodeFor(ticket.orderNumber)}` : `Factura ${invoiceCodeFor(ticket.orderNumber)} (PENDIENTE)`);
   lines.push(`${formatDate(ticket.createdAt)}  ${formatTime(ticket.createdAt)}`);
   if (ticket.customerName.trim()) {
     lines.push(`Cliente: ${ticket.customerName.trim()}`);

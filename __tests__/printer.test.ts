@@ -156,6 +156,7 @@ describe('renderTicketText', () => {
       changeCents: undefined,
     });
     const text = renderTicketText(buildTicket(pending, business));
+    expect(text).toContain('Factura FAC-0007 (PENDIENTE)');
     expect(text).toContain('*** PAGO PENDIENTE ***');
   });
 });

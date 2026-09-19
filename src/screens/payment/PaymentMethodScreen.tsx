@@ -12,9 +12,11 @@ import type { Order, PaymentMethod } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
 import { productRepository } from '../../repositories/productRepository';
+import { reserveOrderStock } from '../../services/stockService';
 import { useTheme } from '../../theme';
 import { calcChange, formatMoney, parseMoney, formatMoneyBlur } from '../../utils/money';
 import { sanitizeMoneyInput } from '../../utils/inputFormat';
+import { invoiceCodeFor } from '../../utils/invoice';
 import { buildOrder } from '../../utils/order';
 import { findStockIssue } from '../../utils/cart';
 import type { CartItem } from '../../utils/cart';
@@ -61,12 +63,6 @@ export default function PaymentMethodScreen({ route }: Props) {
   const showChange = receivedCents !== null && receivedCents >= subtotalCents;
   const changeCents = showChange ? calcChange(subtotalCents, receivedCents) : null;
 
-  const decrementStocks = async (orderItems: CartItem[]) => {
-    for (const item of orderItems) {
-      await productRepository.decreaseStock(item.product.id, item.quantity);
-    }
-  };
-
   const findStockProblem = async (orderItems: CartItem[]): Promise<string | null> => {
     const live = await productRepository.list();
     const issue = findStockIssue(orderItems, live);
@@ -99,14 +95,13 @@ export default function PaymentMethodScreen({ route }: Props) {
           paidAt: new Date().toISOString(),
         };
         await orderRepository.update(paid);
-        await decrementStocks(existing.items);
         navigation.replace('OrderComplete', { orderId: existing.id });
         return;
       }
 
       const order = buildOrder({ items, customer, status: 'paid', paymentMethod: payMethod, receivedCents: received });
       const saved = await orderRepository.save(order);
-      await decrementStocks(items);
+      await reserveOrderStock(items);
       clear();
       navigation.replace('OrderComplete', { orderId: saved.id });
     } finally {
@@ -175,7 +170,7 @@ export default function PaymentMethodScreen({ route }: Props) {
           <MoneyDisplay cents={subtotalCents} size="large" />
           {existing ? (
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: 6 }}>
-              Orden #{existing.number}
+              Factura {invoiceCodeFor(existing.number)}
             </Text>
           ) : null}
         </View>

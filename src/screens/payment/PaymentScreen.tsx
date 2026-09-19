@@ -10,8 +10,10 @@ import { useCart } from '../../contexts/CartContext';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
+import { reserveOrderStock } from '../../services/stockService';
 import { useTheme } from '../../theme';
 import { buildOrder } from '../../utils/order';
+import { invoiceCodeFor } from '../../utils/invoice';
 
 export default function PaymentScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -25,6 +27,7 @@ export default function PaymentScreen() {
     try {
       const order = buildOrder({ items, customer, status: 'pending' });
       const saved = await orderRepository.save(order);
+      await reserveOrderStock(order.items);
       clear();
       setSavedOrder(saved);
     } finally {
@@ -70,8 +73,8 @@ export default function PaymentScreen() {
             Orden guardada
           </Text>
           <Text style={[styles.successText, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-            La orden {savedOrder.number} quedó guardada sin pagar. Podrás cobrarla o editarla desde "Órdenes
-            guardadas".
+            La factura {invoiceCodeFor(savedOrder.number)} quedó guardada como pendiente. Se descontó del stock y
+            podrás cobrarla o editarla desde "Órdenes guardadas".
           </Text>
           <View style={styles.btnWrap}>
             <PrimaryButton label="Volver al inicio" onPress={handleBackToHome} />

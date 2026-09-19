@@ -24,9 +24,8 @@ export default function CartScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { items, subtotalCents, customer, updateQuantity, setCustomerField } = useCart();
   const [showCustomer, setShowCustomer] = useState(false);
-  const [showSaved, setShowSaved] = useState(false);
   const [savedCustomers, setSavedCustomers] = useState<Customer[]>([]);
-  const [customerQuery, setCustomerQuery] = useState('');
+  const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -38,21 +37,40 @@ export default function CartScreen() {
     };
   }, []);
 
-  const filteredCustomers = useMemo(() => {
-    const q = customerQuery.trim().toLowerCase();
-    if (!q) return savedCustomers;
-    return savedCustomers.filter(
-      (item) => item.name.toLowerCase().includes(q) || item.phone.includes(q),
-    );
-  }, [savedCustomers, customerQuery]);
+  const filteredSuggestions = useMemo(() => {
+    const name = customer.customerName.trim().toLowerCase();
+    const phone = customer.phone.trim().toLowerCase();
+    if (!name && !phone) return [];
+    return savedCustomers
+      .filter(
+        (item) =>
+          (name && item.name.toLowerCase().includes(name)) ||
+          (phone && item.phone.toLowerCase().includes(phone)),
+      )
+      .slice(0, 5);
+  }, [savedCustomers, customer.customerName, customer.phone]);
 
   const useSavedCustomer = (saved: Customer) => {
     setCustomerField('customerName', saved.name);
     setCustomerField('phone', saved.phone);
     setCustomerField('address', saved.address);
     setCustomerField('description', saved.note);
-    setCustomerQuery('');
-    setShowSaved(false);
+  };
+
+  const canSaveCustomer = customer.customerName.trim().length > 0;
+
+  const handleSaveCustomer = async () => {
+    if (!canSaveCustomer) return;
+    await customerRepository.create({
+      name: customer.customerName.trim(),
+      phone: customer.phone,
+      address: customer.address,
+      note: customer.description,
+      createdAt: new Date().toISOString(),
+    });
+    setSavedCustomers(await customerRepository.list());
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 2500);
   };
 
   return (
@@ -92,68 +110,6 @@ export default function CartScreen() {
 
             {showCustomer ? (
               <View style={styles.customerPanel}>
-                <View style={[styles.savedBox, { borderColor: colors.border }]}>
-                  <Pressable
-                    onPress={() => setShowSaved((prev) => !prev)}
-                    style={styles.customerToggle}
-                  >
-                    <Ionicons name={showSaved ? 'chevron-down' : 'chevron-up'} size={18} color={colors.textSecondary} />
-                    <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
-                      Usar cliente guardado
-                    </Text>
-                  </Pressable>
-                  {showSaved ? (
-                    <View style={styles.savedSearch}>
-                      <TextInput
-                        value={customerQuery}
-                        onChangeText={setCustomerQuery}
-                        placeholder="Buscar por nombre o teléfono…"
-                        placeholderTextColor={colors.textSecondary}
-                        returnKeyType="done"
-                        onSubmitEditing={() => Keyboard.dismiss()}
-                        blurOnSubmit
-                        style={[
-                          styles.searchBox,
-                          {
-                            backgroundColor: colors.surfaceMuted,
-                            borderColor: colors.border,
-                            color: colors.textPrimary,
-                          },
-                        ]}
-                      />
-                      {savedCustomers.length === 0 ? (
-                        <Text style={styles.searchHint}>
-                          No hay clientes guardados. Agrégalos en Más → Clientes.
-                        </Text>
-                      ) : filteredCustomers.length === 0 ? (
-                        <Text style={styles.searchHint}>Sin resultados para «{customerQuery}».</Text>
-                      ) : (
-                        filteredCustomers.slice(0, 5).map((saved) => (
-                          <Pressable
-                            key={saved.id}
-                            onPress={() => useSavedCustomer(saved)}
-                            style={({ pressed }) => [
-                              styles.savedRow,
-                              { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.75 : 1 },
-                            ]}
-                          >
-                            <View style={styles.savedRowText}>
-                              <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>
-                                {saved.name}
-                              </Text>
-                              {saved.phone ? (
-                                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
-                                  {saved.phone}
-                                </Text>
-                              ) : null}
-                            </View>
-                            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-                          </Pressable>
-                        ))
-                      )}
-                    </View>
-                  ) : null}
-                </View>
                 <TextField
                   label="Nombre y apellido"
                   value={customer.customerName}
@@ -161,6 +117,32 @@ export default function CartScreen() {
                   autoCapitalize="words"
                   placeholder="Ej. Juan Pérez"
                 />
+                {filteredSuggestions.length > 0 ? (
+                  <View style={[styles.suggestions, { borderColor: colors.border }]}>
+                    {filteredSuggestions.map((saved) => (
+                      <Pressable
+                        key={saved.id}
+                        onPress={() => useSavedCustomer(saved)}
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.75 : 1 },
+                        ]}
+                      >
+                        <View style={styles.savedRowText}>
+                          <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                            {saved.name}
+                          </Text>
+                          {saved.phone ? (
+                            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                              {saved.phone}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Ionicons name="download-outline" size={18} color={colors.primary} />
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
                 <TextField
                   label="Teléfono"
                   value={customer.phone}
@@ -184,6 +166,32 @@ export default function CartScreen() {
                   multiline
                   placeholder="Notas, aclaraciones…"
                 />
+                <Pressable
+                  onPress={handleSaveCustomer}
+                  disabled={!canSaveCustomer}
+                  style={({ pressed }) => [
+                    styles.saveRow,
+                    {
+                      backgroundColor: savedFlash ? colors.success + '1A' : colors.surfaceMuted,
+                      opacity: !canSaveCustomer || pressed ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={savedFlash ? 'checkmark-circle' : 'bookmark-outline'}
+                    size={18}
+                    color={savedFlash ? colors.success : colors.primary}
+                  />
+                  <Text
+                    style={{
+                      color: savedFlash ? colors.success : colors.primary,
+                      fontSize: typography.sizes.body,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {savedFlash ? 'Cliente guardado' : 'Guardar cliente'}
+                  </Text>
+                </Pressable>
               </View>
             ) : null}
 
@@ -332,28 +340,13 @@ const styles = StyleSheet.create({
   customerPanel: {
     gap: 12,
   },
-  savedBox: {
-    gap: 8,
+  suggestions: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 12,
+    padding: 6,
+    gap: 6,
   },
-  savedSearch: {
-    gap: 8,
-  },
-  searchBox: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    fontSize: 15,
-  },
-  searchHint: {
-    fontSize: 13,
-    lineHeight: 18,
-    paddingVertical: 4,
-  },
-  savedRow: {
+  suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -364,6 +357,14 @@ const styles = StyleSheet.create({
   savedRowText: {
     flex: 1,
     gap: 2,
+  },
+  saveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 44,
+    borderRadius: 14,
   },
   subtotalRow: {
     flexDirection: 'row',

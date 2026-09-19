@@ -1,5 +1,6 @@
 import type { Order } from '../models/order';
 import { formatDate, formatTime } from './datetime';
+import { invoiceCodeFor } from './invoice';
 
 export function normalizeSearchText(text: string): string {
   return text
@@ -17,6 +18,7 @@ export function orderMatchesQuery(order: Order, query: string): boolean {
   const { customer } = order;
   const haystack = [
     String(order.number),
+    invoiceCodeFor(order.number),
     customer.customerName,
     customer.phone,
     customer.address,

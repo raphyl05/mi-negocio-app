@@ -9,8 +9,10 @@ import Screen from '../../components/Screen';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
+import { releaseOrderStock } from '../../services/stockService';
 import { useTheme } from '../../theme';
 import { formatTime, inDateRange, parseDateInput } from '../../utils/datetime';
+import { invoiceCodeFor } from '../../utils/invoice';
 import { filterOrders } from '../../utils/orderSearch';
 
 type Segment = 'pending' | 'paid';
@@ -80,7 +82,11 @@ export default function VentasScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
-            await Promise.all(Array.from(selected).map((id) => orderRepository.remove(id)));
+            for (const id of selected) {
+              const order = pending.find((o) => o.id === id);
+              if (order) await releaseOrderStock(order.items);
+              await orderRepository.remove(id);
+            }
             await load();
           },
         },
@@ -146,7 +152,7 @@ export default function VentasScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder={showPending ? 'Buscar por nombre, teléfono, #orden…' : 'Buscar por cliente, teléfono, #orden…'}
+            placeholder={showPending ? 'Buscar por nombre, teléfono, código…' : 'Buscar por cliente, teléfono, código…'}
             placeholderTextColor={colors.textSecondary}
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
@@ -344,7 +350,7 @@ function PendingRow({
         </View>
       ) : (
         <View style={[styles.numberBadge, { backgroundColor: colors.warning + '1F' }]}>
-          <Text style={{ color: colors.warning, fontSize: typography.sizes.caption, fontWeight: '800' }}>#{order.number}</Text>
+          <Text style={{ color: colors.warning, fontSize: typography.sizes.caption, fontWeight: '800' }}>{invoiceCodeFor(order.number)}</Text>
         </View>
       )}
       <View style={styles.rowInfo}>
@@ -374,7 +380,7 @@ function PaidRow({ order, onPress }: { order: Order; onPress: () => void }) {
       style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, borderRadius: 16, opacity: pressed ? 0.85 : 1 }]}
     >
       <View style={[styles.numberBadge, { backgroundColor: colors.success + '1F' }]}>
-        <Text style={{ color: colors.success, fontSize: typography.sizes.caption, fontWeight: '800' }}>#{order.number}</Text>
+        <Text style={{ color: colors.success, fontSize: typography.sizes.caption, fontWeight: '800' }}>{invoiceCodeFor(order.number)}</Text>
       </View>
       <View style={styles.rowInfo}>
         <Text
@@ -469,7 +475,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   numberBadge: {
-    minWidth: 48,
+    minWidth: 72,
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 10,

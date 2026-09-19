@@ -49,6 +49,12 @@ describe('orderSearch', () => {
     expect(orderMatchesQuery(makeOrder(), '7')).toBe(true);
   });
 
+  it('coincide con el mismo código de factura pendiente o pagada', () => {
+    expect(orderMatchesQuery(makeOrder(), 'FAC-0007')).toBe(true);
+    expect(orderMatchesQuery(makeOrder(), 'fac-0007')).toBe(true);
+    expect(orderMatchesQuery(makeOrder(), '0007')).toBe(true);
+  });
+
   it('coincide con fecha y hora formateadas', () => {
     const order = makeOrder();
     expect(orderMatchesQuery(order, '12/04/2026')).toBe(true);

@@ -23,6 +23,17 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 13 COMPLETADA ✅** — historial de ventas pagadas: nueva pestaña "Historial" con búsqueda y detalle de cada venta cobrada.
 **Fase 14 COMPLETADA ✅** — resumen del día y cierre de caja: efectivo esperado vs contado, diferencia auto-calculada y registro del cierre desde "Más".
 **Fase 15 COMPLETADA ✅** — abstracción `PrinterService` (sin imprimir aún) + hook inactivo `usePrinter` listo para conectar impresión cuando se decida.
+**Fase 16 COMPLETADA ✅** — fixes críticos: scroll de facturación y stock atómico (tope en el carrito y revalidación al cobrar).
+**Fase 17 COMPLETADA ✅** — stock siempre activo, renombrar categorías y ajuste rápido de precio/stock.
+**Fase 18 COMPLETADA ✅** — pestaña Ventas unificada: Guardadas (borrado múltiple) y Cobradas (rango de fechas) + ticket pendiente.
+**Fase 19 COMPLETADA ✅** — formato exacto de ticket con datos del negocio, logo base64 y vista previa (OrderComplete + OrderDetail).
+**Fase 20 COMPLETADA ✅** — cierre de caja sin cambio devuelto + recibo de cierre imprimible.
+**Fase 21 COMPLETADA ✅** — configuración del negocio y del usuario desde la pestaña Más.
+**Fase 22 COMPLETADA ✅** — formato al perder el foco (RD$ y teléfonos) y limpieza de cliente al volver a facturar.
+**Fase 23 COMPLETADA ✅** — código único de factura `FAC-NNNN` en cartas, ticket y detalle.
+**Fase 24 COMPLETADA ✅** — directorio de clientes (CRUD) en Más → Clientes.
+**Fase 25 COMPLETADA ✅** — teclado numérico estricto, edición de montos sin borrar y códigos de factura con letras variables tras `FAC-9999`.
+**Fase 26 COMPLETADA ✅** — stock reservado al guardar pendientes y devuelto al cancelarlas; código FAC visible en pendientes y buscable; guardado de clientes desde facturación (sugerencias + botón); safe-area Android.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -170,9 +181,41 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **Hook inactivo `usePrinter`** en `src/hooks/usePrinter.ts`: expone `available`, `statusLabel` y `printOrder(order, businessName)`. Aún **no está conectado a ninguna pantalla** (sin imprimir todavía, como acordado).
 - [x] Tests nuevos: `printer.test.ts` (6 tests). Total: **81 tests pasando**.
 
-## Lo que falta
+### Hecho (Fases 16–22, resumen)
 
-**El MVP (Fases 1–15) está completo.** Lo siguiente en la lista de "Posteriores" (fuera del MVP) puede retomarse cualquier día: impresión real térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, clientes/proveedores, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
+- [x] **Fase 16:** fixes críticos de facturación (scroll) y stock atómico.
+- [x] **Fase 17:** stock siempre activo, renombrar categorías y ajuste rápido de precio/stock desde la lista.
+- [x] **Fase 18:** pestaña **Ventas** unificada: segmentos **Guardadas** (con borrado múltiple por selección + conteo en badge) y **Cobradas** (con rango de fechas Desde/Hasta) y ticket para órdenes pendientes.
+- [x] **Fase 19:** formato exacto de ticket con datos del negocio, logo base64 y vista previa imprimible en `OrderComplete` y `OrderDetail`.
+- [x] **Fase 20:** cierre de caja sin cambio devuelto + recibo de cierre imprimible.
+- [x] **Fase 21:** configuración/edición del negocio y del usuario desde la pestaña **Más**.
+- [x] **Fase 22:** formato al perder el foco en montos (`RD$1,500.00`) y teléfonos (`809-000-0000`). Ajustes posteriores: cobrar con formato RD$, carrito limpio al facturar y teclado con "Listo". Marca **Vendelo App** con logo.
+
+### Hecho (Fase 23)
+
+- [x] **Código único de factura `FAC-NNNN`**: cada orden obtiene su código a partir de un nº consecutivo global (nunca se reutiliza, nunca `-0000`). Se muestra en "Venta completada", en el detalle y en el ticket impreso.
+- [x] **Ticket**: las facturas pagadas imprimen `Factura FAC-0007` y conservan datos del cliente (Tel/Dirección/Nota) si existen.
+
+### Hecho (Fase 24)
+
+- [x] **Directorio de clientes**: nueva pantalla **Clientes** desde **Más → Clientes** (sección CLIENTES) para agregar/editar/eliminar clientes (nombre, teléfono, dirección, nota). Tabla `customers` en SQLite + repositorio con abstracción (memoria para web).
+- [x] Buscador de productos por nombre o teléfono en la lista de clientes.
+
+### Hecho (Fase 25)
+
+- [x] **Teclado numérico estricto**: montos (recibido, contado, apertura, precio) aceptan solo dígitos y `.`/`,`; stock y cantidades solo dígitos; teléfonos solo números y `()-espacio` (`sanitize` aplica solo al teclear, no al formatear).
+- [x] **Editar montos sin borrar**: al enfocar un campo con formato tipo `RD$1,500.00` se selecciona todo el texto; escribir reemplaza y al salir se vuelve a formatear.
+- [x] **Más códigos de factura**: tras `FAC-9999` las siglas varían en base 26 (`FAD-0001` … `FAZ-9999` → `FBA-0001` …), garantizando códigos únicos por mucho tiempo (tests de unicidad con límites exactos).
+
+### Hecho (Fase 26)
+
+- [x] **Stock en órdenes pendientes**: al **Guardar orden** se descuenta el stock (igual que al cobrar); al **cancelar/eliminar/editar** una pendiente el stock **se devuelve**. Cobrar una pendiente **no** descuenta dos veces. Nueva utilidad `src/services/stockService.ts` (`reserveOrderStock`/`releaseOrderStock`) + tests.
+- [x] **Código de factura en pendientes**: las órdenes pendientes muestran `Factura FAC-XXXX (Pendiente)` en el detalle y el ticket, con el **mismo formato** que las pagadas; las filas de Ventas y las pagadas muestran el código.
+- [x] **Búsqueda por código**: en Ventas se puede buscar por **nombre y apellido**, **código `FAC-…`** y **teléfono** (`orderSearch` incluye ahora el código de factura).
+- [x] **Guardado de clientes desde facturación**: se eliminó el panel "Usar cliente guardado" del carrito. Ahora, mientras se escribe el nombre o teléfono aparecen **sugerencias** de clientes guardados (tocarlas rellena los datos) y un botón chico **Guardar cliente** guarda lo escrito en el directorio (se administra en Más → Clientes).
+- [x] **Android safe-area**: `Screen` respeta ahora la barra de navegación del teléfono (`edges` incluye `bottom`), evitando que los botones inferiores queden cortados.
+
+## Lo que falta **El MVP (Fases 1–26) está completo.** Lo siguiente en la lista de "Posteriores" (fuera del MVP) puede retomarse cualquier día: impresión real térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, clientes/proveedores, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
 
 ## Cómo correr la app
 
@@ -196,10 +239,11 @@ npm run android       # intenta abrir en Android (si hay emulador/dispositivo co
 6. **Moneda: RD$** (pesos dominicanos).
 7. **Cada fase = un commit descriptivo.** No mezclar fases. Verificar con `tsc` + `jest` antes de commit.
 8. **Regla de no inventar:** si se encuentra una mejora, se propone y se espera autorización. No implementar por cuenta propia.
+9. **Stock según estado de la orden:** guardar una orden pendiente descuenta stock; cobrarla no descuenta de nuevo; cancelarla/eliminarla/volverla a editar lo devuelve.
 
 ## Posteriores (fuera de alcance del MVP)
 
-Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, impresión térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, clientes/proveedores, exportación/backup en nube.
+Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, impresión térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, proveedores, exportación/backup en nube.
 
 ## Notas de entorno / problemas conocidos
 
@@ -214,11 +258,11 @@ Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltipl
 
 ```
 src/
-  models/          # business, user, product, order, cashRegister
-  screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, history, settings
+  models/          # business, user, product, order, cashRegister, customer
+  screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, history, settings, customers
   navigation/      # stack + tabs
   components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
-  services/        # database, repositories, auth (setupService), session (cashRegisterService), printer (printerService)
+  services/        # database, repositories, auth (setupService), session (cashRegisterService), stock (stockService), printer (printerService)
   hooks/           # usePrinter (inactivo)
   theme/           # colors, typography, spacing, componentes
   utils/           # money.ts (formato + cálculo centavos), orderSearch.ts, cashClosure.ts
@@ -227,6 +271,20 @@ __tests__/         # tests de dinero, carrito, buildOrder, repositorios, validac
 
 ## Registro de commits
 
+- `6287213` Fase 25: teclado numerico estricto, edicion de montos sin borrar y mas codigos de factura
+- `1682ad2` Fase 24: directorio de clientes
+- `07a6d56` Cierre de caja: confirmar diferencia y parseo robusto del contado
+- `d67e27c` Fase 23: codigo unico de factura FAC-NNNN
+- `17c37fb` Arreglos: cobrar con formato RD$, cliente limpio y teclado con 'Listo'
+- `3280061` Vendelo App: nombre y logo
+- `25fc2fe` Fase 22: formato al perder el foco en montos y telefonos (B7)
+- `1c02977` Fase 21: configuracion en la pestana Mas (B5)
+- `344c29d` Fase 20: cierre de caja sin cambio devuelto + recibo de cierre imprimible
+- `c3e0567` Fase 19: formato exacto de ticket con datos del negocio, logo base64 y vista previa (OrderComplete + OrderDetail)
+- `b8986f7` Fase 18: pestana Ventas unificada - guardadas (borrado multiple) y cobradas (rango de fechas) + ticket pendiente
+- `f1e947b` Fase 17: stock siempre activo, renombrar categorias y ajuste rapido de precio/stock
+- `dda36fb` Fase 16: fixes criticos - scroll de facturacion y stock atomico (tope en carrito y revalidacion al cobrar)
+- `94b7659` Actualizar registro de commits en README
 - `93230bf` Fase 15: abstraccion PrinterService y hook inactivo usePrinter
 - `a09748f` Fase 14: resumen del día y cierre de caja (efectivo esperado vs contado)
 - `97f3dc8` Ajustes: proveedor por producto, eliminar categoría y corregir test de repositorio

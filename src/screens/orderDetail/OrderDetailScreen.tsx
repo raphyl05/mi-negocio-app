@@ -14,6 +14,7 @@ import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
+import { releaseOrderStock } from '../../services/stockService';
 import { getBusiness } from '../../services/setupService';
 import { buildTicket } from '../../services/printerService';
 import { useTheme } from '../../theme';
@@ -53,18 +54,20 @@ export default function OrderDetailScreen({ route }: Props) {
   const handleEdit = async () => {
     if (!order) return;
     restore(order.items, order.customer);
+    await releaseOrderStock(order.items);
     await orderRepository.remove(order.id);
     navigation.replace('Cart');
   };
 
   const handleDelete = () => {
     if (!order) return;
-    Alert.alert('Eliminar orden', `Se eliminará la orden #${order.number}. Esta acción no se puede deshacer.`, [
+    Alert.alert('Eliminar orden', `Se eliminará la orden ${invoiceCodeFor(order.number)}. Se devolverá el stock.`, [
       { text: 'Volver', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
         onPress: async () => {
+          await releaseOrderStock(order.items);
           await orderRepository.remove(order.id);
           navigation.goBack();
         },
@@ -117,7 +120,7 @@ export default function OrderDetailScreen({ route }: Props) {
                 { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
               ]}
             >
-              {order.status === 'paid' ? `Factura ${invoiceCodeFor(order.number)}` : `Orden #${order.number}`}
+              {order.status === 'paid' ? `Factura ${invoiceCodeFor(order.number)}` : `Factura ${invoiceCodeFor(order.number)} (Pendiente)`}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
               {formatDate(order.createdAt)} · {formatTime(order.createdAt)}
