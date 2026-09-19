@@ -34,6 +34,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 24 COMPLETADA ✅** — directorio de clientes (CRUD) en Más → Clientes.
 **Fase 25 COMPLETADA ✅** — teclado numérico estricto, edición de montos sin borrar y códigos de factura con letras variables tras `FAC-9999`.
 **Fase 26 COMPLETADA ✅** — stock reservado al guardar pendientes y devuelto al cancelarlas; código FAC visible en pendientes y buscable; guardado de clientes desde facturación (sugerencias + botón); safe-area Android.
+**Fase 27 COMPLETADA ✅** — directorio de proveedores (CRUD igual que clientes, más sección en "Más" y campo proveedor en los productos) + interfaz adaptativa: safe areas por plataforma (borde inferior solo en Android) y contenido centrado con ancho máximo en pantallas grandes.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -215,7 +216,15 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **Guardado de clientes desde facturación**: se eliminó el panel "Usar cliente guardado" del carrito. Ahora, mientras se escribe el nombre o teléfono aparecen **sugerencias** de clientes guardados (tocarlas rellena los datos) y un botón chico **Guardar cliente** guarda lo escrito en el directorio (se administra en Más → Clientes).
 - [x] **Android safe-area**: `Screen` respeta ahora la barra de navegación del teléfono (`edges` incluye `bottom`), evitando que los botones inferiores queden cortados.
 
-## Lo que falta **El MVP (Fases 1–26) está completo.** Lo siguiente en la lista de "Posteriores" (fuera del MVP) puede retomarse cualquier día: impresión real térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, clientes/proveedores, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
+### Hecho (Fase 27)
+
+- [x] **Proveedores**: directorio CRUD igual que Clientes (nombre*, teléfono, dirección y nota) en **Más → PROVEEDORES → Directorio de proveedores**. Tabla `providers` en SQLite + repositorio con abstracción (`providerRepository.ts`, memoria para web) y tests nuevos (`providerRepository.test.ts`). Total: **153 tests, 19 suites, pasando**.
+- [x] **Proveedor en productos**: `ProductFormScreen` tiene la sección **PROVEEDOR (OPCIONAL)** con nombre + teléfono, sugerencias de proveedores guardados mientras escribes (tocarlas rellena los campos) y botón **Guardar proveedor** que lo agrega al directorio al vuelo. Persistido en SQLite (columnas `provider`/`providerPhone`, migradas automáticamente si faltan).
+- [x] **UI adaptativa (detalle safe-area)**: `Screen` hace el borde inferior **solo en Android** (evita que la barra de navegación corte los botones). En iOS/web el sistema ya respeta el gesto home/tab bar, así que se eliminó el borde extra que **dejaba una barra vacía** en iOS.
+- [x] **UI adaptativa (dispositivos anchos)**: `Screen` centra el contenido en una columna con **ancho máximo de 560** en tablet/web; en teléfonos se mantiene a pantalla completa. Los formularios de Clientes y Proveedores ahora son **scrollables y evitan el teclado** (`KeyboardAvoidingView` + `ScrollView`).
+
+## Lo que falta
+**El MVP (Fases 1–26) está completo.** Con la Fase 27 ya hay proveedores y una interfaz adaptativa. Lo siguiente en la lista de "Posteriores" (fuera del MVP) puede retomarse cualquier día: impresión real térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
 
 ## Cómo correr la app
 
@@ -243,7 +252,7 @@ npm run android       # intenta abrir en Android (si hay emulador/dispositivo co
 
 ## Posteriores (fuera de alcance del MVP)
 
-Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, impresión térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, proveedores, exportación/backup en nube.
+Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, impresión térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, exportación/backup en nube.
 
 ## Notas de entorno / problemas conocidos
 
@@ -258,19 +267,20 @@ Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltipl
 
 ```
 src/
-  models/          # business, user, product, order, cashRegister, customer
-  screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, history, settings, customers
+  models/          # business, user, product, order, cashRegister, customer, provider
+  screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, settings, customers, providers
   navigation/      # stack + tabs
   components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
   services/        # database, repositories, auth (setupService), session (cashRegisterService), stock (stockService), printer (printerService)
   hooks/           # usePrinter (inactivo)
   theme/           # colors, typography, spacing, componentes
   utils/           # money.ts (formato + cálculo centavos), orderSearch.ts, cashClosure.ts
-__tests__/         # tests de dinero, carrito, buildOrder, repositorios, validaciones, orderSearch, cashClosure, printer
+__tests__/         # tests de dinero, carrito, buildOrder, repositorios (incl. customer/provider), validaciones, orderSearch, cashClosure, printer
 ```
 
 ## Registro de commits
 
+- `5931004` Fase 27: proveedores como clientes (directorio, SQLite y proveedor en productos) y UI adaptativa (safe areas por plataforma y ancho maximo centrado)
 - `5bf96b9` Fase 26: stock reservado en pendientes con devolucion al cancelar, codigo FAC visible y buscable, guardar clientes desde facturacion y safe-area Android
 - `6287213` Fase 25: teclado numerico estricto, edicion de montos sin borrar y mas codigos de factura
 - `1682ad2` Fase 24: directorio de clientes
