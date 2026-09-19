@@ -222,7 +222,22 @@ __tests__/         # tests de dinero, carrito, buildOrder, repositorios, validac
 
 ## Registro de commits
 
-- `5fc354d` Initial commit (generado por create-expo-app)
-- `ecd9414` Inicializar app con Expo y Git
-- `6ed00cf` Corregir encoding de package.json
-- `e821eb6` Agregar README con estado y plan del proyecto
+- `a09748f` Fase 14: resumen del día y cierre de caja (efectivo esperado vs contado)
+- `97f3dc8` Ajustes: proveedor por producto, eliminar categoría y corregir test de repositorio
+- `1cc6d55` Ajuste: editar cantidades en carrito + Fase 13 (historial de ventas pagadas)
+- `d6de140` Fase 12: ordenes guardadas funcionales (detalle, cobrar, editar, eliminar, busqueda) + ajustes de cantidades/teclado/botones pago
+- `0bbebf3` Actualizar README con la Fase 11
+- `2f0ea8c` SQLite con expo-sqlite y repositorios con abstracción web en memoria
+- `ef13374` Cantidad manual por producto y steppers del carrito más separados
+- `044e041` Actualizar README con la Fase 10
+- `d49bebf` Productos CRUD con stock, imagen y globito de órdenes pendientes
+- `1f32b19` Actualizar README con Fase 9
+- `5b7e38f` Agregar pago y guardar orden con hora a.m./p.m.
+- `dfec0f7` Actualizar README con Fase 8
+- `46ed043` Agregar carrito completo y datos del cliente
+- `398c8e2` Actualizar README con Fase 7
+- `e4d554e` Agregar facturación con buscador y catálogo de prueba
+- `658cd7d` Actualizar README con Fase 6
+- `78c3e16` Agregar apertura de caja
+- `9776bb2` Actualizar README con Fase 5
+- `3a62ce9` Agregar login local
