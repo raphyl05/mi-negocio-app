@@ -9,7 +9,7 @@ import TextField from '../../components/TextField';
 import type { Customer } from '../../models/customer';
 import { customerRepository } from '../../repositories/customerRepository';
 import { useTheme } from '../../theme';
-import { formatPhoneBlur, unformatPhoneFocus } from '../../utils/inputFormat';
+import { formatPhoneBlur, unformatPhoneFocus, sanitizePhoneInput } from '../../utils/inputFormat';
 
 export default function CustomersScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -159,7 +159,7 @@ export default function CustomersScreen() {
             Solo el nombre es obligatorio.
           </Text>
           <TextField label="Nombre *" value={name} onChangeText={setName} autoCapitalize="words" placeholder="Ej. Juan Pérez" formatOnFocus={undefined} formatOnBlur={undefined} />
-          <TextField label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" formatOnFocus={unformatPhoneFocus} formatOnBlur={formatPhoneBlur} />
+          <TextField label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" formatOnFocus={unformatPhoneFocus} formatOnBlur={formatPhoneBlur} sanitize={sanitizePhoneInput} />
           <TextField label="Dirección" value={address} onChangeText={setAddress} placeholder="Dirección del cliente" />
           <TextField label="Nota" value={note} onChangeText={setNote} placeholder="Ej. Prefiere entrega por la tarde" />
           <View style={styles.formActions}>

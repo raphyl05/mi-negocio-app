@@ -16,7 +16,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { customerRepository } from '../../repositories/customerRepository';
 import { useTheme } from '../../theme';
 import { formatMoney } from '../../utils/money';
-import { formatPhoneBlur, unformatPhoneFocus } from '../../utils/inputFormat';
+import { formatPhoneBlur, unformatPhoneFocus, sanitizePhoneInput } from '../../utils/inputFormat';
 import type { CartItem } from '../../utils/cart';
 
 export default function CartScreen() {
@@ -169,6 +169,7 @@ export default function CartScreen() {
                   placeholder="809-000-0000"
                   formatOnFocus={unformatPhoneFocus}
                   formatOnBlur={formatPhoneBlur}
+                  sanitize={sanitizePhoneInput}
                 />
                 <TextField
                   label="Dirección"
@@ -231,7 +232,7 @@ function CartRow({ item }: { item: CartItem }) {
           </Pressable>
           <TextInput
             value={String(quantity)}
-            onChangeText={(text) => updateQuantity(product.id, text)}
+            onChangeText={(text) => updateQuantity(product.id, text.replace(/\D/g, ''))}
             onBlur={() => Keyboard.dismiss()}
             keyboardType="number-pad"
             style={[styles.stepCount, { color: colors.textPrimary, backgroundColor: 'transparent' }]}

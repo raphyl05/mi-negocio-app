@@ -14,8 +14,8 @@ import type { ProductImageType } from '../../models/product';
 import type { RootStackParamList } from '../../navigation/types';
 import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
-import { parseMoney, formatMoneyBlur, unformatMoneyFocus } from '../../utils/money';
-import { formatPhoneBlur, unformatPhoneFocus } from '../../utils/inputFormat';
+import { parseMoney, formatMoneyBlur } from '../../utils/money';
+import { formatPhoneBlur, unformatPhoneFocus, sanitizeMoneyInput, sanitizeIntegerInput, sanitizePhoneInput } from '../../utils/inputFormat';
 import { DEFAULT_PRODUCT_EMOJI, PRODUCT_ICON_CHOICES } from '../../utils/productImages';
 import { validateProduct } from '../../utils/productValidation';
 import type { ProductFormErrors } from '../../utils/productValidation';
@@ -224,8 +224,9 @@ export default function ProductFormScreen() {
             error={errors.price}
             keyboardType="decimal-pad"
             placeholder="Ej. 250 o 250.50"
-            formatOnFocus={unformatMoneyFocus}
             formatOnBlur={formatMoneyBlur}
+            sanitize={sanitizeMoneyInput}
+            selectTextOnFocus
           />
           <View style={styles.fieldGroup}>
             <TextField label="Categoría" value={category} onChangeText={setCategory} error={errors.category} placeholder="Ej. Comidas" />
@@ -283,6 +284,7 @@ export default function ProductFormScreen() {
             placeholder="809-000-0000"
             formatOnFocus={unformatPhoneFocus}
             formatOnBlur={formatPhoneBlur}
+            sanitize={sanitizePhoneInput}
           />
         </View>
 
@@ -370,6 +372,7 @@ export default function ProductFormScreen() {
             error={errors.stock}
             keyboardType="number-pad"
             placeholder="Ej. 50"
+            sanitize={sanitizeIntegerInput}
           />
 
           <View style={styles.toggleRow}>

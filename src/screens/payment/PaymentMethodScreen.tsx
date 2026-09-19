@@ -13,7 +13,8 @@ import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
 import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
-import { calcChange, formatMoney, parseMoney, formatMoneyBlur, unformatMoneyFocus } from '../../utils/money';
+import { calcChange, formatMoney, parseMoney, formatMoneyBlur } from '../../utils/money';
+import { sanitizeMoneyInput } from '../../utils/inputFormat';
 import { buildOrder } from '../../utils/order';
 import { findStockIssue } from '../../utils/cart';
 import type { CartItem } from '../../utils/cart';
@@ -193,8 +194,9 @@ export default function PaymentMethodScreen({ route }: Props) {
               error={error ?? undefined}
               keyboardType="decimal-pad"
               placeholder="Ej. 500 o 500.50"
-              formatOnFocus={unformatMoneyFocus}
               formatOnBlur={formatMoneyBlur}
+              sanitize={sanitizeMoneyInput}
+              selectTextOnFocus
             />
 
             <View style={styles.quickRow}>

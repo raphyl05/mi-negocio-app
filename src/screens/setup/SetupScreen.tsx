@@ -6,7 +6,7 @@ import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import { saveSetup } from '../../services/setupService';
 import { useTheme } from '../../theme';
-import { formatPhoneBlur, unformatPhoneFocus } from '../../utils/inputFormat';
+import { formatPhoneBlur, unformatPhoneFocus, sanitizePhoneInput } from '../../utils/inputFormat';
 import { validateSetup } from '../../utils/setupValidation';
 import type { SetupErrors } from '../../utils/setupValidation';
 
@@ -115,7 +115,7 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
               secureTextEntry
               placeholder="Repite la contraseña"
             />
-            <TextField label="Teléfono (opcional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" formatOnFocus={unformatPhoneFocus} formatOnBlur={formatPhoneBlur} />
+            <TextField label="Teléfono (opcional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" formatOnFocus={unformatPhoneFocus} formatOnBlur={formatPhoneBlur} sanitize={sanitizePhoneInput} />
             <TextField label="Dirección (opcional)" value={address} onChangeText={setAddress} placeholder="Dirección del negocio" />
           </View>
 

@@ -10,3 +10,15 @@ export function unformatPhoneFocus(text: string): string {
   if (digits.length !== 10) return text;
   return digits;
 }
+
+export function sanitizeMoneyInput(text: string): string {
+  return text.replace(/[^\d.,]/g, '');
+}
+
+export function sanitizeIntegerInput(text: string): string {
+  return text.replace(/[^\d]/g, '');
+}
+
+export function sanitizePhoneInput(text: string): string {
+  return text.replace(/[^\d+\-() ]/g, '');
+}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../theme';
 import { parseMoney } from '../utils/money';
+import { sanitizeMoneyInput, sanitizeIntegerInput } from '../utils/inputFormat';
 
 type Mode = 'price' | 'stock' | 'text';
 
@@ -105,7 +106,7 @@ export default function QuickEditModal({
             <TextInput
               value={value}
               onChangeText={(text) => {
-                setValue(text);
+                setValue(isPrice ? sanitizeMoneyInput(text) : isText ? text : sanitizeIntegerInput(text));
                 setError(null);
               }}
               keyboardType={isText ? 'default' : isPrice ? 'decimal-pad' : 'number-pad'}

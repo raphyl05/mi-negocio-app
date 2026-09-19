@@ -15,6 +15,8 @@ type TextFieldProps = {
   multiline?: boolean;
   formatOnFocus?: (text: string) => string;
   formatOnBlur?: (text: string) => string;
+  sanitize?: (text: string) => string;
+  selectTextOnFocus?: boolean;
 };
 
 export default function TextField({
@@ -29,11 +31,17 @@ export default function TextField({
   multiline = false,
   formatOnFocus,
   formatOnBlur,
+  sanitize,
+  selectTextOnFocus = false,
 }: TextFieldProps) {
   const { colors, spacing, typography } = useTheme();
   const [focused, setFocused] = useState(false);
 
   const borderColor = error ? colors.danger : focused ? colors.primary : colors.border;
+
+  const handleChangeText = (text: string) => {
+    onChangeText(sanitize ? sanitize(text) : text);
+  };
 
   return (
     <View style={styles.field}>
@@ -42,7 +50,7 @@ export default function TextField({
       </Text>
       <TextInput
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={handleChangeText}
         onFocus={() => {
           setFocused(true);
           if (formatOnFocus) {
@@ -67,6 +75,7 @@ export default function TextField({
         returnKeyType={multiline ? 'default' : 'done'}
         onSubmitEditing={multiline ? undefined : () => Keyboard.dismiss()}
         blurOnSubmit={multiline ? false : true}
+        selectTextOnFocus={selectTextOnFocus}
         style={[
           styles.input,
           {
