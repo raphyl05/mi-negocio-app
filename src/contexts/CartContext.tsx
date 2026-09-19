@@ -61,7 +61,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
   const decrease = useCallback((productId: string) => setItems((current) => decreaseItem(current, productId)), []);
   const remove = useCallback((productId: string) => setItems((current) => removeItem(current, productId)), []);
-  const clear = useCallback(() => setItems(clearCart()), []);
+  const clear = useCallback(() => {
+    setItems(clearCart());
+    setCustomer(EMPTY_CUSTOMER);
+  }, []);
 
   const updateQuantity = useCallback(
     (productId: string, quantityText: string) =>

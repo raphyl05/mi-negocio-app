@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useState } from 'react';
 import type { KeyboardTypeOptions, TextInputProps } from 'react-native';
 import { useTheme } from '../theme';
@@ -64,6 +64,9 @@ export default function TextField({
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
         multiline={multiline}
+        returnKeyType={multiline ? 'default' : 'done'}
+        onSubmitEditing={multiline ? undefined : () => Keyboard.dismiss()}
+        blurOnSubmit={multiline ? false : true}
         style={[
           styles.input,
           {

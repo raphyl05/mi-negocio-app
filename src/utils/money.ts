@@ -35,7 +35,14 @@ export function calcDifference(expectedCents: number, countedCents: number): num
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 
 export function parseMoney(text: string): number | null {
-  const normalized = text.trim().replace(',', '.').replace(/\s+/g, '');
+  let normalized = text.trim().toUpperCase().replace(/\s+/g, '').replace('RD$', '');
+  if (normalized.includes(',') && normalized.includes('.')) {
+    normalized = normalized.replace(/,/g, '');
+  } else if (normalized.includes(',') && /,\d{3}$/.test(normalized)) {
+    normalized = normalized.replace(/,/g, '');
+  } else {
+    normalized = normalized.replace(',', '.');
+  }
   if (!AMOUNT_PATTERN.test(normalized)) return null;
 
   const [intPart, decPart = ''] = normalized.split('.');

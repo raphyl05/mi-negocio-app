@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import Screen from '../../components/Screen';
@@ -148,6 +148,8 @@ export default function VentasScreen() {
             onChangeText={setQuery}
             placeholder={showPending ? 'Buscar por nombre, teléfono, #orden…' : 'Buscar por cliente, teléfono, #orden…'}
             placeholderTextColor={colors.textSecondary}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
             style={[
               styles.searchInput,
               {

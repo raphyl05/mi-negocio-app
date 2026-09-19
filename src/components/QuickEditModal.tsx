@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../theme';
 import { parseMoney } from '../utils/money';
 
@@ -112,6 +112,8 @@ export default function QuickEditModal({
               placeholder={inputPlaceholder}
               placeholderTextColor={colors.textSecondary}
               autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
               autoCapitalize={isText ? 'sentences' : 'none'}
               style={[
                 styles.input,

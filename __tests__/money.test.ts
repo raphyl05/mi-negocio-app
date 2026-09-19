@@ -67,6 +67,16 @@ describe('parseMoney', () => {
     expect(parseMoney(' 1500 ')).toBe(150000);
   });
 
+  it('acepta valores ya formateados como RD$ con miles', () => {
+    expect(parseMoney('RD$500.00')).toBe(50000);
+    expect(parseMoney('RD$1,500.00')).toBe(150000);
+    expect(parseMoney('RD$500')).toBe(50000);
+    expect(parseMoney('1,500.00')).toBe(150000);
+    expect(parseMoney('1,500')).toBe(150000);
+    expect(parseMoney('12,345.67')).toBe(1234567);
+    expect(parseMoney('RD$ 1,500.00')).toBe(150000);
+  });
+
   it('acepta hasta dos decimales', () => {
     expect(parseMoney('10.5')).toBe(1050);
   });
