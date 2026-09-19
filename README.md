@@ -271,6 +271,7 @@ __tests__/         # tests de dinero, carrito, buildOrder, repositorios, validac
 
 ## Registro de commits
 
+- `5bf96b9` Fase 26: stock reservado en pendientes con devolucion al cancelar, codigo FAC visible y buscable, guardar clientes desde facturacion y safe-area Android
 - `6287213` Fase 25: teclado numerico estricto, edicion de montos sin borrar y mas codigos de factura
 - `1682ad2` Fase 24: directorio de clientes
 - `07a6d56` Cierre de caja: confirmar diferencia y parseo robusto del contado
