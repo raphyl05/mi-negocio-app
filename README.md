@@ -305,6 +305,7 @@ src/
 
 ## Registro de commits
 
+- `9750f2c` Pestana Mas limpia: esencial (negocio, caja, tema, cerrar sesion) y pantalla Configuracion aparte
 - `ebfa324` Fase 30: sincronizacion Google Drive - upload auto post-cierre, cola offline, restore manual Drive
 - `c5ff29f` Fase 29: impresion rapida en Ventas (pendientes y cobradas), tablet responsive (840dp y grilla 3-4 col), backup/restore por archivo JSON y borrar cuenta/datos
 - `3e64b3c` Fase 28: impresora configurable (sistema/integrada, Bluetooth y demo) con auto-reconexion, botones de impresion y tickets ESC/POS
