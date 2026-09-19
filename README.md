@@ -19,6 +19,9 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 10 COMPLETADA ✅** — productos CRUD (nombre, precio, categoría, estado), imagen por emoji/ícono/foto, stock opcional con descuento al vender y **globito rojo** de órdenes pendientes en la pestaña Ventas.
 **Ajuste ✅** — cantidad manual editable en cada tarjeta de producto y botones − cantidad + más grandes/separados en el carrito.
 **Fase 11 COMPLETADA ✅** — SQLite en Android/iOS (productos, stock y órdenes persistidas) con abstracción por repositorios: en memoria para web.
+**Fase 12 COMPLETADA ✅** — órdenes guardadas funcionales (detalle, cobrar, editar carrito, eliminar, búsqueda) y ajustes de cantidades/teclado en pago.
+**Fase 13 COMPLETADA ✅** — historial de ventas pagadas: nueva pestaña "Historial" con búsqueda y detalle de cada venta cobrada.
+**Fase 14 COMPLETADA ✅** — resumen del día y cierre de caja: efectivo esperado vs contado, diferencia auto-calculada y registro del cierre desde "Más".
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -139,18 +142,32 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **Órdenes guardadas funcionales** (`SalesScreen`): lista de pendientes con buscador de texto libre que coincide con nº de orden, nombre, teléfono, dirección, descripción, productos, fecha y hora (sin tildes/búsqueda normalizada en `src/utils/orderSearch.ts`). Tocar una orden abre el detalle.
 - [x] Pantalla `OrderDetailScreen` (navegación): muestra nº, fecha/hora, datos del cliente, líneas de productos (nombre, cantidad × precio, subtotal) y total; botones **Cobrar orden**, **Editar carrito** (restaura productos + cliente en el carrito, elimina la orden pendiente y abre el carrito) y **Eliminar orden** (con confirmación).
 - [x] **Cobrar una orden guardada** (`PaymentMethodScreen`): acepta opcionalmente `orderId`; si viene de una orden guardada, cobra esa orden preservando su número (se marca `paid`, se descuenta stock y se abre `OrderComplete`); si es nuevo, usa el carrito como antes.
-- [x] **Ajuste cantidades en facturación**: en la tarjeta de producto de `InvoiceScreen`, cuando el producto ya está en el carrito se muestra un stepper **− cantidad +** para editarlo sin ir al carrito; si no está, mantiene el recuadro de cantidad + botón **+**.
+- [x] **Ajuste cantidades en facturación**: en la tarjeta de producto de `InvoiceScreen` siempre hay un recuadro de **cantidad editable** (1 por defecto) + botón **+** para sumar esa cantidad al carrito. Al agregar, la cantidad vuelve a 1.
 - [x] **Teclado**: en `InvoiceScreen`, toca fuera del campo para cerrar el teclado (`TouchableWithoutFeedback` + `Keyboard.dismiss`, `keyboardDismissMode="on-drag"` en la lista).
 - [x] **Pago**: `PaymentScreen` añade los botones **Modificar orden** (vuelve al carrito) y **Cancelar orden** (Alert de confirmación → vacía carrito y vuelve al inicio).
 - [x] Tests nuevos: `orderSearch.test.ts` (11 tests). Total: **63 tests pasando**. Nueva carpeta `src/screens/orderDetail/`.
 
-## Lo que falta (Fases 13–15)
+### Hecho (Fase 13)
+
+- [x] **Historial de ventas pagadas** (`HistoryScreen`): nueva 5.ª pestaña **Historial** que lista las ventas cobradas con nº de orden, cliente, hora y total, con buscador de texto libre (reutiliza `filterOrders`).
+- [x] Tocar una venta abre `OrderDetailScreen` (reutilizado) para ver su detalle completo. Solo se muestran ventas **pagadas**.
+- [x] Se añadió `History: undefined` a `TabParamList` y se conectó en `BottomTabs` con el ícono `time`.
+- [x] Tests: 63 pasando (pantalla de UI, sin tests nuevos).
+
+### Hecho (Fase 14)
+
+- [x] **Resumen del día y cierre de caja** (`CashClosureScreen`): desde la pestaña **Más** → botón "Resumen del día y cierre" en la tarjeta de Caja (solo con caja abierta).
+- [x] **Lógica pura y testeable** en `src/utils/cashClosure.ts`: `computeCashTotals` (total vendido, efectivo, cambio devuelto, transferencia), `calcCashClosure` (efectivo esperado = inicial + ventas en efectivo − cambio) y `isOrderInRegister` (solo órdenes pagadas dentro del turno, por `paidAt`).
+- [x] **Conteo del efectivo**: campo "Efectivo contado" precargado con el esperado; la **diferencia** se calcula en vivo (verde si cuadra, rojo si falta, ámbar si sobra) reutilizando `calcDifference`.
+- [x] **Cierre de caja**: `closeRegister` en `src/services/cashRegisterService.ts` guarda el registro del cierre (inicial, esperado, contado, diferencia) en AsyncStorage y elimina la caja abierta; al volver, Inicio pide abrir caja de nuevo.
+- [x] Tests nuevos: `cashClosure.test.ts` (10 tests). Total: **75 tests pasando**.
+
+## Lo que falta (Fase 15)
 
 Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
 
 | Fase | Qué falta hacer | Verificación |
 |---|---|---|
-| 14 | Resumen del día + cierre de caja (efectivo esperado vs contado) | tests de diferencia |
 | 15 | Abstracción `PrinterService` (sin imprimir aún) | hook inactivo presente |
 
 ## Cómo correr la app
@@ -199,7 +216,7 @@ src/
   components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
   services/        # database, repositories, auth, printer, session
   theme/           # colors, typography, spacing, componentes
-  utils/           # money.ts (formato + cálculo centavos), orderSearch.ts
+  utils/           # money.ts (formato + cálculo centavos), orderSearch.ts, cashClosure.ts
 __tests__/         # tests de dinero, carrito, buildOrder, repositorios, validaciones, orderSearch
 ```
 

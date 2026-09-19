@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Card from '../../components/Card';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import Screen from '../../components/Screen';
 import type { Business } from '../../models/business';
 import type { CashRegister } from '../../models/cashRegister';
+import type { RootStackParamList } from '../../navigation/types';
 import { getOpenRegister } from '../../services/cashRegisterService';
 import { getBusiness } from '../../services/setupService';
 import { useTheme } from '../../theme';
@@ -14,6 +16,7 @@ import { formatTime } from '../../utils/datetime';
 
 export default function SettingsScreen() {
   const { colors, spacing, typography } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [business, setBusiness] = useState<Business | null>(null);
   const [register, setRegister] = useState<CashRegister | null>(null);
 
@@ -89,6 +92,22 @@ export default function SettingsScreen() {
               <Text style={[styles.detail, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
                 Efectivo inicial <MoneyDisplay cents={register.openingAmountCents} />
               </Text>
+
+              <Pressable
+                onPress={() => navigation.navigate('CashClosure')}
+                style={({ pressed }) => [
+                  styles.closureButton,
+                  {
+                    backgroundColor: pressed ? colors.primaryLight : colors.surface,
+                    borderColor: colors.primary,
+                  },
+                ]}
+              >
+                <Ionicons name="receipt-outline" size={18} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '700' }}>
+                  Resumen del día y cierre
+                </Text>
+              </Pressable>
             </>
           ) : (
             <View style={styles.rowIcon}>
@@ -108,7 +127,7 @@ export default function SettingsScreen() {
         </Card>
 
         <Text style={[styles.footer, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-          Cierre de caja y resumen del día llegan en la Fase 14
+          Cierra la caja al terminar tu turno desde el resumen del día.
         </Text>
       </ScrollView>
     </Screen>
@@ -153,6 +172,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   detail: {
+    marginLeft: 54,
+  },
+  closureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
     marginLeft: 54,
   },
   footer: {

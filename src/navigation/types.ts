@@ -6,6 +6,7 @@ export type RootStackParamList = {
   OrderComplete: { orderId: string };
   ProductForm: { productId?: string } | undefined;
   OrderDetail: { orderId: string };
+  CashClosure: undefined;
 };
 
 export type TabParamList = {

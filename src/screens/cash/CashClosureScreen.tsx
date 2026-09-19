@@ -1,0 +1,289 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Card from '../../components/Card';
+import MoneyDisplay from '../../components/MoneyDisplay';
+import PrimaryButton from '../../components/PrimaryButton';
+import Screen from '../../components/Screen';
+import TextField from '../../components/TextField';
+import type { CashRegister } from '../../models/cashRegister';
+import type { Order } from '../../models/order';
+import type { RootStackParamList } from '../../navigation/types';
+import { orderRepository } from '../../repositories/orderRepository';
+import { closeRegister, getOpenRegister } from '../../services/cashRegisterService';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme/colors';
+import { calcCashClosure, isOrderInRegister } from '../../utils/cashClosure';
+import { parseMoney } from '../../utils/money';
+
+export default function CashClosureScreen() {
+  const { colors, spacing, typography } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const [register, setRegister] = useState<CashRegister | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [countedText, setCountedText] = useState('');
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const reg = await getOpenRegister();
+      if (!active || !reg) return;
+      const paid = await orderRepository.listPaid();
+      const sessionOrders = paid.filter((order) => isOrderInRegister(order, reg.openedAt));
+      if (!active) return;
+      setRegister(reg);
+      setOrders(sessionOrders);
+      if (countedText === '') {
+        const expected = calcCashClosure({
+          openingAmountCents: reg.openingAmountCents,
+          countedCashCents: 0,
+          orders: sessionOrders,
+        }).expectedCashCents;
+        setCountedText((expected / 100).toFixed(2));
+      }
+      setLoadedOnce(true);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!loadedOnce) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </Screen>
+    );
+  }
+
+  const counted = parseMoney(countedText);
+  const summary = register
+    ? calcCashClosure({
+        openingAmountCents: register.openingAmountCents,
+        countedCashCents: counted ?? 0,
+        orders,
+      })
+    : null;
+
+  if (!register || !summary) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body, textAlign: 'center' }}>
+            No hay caja abierta.
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  const difference = counted !== null ? summary.differenceCents : null;
+  const countingError = counted === null ? 'Ingresa el efectivo contado, por ejemplo 700 o 700.50' : null;
+
+  const handleClose = () => {
+    if (counted === null || counted < 0) {
+      return;
+    }
+    const sobra = difference !== null && difference < 0;
+    const falta = difference !== null && difference > 0;
+    const message =
+      difference === null
+        ? ''
+        : sobra
+          ? `Sobra ${money(Math.abs(difference))} en caja.`
+          : falta
+            ? `Falta ${money(difference)} en caja.`
+            : 'La caja cuadra exactamente.';
+
+    Alert.alert('Cerrar caja', `Al cerrar terminarás el turno.\n\n${message}`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar caja',
+        style: 'destructive',
+        onPress: async () => {
+          setClosing(true);
+          try {
+            await closeRegister({
+              openingAmountCents: summary.openingAmountCents,
+              expectedCashCents: summary.expectedCashCents,
+              countedCashCents: summary.countedCashCents,
+              differenceCents: summary.differenceCents,
+            });
+            Alert.alert('Caja cerrada', 'El turno terminó. Se guardó el resumen del cierre.', [
+              { text: 'Listo', onPress: () => navigation.goBack() },
+            ]);
+          } finally {
+            setClosing(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <Text
+          style={[
+            styles.title,
+            { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+          ]}
+        >
+          Resumen del día
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          Caja abierta con {money(summary.openingAmountCents)} · {summary.orderCount}{' '}
+          {summary.orderCount === 1 ? 'venta' : 'ventas'} pagadas en el turno.
+        </Text>
+
+        <Card style={styles.card}>
+          <Text style={styles.sectionLabel}>VENTAS DEL TURNO</Text>
+          <SummaryRow label="Total vendido" cents={summary.salesCents} />
+          <SummaryRow label="En efectivo" cents={summary.cashSalesCents} />
+          <SummaryRow label="Cambio devuelto" cents={summary.cashChangeCents} subtract />
+          <SummaryRow label="Por transferencia" cents={summary.transferSalesCents} />
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={styles.sectionLabel}>EFECTIVO EN CAJA (ESPERADO)</Text>
+          <MoneyDisplay cents={summary.expectedCashCents} size="large" />
+          <Text style={[styles.hint, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+            {money(summary.openingAmountCents)} inicial {summary.cashChangeCents > 0 ? `− ${money(summary.cashChangeCents)} de cambio` : ''}
+          </Text>
+        </Card>
+
+        <Card style={styles.card}>
+          <TextField
+            label="Efectivo contado (RD$)"
+            value={countedText}
+            onChangeText={setCountedText}
+            error={countingError ?? undefined}
+            keyboardType="decimal-pad"
+            placeholder="Ej. 700 o 700.50"
+          />
+
+          {difference !== null ? (
+            <View style={styles.diffRow}>
+              <View style={[styles.diffBadge, { backgroundColor: diffColor(colors, difference) }]}>
+                <Ionicons name={difference === 0 ? 'checkmark-circle' : difference > 0 ? 'alert-circle' : 'warning'} size={18} color={diffTextColor(colors, difference)} />
+              </View>
+              <View style={styles.diffText}>
+                <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '700' }}>
+                  {difference === 0 ? 'La caja cuadra' : difference > 0 ? 'Falta dinero' : 'Sobra dinero'}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                  {difference === 0
+                    ? 'El conteo coincide con lo esperado.'
+                    : `Diferencia de ${money(Math.abs(difference))} ${difference > 0 ? '(falta)' : '(sobra)'}.`}
+                </Text>
+              </View>
+              <MoneyDisplay cents={Math.abs(difference)} size="small" color={diffTextColor(colors, difference)} />
+            </View>
+          ) : null}
+        </Card>
+
+        <View style={styles.actions}>
+          <PrimaryButton label="Cerrar caja" onPress={handleClose} loading={closing} />
+          <PrimaryButton label="Volver" variant="outline" onPress={() => navigation.goBack()} />
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+
+  function SummaryRow({ label, cents, subtract }: { label: string; cents: number; subtract?: boolean }) {
+    return (
+      <View style={styles.summaryRow}>
+        <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>{label}</Text>
+        {subtract ? (
+          <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>−{money(cents)}</Text>
+        ) : (
+          <MoneyDisplay cents={cents} size="small" />
+        )}
+      </View>
+    );
+  }
+}
+
+function diffColor(colors: Colors, difference: number): string {
+  if (difference === 0) return colors.success + '1F';
+  if (difference > 0) return colors.danger + '1A';
+  return colors.warning + '33';
+}
+
+function diffTextColor(colors: Colors, difference: number): string {
+  if (difference === 0) return colors.success;
+  if (difference > 0) return colors.danger;
+  return colors.warning;
+}
+
+function money(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(cents) / 100);
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+  title: {
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  card: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  hint: {
+    lineHeight: 18,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  diffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+  },
+  diffBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diffText: {
+    flex: 1,
+    gap: 2,
+  },
+  actions: {
+    gap: 12,
+    marginTop: 8,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 32,
+  },
+});
