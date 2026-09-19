@@ -15,6 +15,8 @@ type ProductRow = {
   trackStock: number;
   stockQuantity: number;
   active: number;
+  provider: string | null;
+  providerPhone: string | null;
   createdAt: string;
 };
 
@@ -31,6 +33,8 @@ function rowToProduct(row: ProductRow): Product {
     trackStock: row.trackStock === 1,
     stockQuantity: row.stockQuantity,
     active: row.active === 1,
+    provider: row.provider ?? undefined,
+    providerPhone: row.providerPhone ?? undefined,
     createdAt: row.createdAt,
   };
 }
@@ -57,8 +61,8 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
     async create(product) {
       const created: Product = { ...product, id: product.id || generateId() };
       await db.runAsync(
-        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, trackStock, stockQuantity, active, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, trackStock, stockQuantity, active, provider, providerPhone, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           created.id,
           created.name,
@@ -71,6 +75,8 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
           created.trackStock ? 1 : 0,
           created.stockQuantity,
           created.active ? 1 : 0,
+          created.provider ?? null,
+          created.providerPhone ?? null,
           created.createdAt,
         ],
       );
@@ -79,7 +85,7 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
 
     async update(product) {
       await db.runAsync(
-        `UPDATE products SET name = ?, priceCents = ?, category = ?, imageType = ?, emoji = ?, icon = ?, imageUri = ?, trackStock = ?, stockQuantity = ?, active = ?
+        `UPDATE products SET name = ?, priceCents = ?, category = ?, imageType = ?, emoji = ?, icon = ?, imageUri = ?, trackStock = ?, stockQuantity = ?, active = ?, provider = ?, providerPhone = ?
          WHERE id = ?`,
         [
           product.name,
@@ -92,6 +98,8 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
           product.trackStock ? 1 : 0,
           product.stockQuantity,
           product.active ? 1 : 0,
+          product.provider ?? null,
+          product.providerPhone ?? null,
           product.id,
         ],
       );
@@ -100,6 +108,15 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
 
     async remove(id) {
       await db.runAsync('DELETE FROM products WHERE id = ?', id);
+    },
+
+    async removeByCategory(category) {
+      const result = await db.getFirstAsync<{ n: number }>(
+        'SELECT count(*) as n FROM products WHERE category = ?',
+        category,
+      );
+      await db.runAsync('DELETE FROM products WHERE category = ?', category);
+      return result?.n ?? 0;
     },
 
     async decreaseStock(id, quantity) {

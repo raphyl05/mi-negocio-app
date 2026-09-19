@@ -12,5 +12,7 @@ export type Product = {
   trackStock: boolean;
   stockQuantity: number;
   active: boolean;
+  provider?: string;
+  providerPhone?: string;
   createdAt: string;
 };

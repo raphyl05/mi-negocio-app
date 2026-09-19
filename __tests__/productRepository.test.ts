@@ -67,4 +67,26 @@ describe('productRepository (en memoria)', () => {
     expect(comidas.some((p) => p.name === 'Bebida B')).toBe(false);
     expect((await repo.list()).length).toBeGreaterThanOrEqual(2);
   });
+
+  it('elimina todos los productos de una categoría', async () => {
+    const repo = createInMemoryProductRepository();
+    const seedComidas = (await repo.listByCategory('Comidas')).length;
+    await repo.create(makeProduct({ name: 'A', category: 'Comidas' }));
+    await repo.create(makeProduct({ name: 'B', category: 'Comidas' }));
+    await repo.create(makeProduct({ name: 'C', category: 'Bebidas' }));
+    const removed = await repo.removeByCategory('Comidas');
+    expect(removed).toBe(seedComidas + 2);
+    expect(await repo.listByCategory('Comidas')).toHaveLength(0);
+    expect((await repo.list()).some((p) => p.name === 'C')).toBe(true);
+  });
+
+  it('guarda proveedor y teléfono opcionales', async () => {
+    const repo = createInMemoryProductRepository();
+    const created = await repo.create(
+      makeProduct({ provider: 'Proveedor X', providerPhone: '809-555-0101' }),
+    );
+    const found = await repo.getById(created.id);
+    expect(found?.provider).toBe('Proveedor X');
+    expect(found?.providerPhone).toBe('809-555-0101');
+  });
 });

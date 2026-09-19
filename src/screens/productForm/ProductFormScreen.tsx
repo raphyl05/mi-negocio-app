@@ -37,6 +37,8 @@ export default function ProductFormScreen() {
   const [name, setName] = useState('');
   const [priceText, setPriceText] = useState('');
   const [category, setCategory] = useState('');
+  const [provider, setProvider] = useState('');
+  const [providerPhone, setProviderPhone] = useState('');
   const [active, setActive] = useState(true);
   const [trackStock, setTrackStock] = useState(false);
   const [stockText, setStockText] = useState('');
@@ -64,6 +66,8 @@ export default function ProductFormScreen() {
       setName(product.name);
       setPriceText(formatPriceEdit(product.priceCents));
       setCategory(product.category);
+      setProvider(product.provider ?? '');
+      setProviderPhone(product.providerPhone ?? '');
       setActive(product.active);
       setTrackStock(product.trackStock);
       setStockText(product.trackStock ? String(product.stockQuantity) : '');
@@ -120,6 +124,8 @@ export default function ProductFormScreen() {
           trackStock,
           stockQuantity,
           active,
+          provider: provider.trim() || undefined,
+          providerPhone: providerPhone.trim() || undefined,
         });
       } else {
         await productRepository.create({
@@ -132,6 +138,8 @@ export default function ProductFormScreen() {
           active: true,
           createdAt: new Date().toISOString(),
           ...image,
+          provider: provider.trim() || undefined,
+          providerPhone: providerPhone.trim() || undefined,
         });
       }
       navigation.goBack();
@@ -190,6 +198,23 @@ export default function ProductFormScreen() {
                   <Pressable
                     key={c}
                     onPress={() => setCategory(c)}
+                    onLongPress={() => {
+                      Alert.alert(
+                        'Eliminar categoría',
+                        `¿Eliminar "${c}" y todos sus productos?`,
+                        [
+                          { text: 'Cancelar', style: 'cancel' },
+                          {
+                            text: 'Eliminar',
+                            style: 'destructive',
+                            onPress: async () => {
+                              await productRepository.removeByCategory(c);
+                              setCategories((prev) => prev.filter((cat) => cat !== c));
+                            },
+                          },
+                        ],
+                      );
+                    }}
                     style={[
                       styles.categoryChip,
                       { backgroundColor: category === c ? colors.primaryLight : colors.surfaceMuted },
@@ -205,6 +230,31 @@ export default function ProductFormScreen() {
               </View>
             ) : null}
           </View>
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            { borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 14, gap: 10 },
+          ]}
+        >
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+            PROVEEDOR (OPCIONAL)
+          </Text>
+          <TextField
+            label="Proveedor"
+            value={provider}
+            onChangeText={setProvider}
+            placeholder="Nombre del proveedor"
+            autoCapitalize="words"
+          />
+          <TextField
+            label="Teléfono del proveedor"
+            value={providerPhone}
+            onChangeText={setProviderPhone}
+            keyboardType="phone-pad"
+            placeholder="809-000-0000"
+          />
         </View>
 
         <View style={styles.section}>

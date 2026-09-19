@@ -11,6 +11,7 @@ export interface ProductRepository {
   create(product: Product): Promise<Product>;
   update(product: Product): Promise<Product>;
   remove(id: string): Promise<void>;
+  removeByCategory(category: string): Promise<number>;
   decreaseStock(id: string, quantity: number): Promise<void>;
 }
 
@@ -43,6 +44,12 @@ export function createInMemoryProductRepository(): ProductRepository {
 
     async remove(id) {
       products = products.filter((product) => product.id !== id);
+    },
+
+    async removeByCategory(category) {
+      const before = products.length;
+      products = products.filter((product) => product.category !== category);
+      return before - products.length;
     },
 
     async decreaseStock(id, quantity) {
@@ -90,6 +97,10 @@ class LazyProductRepository implements ProductRepository {
 
   async remove(id: string) {
     return (await this.ready()).remove(id);
+  }
+
+  async removeByCategory(category: string) {
+    return (await this.ready()).removeByCategory(category);
   }
 
   async decreaseStock(id: string, quantity: number) {
