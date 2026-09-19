@@ -31,6 +31,7 @@ export default function CashClosureScreen() {
   const [countedText, setCountedText] = useState('');
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const [receiptText, setReceiptText] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,46 +93,66 @@ export default function CashClosureScreen() {
   }
 
   const difference = counted !== null ? summary.differenceCents : null;
-  const countingError = counted === null ? 'Ingresa el efectivo contado, por ejemplo 700 o 700.50' : null;
+  const countingError = attempted && counted === null ? 'Ingresa el efectivo contado, por ejemplo 700 o 700.50' : null;
+
+  const doClose = async (cents: number) => {
+    setClosing(true);
+    try {
+      const live = calcCashClosure({
+        openingAmountCents: register.openingAmountCents,
+        countedCashCents: cents,
+        orders,
+      });
+      const record = await closeRegister({
+        openingAmountCents: live.openingAmountCents,
+        expectedCashCents: live.expectedCashCents,
+        countedCashCents: cents,
+        differenceCents: live.differenceCents,
+      });
+      setReceiptText(
+        renderClosureReceiptText(business ?? { name: 'Mi Negocio', createdAt: record.closedAt }, live, record.closedAt),
+      );
+    } finally {
+      setClosing(false);
+    }
+  };
 
   const handleClose = () => {
-    if (counted === null || counted < 0) {
+    const cents = parseMoney(countedText);
+    if (cents === null || cents < 0) {
+      setAttempted(true);
       return;
     }
-    const sobra = difference !== null && difference < 0;
-    const falta = difference !== null && difference > 0;
-    const message =
-      difference === null
-        ? ''
-        : sobra
-          ? `Sobra ${money(Math.abs(difference))} en caja.`
-          : falta
-            ? `Falta ${money(difference)} en caja.`
-            : 'La caja cuadra exactamente.';
+    const falta = cents > summary.expectedCashCents;
+    const isExact = cents === summary.expectedCashCents;
+    const message = isExact
+      ? 'La caja cuadra exactamente.'
+      : `Hay una diferencia de ${money(Math.abs(cents - summary.expectedCashCents))} (${falta ? 'falta' : 'sobra'}).`;
 
-    Alert.alert('Cerrar caja', `Al cerrar terminarás el turno.\n\n${message}`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar caja',
-        style: 'destructive',
-        onPress: async () => {
-          setClosing(true);
-          try {
-            const record = await closeRegister({
-              openingAmountCents: summary.openingAmountCents,
-              expectedCashCents: summary.expectedCashCents,
-              countedCashCents: summary.countedCashCents,
-              differenceCents: summary.differenceCents,
-            });
-            setReceiptText(
-              renderClosureReceiptText(business ?? { name: 'Mi Negocio', createdAt: record.closedAt }, summary, record.closedAt),
-            );
-          } finally {
-            setClosing(false);
-          }
+    if (isExact) {
+      Alert.alert('Cerrar caja', `Al cerrar terminarás el turno.\n\n${message}`, [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar caja',
+          style: 'destructive',
+          onPress: () => doClose(cents),
         },
-      },
-    ]);
+      ]);
+      return;
+    }
+
+    Alert.alert(
+      'Confirmar cierre',
+      `${message}\n\n¿Seguro que deseas cerrar la caja de todas formas con esta diferencia?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar de todas formas',
+          style: 'destructive',
+          onPress: () => doClose(cents),
+        },
+      ],
+    );
   };
 
   return (
