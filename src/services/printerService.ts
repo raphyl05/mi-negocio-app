@@ -1,6 +1,6 @@
-import type { Order } from '../models/order';
-
-export type PaymentMethod = Order['paymentMethod'];
+import type { Order, PaymentMethod } from '../models/order';
+import { formatDate, formatTime } from '../utils/datetime';
+import { formatMoney } from '../utils/money';
 
 export type PrintTicketLine = {
   name: string;
@@ -12,10 +12,11 @@ export type PrintTicket = {
   businessName: string;
   orderNumber: number;
   createdAt: string;
+  status: Order['status'];
   customerName: string;
   lines: PrintTicketLine[];
   subtotalCents: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   receivedCents?: number;
   changeCents?: number;
 };
@@ -36,6 +37,7 @@ export function buildTicket(order: Order, businessName: string): PrintTicket {
     businessName,
     orderNumber: order.number,
     createdAt: order.paidAt ?? order.createdAt,
+    status: order.status,
     customerName: order.customer.customerName,
     lines: order.items.map((item) => ({
       name: item.product.name,
@@ -47,6 +49,48 @@ export function buildTicket(order: Order, businessName: string): PrintTicket {
     receivedCents: order.receivedCents,
     changeCents: order.changeCents,
   };
+}
+
+export function renderTicketText(ticket: PrintTicket): string {
+  const divider = '-'.repeat(42);
+  const money = (cents: number) => formatMoney(cents);
+  const methodLabel =
+    ticket.paymentMethod === 'cash'
+      ? 'Efectivo'
+      : ticket.paymentMethod === 'transfer'
+        ? 'Transferencia'
+        : 'Pendiente';
+
+  const lines: string[] = [];
+  lines.push(ticket.businessName.toUpperCase());
+  lines.push(divider);
+  lines.push(`Ticket Nº ${ticket.orderNumber}`);
+  lines.push(`${formatDate(ticket.createdAt)}  ${formatTime(ticket.createdAt)}`);
+  if (ticket.customerName.trim()) {
+    lines.push(`Cliente: ${ticket.customerName.trim()}`);
+  }
+  lines.push(divider);
+  for (const line of ticket.lines) {
+    lines.push(line.name);
+    lines.push(`  ${line.quantity} x ${money(line.unitPriceCents)}`.padEnd(26) + money(line.unitPriceCents * line.quantity));
+  }
+  lines.push(divider);
+  lines.push('TOTAL'.padEnd(26) + money(ticket.subtotalCents));
+  lines.push(divider);
+  lines.push(`Metodo de pago: ${methodLabel}`);
+  if (ticket.receivedCents !== undefined) {
+    lines.push(`Recibido: ${money(ticket.receivedCents)}`);
+  }
+  if (ticket.changeCents !== undefined && ticket.changeCents > 0) {
+    lines.push(`Cambio: ${money(ticket.changeCents)}`);
+  }
+  lines.push('');
+  lines.push('¡Gracias por su compra!');
+  if (ticket.status === 'pending') {
+    lines.push('');
+    lines.push('*** PAGO PENDIENTE ***');
+  }
+  return lines.join('\n');
 }
 
 export function createInactivePrinterService(): PrinterService {

@@ -4,9 +4,8 @@ import type { ComponentProps } from 'react';
 import { usePendingOrders } from '../contexts/PendingOrdersContext';
 import HomeScreen from '../screens/home/HomeScreen';
 import ProductsScreen from '../screens/products/ProductsScreen';
-import SalesScreen from '../screens/sales/SalesScreen';
+import VentasScreen from '../screens/sales/VentasScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
-import HistoryScreen from '../screens/history/HistoryScreen';
 import { useTheme } from '../theme';
 import type { TabParamList } from './types';
 
@@ -19,7 +18,6 @@ const ICONS: Record<keyof TabParamList, { active: IconName; inactive: IconName }
   Sales: { active: 'receipt', inactive: 'receipt-outline' },
   Products: { active: 'cube', inactive: 'cube-outline' },
   Settings: { active: 'apps', inactive: 'apps-outline' },
-  History: { active: 'time', inactive: 'time-outline' },
 };
 
 export default function BottomTabs() {
@@ -51,7 +49,7 @@ export default function BottomTabs() {
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Inicio' }} />
       <Tab.Screen
         name="Sales"
-        component={SalesScreen}
+        component={VentasScreen}
         options={{
           title: 'Ventas',
           tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
@@ -66,7 +64,6 @@ export default function BottomTabs() {
       />
       <Tab.Screen name="Products" component={ProductsScreen} options={{ title: 'Productos' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Más' }} />
-      <Tab.Screen name="History" component={HistoryScreen} options={{ title: 'Historial' }} />
     </Tab.Navigator>
   );
 }

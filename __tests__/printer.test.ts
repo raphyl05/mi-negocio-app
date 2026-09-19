@@ -1,7 +1,12 @@
 import type { Order } from '../src/models/order';
 import type { Product } from '../src/models/product';
 import type { CartItem } from '../src/utils/cart';
-import { buildTicket, createInactivePrinterService, printerService } from '../src/services/printerService';
+import {
+  buildTicket,
+  createInactivePrinterService,
+  printerService,
+  renderTicketText,
+} from '../src/services/printerService';
 
 const product: Product = {
   id: 'p1',
@@ -55,7 +60,7 @@ describe('buildTicket', () => {
     ]);
   });
 
-  it('usa created_at como fecha si la orden no fue pagada', () => {
+  it('marca el ticket como pendiente cuando la orden no fue pagada', () => {
     const pending = makeOrder({
       status: 'pending',
       paidAt: undefined,
@@ -65,7 +70,13 @@ describe('buildTicket', () => {
     });
     const ticket = buildTicket(pending, 'Negocio');
     expect(ticket.createdAt).toBe('2026-09-18T08:00:00.000Z');
+    expect(ticket.status).toBe('pending');
     expect(ticket.paymentMethod).toBeUndefined();
+  });
+
+  it('deja el ticket como pagada para órdenes cobradas', () => {
+    const ticket = buildTicket(makeOrder(), 'Negocio');
+    expect(ticket.status).toBe('paid');
   });
 
   it('soporta ticket de transferencia sin recibido ni cambio', () => {
@@ -74,6 +85,32 @@ describe('buildTicket', () => {
     expect(ticket.paymentMethod).toBe('transfer');
     expect(ticket.receivedCents).toBeUndefined();
     expect(ticket.changeCents).toBeUndefined();
+  });
+});
+
+describe('renderTicketText', () => {
+  it('prepara el formato de impresión de un ticket pagado', () => {
+    const text = renderTicketText(buildTicket(makeOrder(), 'Mi Negocio'));
+    expect(text).toContain('MI NEGOCIO');
+    expect(text).toContain('Ticket Nº 7');
+    expect(text).toContain('Hamburguesa');
+    expect(text).toContain('2 x RD$250.00');
+    expect(text).toContain('RD$500.00');
+    expect(text).toContain('Metodo de pago: Efectivo');
+    expect(text).not.toContain('PAGO PENDIENTE');
+    expect(text).toContain('¡Gracias por su compra!');
+  });
+
+  it('resalta PAGO PENDIENTE en tickets no cobrados', () => {
+    const pending = makeOrder({
+      status: 'pending',
+      paidAt: undefined,
+      paymentMethod: undefined,
+      receivedCents: undefined,
+      changeCents: undefined,
+    });
+    const text = renderTicketText(buildTicket(pending, 'Negocio'));
+    expect(text).toContain('*** PAGO PENDIENTE ***');
   });
 });
 
