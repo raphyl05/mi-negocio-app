@@ -15,6 +15,7 @@ import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
 import { calcChange, formatMoney, parseMoney } from '../../utils/money';
 import { buildOrder } from '../../utils/order';
+import { findStockIssue } from '../../utils/cart';
 import type { CartItem } from '../../utils/cart';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
@@ -67,7 +68,25 @@ export default function PaymentMethodScreen({ route }: Props) {
     }
   };
 
+  const findStockProblem = async (orderItems: CartItem[]): Promise<string | null> => {
+    const live = await productRepository.list();
+    const issue = findStockIssue(orderItems, live);
+    if (!issue) return null;
+    if (issue.available === 0 && !live.some((p) => p.id === issue.product.id)) {
+      return `"${issue.product.name}" ya no está en el catálogo. Actualiza o elimina la orden.`;
+    }
+    return `Stock insuficiente para "${issue.product.name}": quedan ${issue.available} y llevas ${
+      orderItems.find((item) => item.product.id === issue.product.id)?.quantity ?? 0
+    }.`;
+  };
+
   const completePayment = async (payMethod: PaymentMethod, received?: number) => {
+    const orderItems = existing ? existing.items : items;
+    const stockProblem = await findStockProblem(orderItems);
+    if (stockProblem) {
+      setError(stockProblem);
+      return;
+    }
     setSaving(true);
     try {
       if (existing) {

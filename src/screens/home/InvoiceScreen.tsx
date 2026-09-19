@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from 'react-native';
+import { FlatList, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
@@ -14,7 +14,7 @@ import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
 import { formatTime } from '../../utils/datetime';
 import { formatMoney } from '../../utils/money';
-import { parseCartQuantity } from '../../utils/cart';
+import { inCartQuantity, parseCartQuantity } from '../../utils/cart';
 
 type InvoiceScreenProps = {
   register: CashRegister;
@@ -23,13 +23,14 @@ type InvoiceScreenProps = {
 export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { count, subtotalCents, add, items } = useCart();
+  const { count, subtotalCents, addQuantity, items } = useCart();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('Todos');
   const [stockError, setStockError] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     const all = await productRepository.list();
@@ -59,21 +60,21 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
     });
 
   const handleAdd = (product: Product) => {
+    if (adding) return;
     const quantity = parseCartQuantity(quantities[product.id] ?? '1');
+    setAdding(true);
     if (product.trackStock) {
-      const inCart = items
-        .filter((item) => item.product.id === product.id)
-        .reduce((sum, item) => sum + item.quantity, 0);
+      const inCart = inCartQuantity(items, product.id);
       if (inCart + quantity > product.stockQuantity) {
         setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
+        setAdding(false);
         return;
       }
     }
     setStockError(null);
-    for (let i = 0; i < quantity; i++) {
-      add(product);
-    }
+    addQuantity(product, quantity);
     setQuantities((current) => ({ ...current, [product.id]: '1' }));
+    setAdding(false);
     Keyboard.dismiss();
   };
 
@@ -84,127 +85,133 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
 
   return (
     <Screen>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.screenSurround}>
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            columnWrapperStyle={styles.gridRow}
-            contentContainerStyle={styles.gridContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-        renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            quantity={quantities[item.id] ?? '1'}
-            onChangeQuantity={(text) => setQuantity(item.id, text)}
-            onAdd={() => handleAdd(item)}
-          />
-        )}
-        ListHeaderComponent={
-          <View>
-            <View style={styles.header}>
-              <Text
-                style={[
-                  styles.title,
-                  { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
-                ]}
-              >
-                Facturación
-              </Text>
-              <Text style={[styles.cajaLine, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-                Caja abierta desde las {formatTime(register.openedAt)}
-              </Text>
-            </View>
-
-            {stockError ? (
-              <View style={[styles.stockError, { backgroundColor: colors.danger + '1A', borderColor: colors.danger + '66' }]}>
-                <Ionicons name="alert-circle" size={18} color={colors.danger} />
-                <Text style={[styles.stockErrorText, { color: colors.danger, fontSize: typography.sizes.caption }]}>
-                  {stockError}
+      <View style={styles.screenSurround}>
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.gridRow}
+          contentContainerStyle={styles.gridContent}
+          extraData={filtered}
+          removeClippedSubviews={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onScrollBeginDrag={Keyboard.dismiss}
+          renderItem={({ item }) => (
+            <ProductCard
+              product={item}
+              quantity={quantities[item.id] ?? '1'}
+              onChangeQuantity={(text) => setQuantity(item.id, text)}
+              onAdd={() => handleAdd(item)}
+            />
+          )}
+          ListHeaderComponent={
+            <View>
+              <View style={styles.header}>
+                <Text
+                  style={[
+                    styles.title,
+                    { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+                  ]}
+                >
+                  Facturación
+                </Text>
+                <Text style={[styles.cajaLine, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+                  Caja abierta desde las {formatTime(register.openedAt)}
                 </Text>
               </View>
-            ) : null}
 
-            <View style={styles.search}>
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Buscar producto…"
-                placeholderTextColor={colors.textSecondary}
-                style={[
-                  styles.searchInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.textPrimary,
-                    fontSize: typography.sizes.body,
-                  },
-                ]}
-              />
-            </View>
+              {stockError ? (
+                <View style={[styles.stockError, { backgroundColor: colors.danger + '1A', borderColor: colors.danger + '66' }]}>
+                  <Ionicons name="alert-circle" size={18} color={colors.danger} />
+                  <Text style={[styles.stockErrorText, { color: colors.danger, fontSize: typography.sizes.caption }]}>
+                    {stockError}
+                  </Text>
+                </View>
+              ) : null}
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {categories.map((c) => {
-                const active = c === category;
-                return (
-                  <Pressable
-                    key={c}
-                    onPress={() => setCategory(c)}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? colors.primary : colors.surface,
-                        borderColor: active ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
+              <View style={styles.search}>
+                <TextInput
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Buscar producto…"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[
+                    styles.searchInput,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      color: colors.textPrimary,
+                      fontSize: typography.sizes.body,
+                    },
+                  ]}
+                />
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chips}
+                nestedScrollEnabled
+              >
+                {categories.map((c) => {
+                  const active = c === category;
+                  return (
+                    <Pressable
+                      key={c}
+                      onPress={() => setCategory(c)}
                       style={[
-                        styles.chipText,
-                        { color: active ? colors.textOnPrimary : colors.textSecondary, fontSize: typography.sizes.caption },
+                        styles.chip,
+                        {
+                          backgroundColor: active ? colors.primary : colors.surface,
+                          borderColor: active ? colors.primary : colors.border,
+                        },
                       ]}
                     >
-                      {c}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: active ? colors.textOnPrimary : colors.textSecondary, fontSize: typography.sizes.caption },
+                        ]}
+                      >
+                        {c}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
 
-            {filtered.length === 0 ? (
-              <View style={[styles.emptyRow, { gap: spacing.md }]}>
-                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
-                  No hay productos que coincidan.
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        }
-      />
+              {filtered.length === 0 ? (
+                <View style={[styles.emptyRow, { gap: spacing.md }]}>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
+                    No hay productos que coincidan.
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          }
+        />
 
-      <Pressable
-        onPress={() => navigation.navigate('Cart')}
-        style={({ pressed }) => [styles.cartBar, { backgroundColor: colors.surface, borderTopColor: colors.border, opacity: pressed ? 0.9 : 1 }]}
-      >
-        <View style={styles.cartInfo}>
-          <View>
-            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
-              {count === 0 ? 'Carrito vacío' : `${count} ${count === 1 ? 'producto' : 'productos'}`}
-            </Text>
-            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Toca para ver el carrito</Text>
+        <Pressable
+          onPress={() => navigation.navigate('Cart')}
+          style={({ pressed }) => [styles.cartBar, { backgroundColor: colors.surface, borderTopColor: colors.border, opacity: pressed ? 0.9 : 1 }]}
+        >
+          <View style={styles.cartInfo}>
+            <View>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                {count === 0 ? 'Carrito vacío' : `${count} ${count === 1 ? 'producto' : 'productos'}`}
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Toca para ver el carrito</Text>
+            </View>
+            {count > 0 ? (
+              <MoneyDisplay cents={subtotalCents} size="large" />
+            ) : (
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>RD$0.00</Text>
+            )}
           </View>
-          {count > 0 ? (
-            <MoneyDisplay cents={subtotalCents} size="large" />
-          ) : (
-            <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>RD$0.00</Text>
-          )}
-        </View>
-        <Ionicons name="chevron-up" size={20} color={colors.textSecondary} />
+          <Ionicons name="chevron-up" size={20} color={colors.textSecondary} />
         </Pressable>
-        </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Screen>
   );
 }

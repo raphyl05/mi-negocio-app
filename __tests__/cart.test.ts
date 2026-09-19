@@ -1,12 +1,16 @@
 import {
   addProductToCart,
+  addQuantityToCart,
   cartCount,
   cartSubtotal,
   clearCart,
   decreaseItem,
+  findStockIssue,
   increaseItem,
+  inCartQuantity,
   parseCartQuantity,
   removeItem,
+  updateItemQuantity,
 } from '../src/utils/cart';
 import type { CartItem } from '../src/utils/cart';
 import type { Product } from '../src/models/product';
@@ -18,8 +22,8 @@ const burger: Product = {
   category: 'Comidas',
   imageType: 'emoji',
   emoji: '🍔',
-  trackStock: false,
-  stockQuantity: 0,
+  trackStock: true,
+  stockQuantity: 15,
   active: true,
   createdAt: '2026-01-01T00:00:00.000Z',
 };
@@ -30,7 +34,7 @@ const soda: Product = {
   priceCents: 10000,
   category: 'Bebidas',
   imageType: 'emoji',
-emoji: '🥤',
+  emoji: '🥤',
   trackStock: false,
   stockQuantity: 0,
   active: true,
@@ -104,5 +108,57 @@ it('limpia el carrito', () => {
     expect(parseCartQuantity('abc')).toBe(1);
     expect(parseCartQuantity('0')).toBe(1);
     expect(parseCartQuantity('-2')).toBe(1);
+  });
+
+  it('inCartQuantity devuelve la cantidad actual de un producto', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 4 }];
+    expect(inCartQuantity(items, 'p1')).toBe(4);
+    expect(inCartQuantity(items, 'p2')).toBe(0);
+  });
+
+  it('addQuantityToCart agrega varias unidades de una sola vez', () => {
+    const result = addQuantityToCart([], burger, 5);
+    expect(result).toHaveLength(1);
+    expect(result[0].quantity).toBe(5);
+  });
+
+  it('addQuantityToCart no excede el stock disponible y respeta lo ya agregado', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 10 }];
+    const result = addQuantityToCart(items, burger, 20, burger.stockQuantity);
+    expect(result[0].quantity).toBe(15);
+  });
+
+  it('addQuantityToCart no agrega más allá del stock tras dos toques rápidos', () => {
+    const first = addQuantityToCart([], burger, 10, burger.stockQuantity);
+    const second = addQuantityToCart(first, burger, 10, burger.stockQuantity);
+    expect(second[0].quantity).toBe(15);
+  });
+
+  it('increaseItem respeta el tope de stock', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 15 }];
+    expect(increaseItem(items, 'p1', burger.stockQuantity)[0].quantity).toBe(15);
+    expect(increaseItem([{ product: burger, quantity: 14 }], 'p1', burger.stockQuantity)[0].quantity).toBe(15);
+  });
+
+  it('updateItemQuantity recorta la cantidad escrita al stock máximo', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 1 }];
+    const result = updateItemQuantity(items, 'p1', '100', burger.stockQuantity);
+    expect(result[0].quantity).toBe(15);
+  });
+
+  it('findStockIssue detecta un producto que excede su stock', () => {
+    const items: CartItem[] = [{ product: burger, quantity: 20 }];
+    const issue = findStockIssue(items, [burger]);
+    expect(issue).not.toBeNull();
+    expect(issue?.available).toBe(15);
+  });
+
+  it('findStockIssue ignora productos sin control de stock', () => {
+    const items: CartItem[] = [{ product: soda, quantity: 999 }];
+    expect(findStockIssue(items, [soda])).toBeNull();
+  });
+
+  it('findStockIssue ignora productos dentro del stock', () => {
+    expect(findStockIssue([{ product: burger, quantity: 5 }], [burger])).toBeNull();
   });
 });

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Product } from '../models/product';
 import {
   addProductToCart,
+  addQuantityToCart,
   cartCount,
   cartSubtotal,
   clearCart,
@@ -22,12 +23,17 @@ export type CustomerInfo = {
 
 const EMPTY_CUSTOMER: CustomerInfo = { customerName: '', phone: '', address: '', description: '' };
 
+function stockCap(product: Product): number | undefined {
+  return product.trackStock ? product.stockQuantity : undefined;
+}
+
 type CartContextType = {
   items: CartItem[];
   count: number;
   subtotalCents: number;
   customer: CustomerInfo;
   add: (product: Product) => void;
+  addQuantity: (product: Product, quantity: number) => void;
   increase: (productId: string) => void;
   decrease: (productId: string) => void;
   remove: (productId: string) => void;
@@ -44,14 +50,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [customer, setCustomer] = useState<CustomerInfo>(EMPTY_CUSTOMER);
 
   const add = useCallback((product: Product) => setItems((current) => addProductToCart(current, product)), []);
-  const increase = useCallback((productId: string) => setItems((current) => increaseItem(current, productId)), []);
+  const addQuantity = useCallback(
+    (product: Product, quantity: number) =>
+      setItems((current) => addQuantityToCart(current, product, quantity, stockCap(product))),
+    [],
+  );
+  const increase = useCallback(
+    (productId: string) =>
+      setItems((current) => {
+        const item = current.find((cartItem) => cartItem.product.id === productId);
+        return increaseItem(current, productId, item ? stockCap(item.product) : undefined);
+      }),
+    [],
+  );
   const decrease = useCallback((productId: string) => setItems((current) => decreaseItem(current, productId)), []);
   const remove = useCallback((productId: string) => setItems((current) => removeItem(current, productId)), []);
   const clear = useCallback(() => setItems(clearCart()), []);
 
   const updateQuantity = useCallback(
     (productId: string, quantityText: string) =>
-      setItems((current) => updateItemQuantity(current, productId, quantityText)),
+      setItems((current) => {
+        const item = current.find((cartItem) => cartItem.product.id === productId);
+        return updateItemQuantity(current, productId, quantityText, item ? stockCap(item.product) : undefined);
+      }),
     [],
   );
 
@@ -73,6 +94,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       subtotalCents: cartSubtotal(items),
       customer,
       add,
+      addQuantity,
       increase,
       decrease,
       remove,
@@ -81,7 +103,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       updateQuantity,
       setCustomerField,
     }),
-    [items, customer, add, increase, decrease, remove, clear, restore, updateQuantity, setCustomerField],
+    [items, customer, add, addQuantity, increase, decrease, remove, clear, restore, updateQuantity, setCustomerField],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
