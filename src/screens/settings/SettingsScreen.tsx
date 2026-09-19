@@ -8,6 +8,7 @@ import Card from '../../components/Card';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import Screen from '../../components/Screen';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePrinter } from '../../hooks/usePrinter';
 import type { Business } from '../../models/business';
 import type { CashRegister } from '../../models/cashRegister';
 import type { RootStackParamList } from '../../navigation/types';
@@ -22,6 +23,7 @@ export default function SettingsScreen() {
   const { colors, spacing, typography, dark, setDark } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { logout } = useAuth();
+  const { statusLabel, available } = usePrinter();
   const [business, setBusiness] = useState<Business | null>(null);
   const [register, setRegister] = useState<CashRegister | null>(null);
 
@@ -79,10 +81,17 @@ export default function SettingsScreen() {
         </Text>
         <Card style={styles.cardList}>
           <SettingsRow
-            icon="print-outline"
+            icon="document-text-outline"
             title="Factura e impresión"
             subtitle="Logo y formato del ticket"
             onPress={() => navigation.navigate('InvoiceConfig')}
+          />
+          <RowDivider />
+          <SettingsRow
+            icon="print-outline"
+            title="Impresora"
+            subtitle={available ? `Activa: ${statusLabel}` : statusLabel}
+            onPress={() => navigation.navigate('PrinterConfig')}
           />
           <RowDivider />
           <SettingsRow

@@ -11,6 +11,7 @@ import CashClosureScreen from '../screens/cash/CashClosureScreen';
 import BusinessEditScreen from '../screens/settings/BusinessEditScreen';
 import DashboardScreen from '../screens/settings/DashboardScreen';
 import InvoiceConfigScreen from '../screens/settings/InvoiceConfigScreen';
+import PrinterConfigScreen from '../screens/settings/PrinterConfigScreen';
 import SecurityScreen from '../screens/settings/SecurityScreen';
 import CustomersScreen from '../screens/settings/CustomersScreen';
 import ProvidersScreen from '../screens/settings/ProvidersScreen';
@@ -50,6 +51,7 @@ export default function RootNavigator() {
         <Stack.Screen name="CashClosure" component={CashClosureScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="BusinessEdit" component={BusinessEditScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="InvoiceConfig" component={InvoiceConfigScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="PrinterConfig" component={PrinterConfigScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Security" component={SecurityScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Customers" component={CustomersScreen} options={{ animation: 'slide_from_right' }} />

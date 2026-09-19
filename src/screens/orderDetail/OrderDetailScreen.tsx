@@ -10,6 +10,7 @@ import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
 import TicketPreviewModal from '../../components/TicketPreviewModal';
 import { useCart } from '../../contexts/CartContext';
+import { usePrinter } from '../../hooks/usePrinter';
 import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
@@ -30,10 +31,12 @@ export default function OrderDetailScreen({ route }: Props) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { restore } = useCart();
+  const { available, printTicket } = usePrinter();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [business, setBusiness] = useState<Business | null>(null);
   const [ticketVisible, setTicketVisible] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     getBusiness().then(setBusiness);
@@ -76,6 +79,19 @@ export default function OrderDetailScreen({ route }: Props) {
   };
 
   const handleBack = () => navigation.goBack();
+
+  const handlePrint = async () => {
+    if (!order) return;
+    setPrinting(true);
+    try {
+      const result = await printTicket(
+        buildTicket(order, business ?? { name: 'Mi Negocio', createdAt: order.createdAt }),
+      );
+      Alert.alert('Impresión', result.message);
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -238,6 +254,10 @@ export default function OrderDetailScreen({ route }: Props) {
           </View>
 
         <View style={styles.actions}>
+          {available ? (
+            <PrimaryButton label="Imprimir ticket" onPress={handlePrint} loading={printing} />
+          ) : null}
+          {available ? <View style={styles.actionsGap} /> : null}
           <PrimaryButton
             label={order.status === 'paid' ? 'Reimprimir ticket' : 'Ver ticket (pago pendiente)'}
             variant="outline"

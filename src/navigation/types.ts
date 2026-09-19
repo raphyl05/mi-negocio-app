@@ -9,6 +9,7 @@ export type RootStackParamList = {
   CashClosure: undefined;
   BusinessEdit: undefined;
   InvoiceConfig: undefined;
+  PrinterConfig: undefined;
   Dashboard: undefined;
   Security: undefined;
   Customers: undefined;

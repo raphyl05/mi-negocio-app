@@ -1,3 +1,7 @@
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 import type { Order } from '../src/models/order';
 import type { Product } from '../src/models/product';
 import type { Business } from '../src/models/business';

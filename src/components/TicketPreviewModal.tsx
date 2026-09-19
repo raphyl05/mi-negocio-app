@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import PrimaryButton from './PrimaryButton';
 import type { PrintTicket } from '../services/printerService';
 import { logoDataUri, renderTicketText } from '../services/printerService';
+import { usePrinter } from '../hooks/usePrinter';
 import { useTheme } from '../theme';
 
 type Props = {
@@ -13,7 +15,19 @@ type Props = {
 
 export default function TicketPreviewModal({ visible, ticket, onClose }: Props) {
   const { colors, typography } = useTheme();
+  const { available, printTicket } = usePrinter();
+  const [printing, setPrinting] = useState(false);
   const logoUri = logoDataUri(ticket.logoBase64);
+
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      const result = await printTicket(ticket);
+      Alert.alert('Impresión', result.message);
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -41,18 +55,23 @@ export default function TicketPreviewModal({ visible, ticket, onClose }: Props) 
               {renderTicketText(ticket)}
             </Text>
           </ScrollView>
-          <Text
-            style={{
-              color: colors.textSecondary,
-              fontSize: typography.sizes.caption,
-              textAlign: 'center',
-              marginTop: 12,
-            }}
-          >
-            Formato de impresión listo. Conecta la impresora para imprimir.
-          </Text>
-          <View style={styles.closeWrap}>
-            <PrimaryButton label="Cerrar" onPress={onClose} />
+          {!available ? (
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontSize: typography.sizes.caption,
+                textAlign: 'center',
+                marginTop: 12,
+              }}
+            >
+              Conecta la impresora en Más → Impresora.
+            </Text>
+          ) : null}
+          <View style={styles.actions}>
+            {available ? (
+              <PrimaryButton label="Imprimir" onPress={handlePrint} loading={printing} />
+            ) : null}
+            <PrimaryButton label="Cerrar" variant={available ? 'outline' : 'primary'} onPress={onClose} />
           </View>
         </View>
       </View>
@@ -83,7 +102,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 12,
   },
-  closeWrap: {
+  actions: {
     marginTop: 14,
+    gap: 10,
   },
 });

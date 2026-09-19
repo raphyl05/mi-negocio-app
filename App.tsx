@@ -8,6 +8,7 @@ import { PendingOrdersProvider } from './src/contexts/PendingOrdersContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import LoginScreen from './src/screens/login/LoginScreen';
 import SetupScreen from './src/screens/setup/SetupScreen';
+import { printerService } from './src/services/printerService';
 import { isSetupDone } from './src/services/setupService';
 import { ThemeProvider, useTheme } from './src/theme';
 
@@ -20,6 +21,7 @@ function BootGate() {
 
   useEffect(() => {
     isSetupDone().then((done) => setStatus(done ? 'ready' : 'setup'));
+    printerService.init();
   }, []);
 
   if (status === 'loading') {

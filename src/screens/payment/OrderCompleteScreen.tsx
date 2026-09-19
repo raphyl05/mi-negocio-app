@@ -3,11 +3,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TicketPreviewModal from '../../components/TicketPreviewModal';
+import { usePrinter } from '../../hooks/usePrinter';
 import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
@@ -26,9 +27,11 @@ type Props = {
 export default function OrderCompleteScreen({ route }: Props) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { available, printOrder } = usePrinter();
   const [order, setOrder] = useState<Order | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
   const [ticketVisible, setTicketVisible] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     orderRepository.getById(route.params.orderId).then(setOrder);
@@ -83,6 +86,22 @@ export default function OrderCompleteScreen({ route }: Props) {
         </View>
 
         <View style={styles.actions}>
+          {available && business ? (
+            <PrimaryButton
+              label="Imprimir ticket"
+              onPress={async () => {
+                setPrinting(true);
+                try {
+                  const result = await printOrder(order, business);
+                  Alert.alert('Impresión', result.message);
+                } finally {
+                  setPrinting(false);
+                }
+              }}
+              loading={printing}
+            />
+          ) : null}
+          <View style={styles.actionsGap} />
           <PrimaryButton
             label="Ver ticket"
             variant="outline"

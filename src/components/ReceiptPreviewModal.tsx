@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import PrimaryButton from './PrimaryButton';
 import { logoDataUri } from '../services/printerService';
+import { usePrinter } from '../hooks/usePrinter';
 import { useTheme } from '../theme';
 
 type Props = {
@@ -15,7 +17,19 @@ type Props = {
 
 export default function ReceiptPreviewModal({ visible, title, text, logoBase64, note, onClose }: Props) {
   const { colors, typography } = useTheme();
+  const { available, printReceiptText } = usePrinter();
+  const [printing, setPrinting] = useState(false);
   const logoUri = logoDataUri(logoBase64);
+
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      const result = await printReceiptText(text, logoBase64);
+      Alert.alert('Impresión', result.message);
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -55,8 +69,11 @@ export default function ReceiptPreviewModal({ visible, title, text, logoBase64, 
               {note}
             </Text>
           ) : null}
-          <View style={styles.closeWrap}>
-            <PrimaryButton label="Cerrar" onPress={onClose} />
+          <View style={styles.actions}>
+            {available ? (
+              <PrimaryButton label="Imprimir" onPress={handlePrint} loading={printing} />
+            ) : null}
+            <PrimaryButton label="Cerrar" variant={available ? 'outline' : 'primary'} onPress={onClose} />
           </View>
         </View>
       </View>
@@ -87,7 +104,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 12,
   },
-  closeWrap: {
+  actions: {
     marginTop: 14,
+    gap: 10,
   },
 });
