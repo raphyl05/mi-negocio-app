@@ -16,6 +16,7 @@ import SecurityScreen from '../screens/settings/SecurityScreen';
 import CustomersScreen from '../screens/settings/CustomersScreen';
 import ProvidersScreen from '../screens/settings/ProvidersScreen';
 import DatosYRespaldoScreen from '../screens/datosYRespaldo/DatosYRespaldoScreen';
+import ConfigurationScreen from '../screens/settings/ConfigurationScreen';
 import { useTheme } from '../theme';
 import BottomTabs from './BottomTabs';
 import type { RootStackParamList } from './types';
@@ -58,6 +59,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Customers" component={CustomersScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Providers" component={ProvidersScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="DatosYRespaldo" component={DatosYRespaldoScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Configuration" component={ConfigurationScreen} options={{ animation: 'slide_from_right' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

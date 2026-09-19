@@ -248,7 +248,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
 
 ## Lo que falta
-**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y con la Fase 29 se añadió impresión rápida desde Ventas, soporte tablet optimizado, respaldo/restore offline por archivo y borrado de cuenta. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: impresión térmica Bluetooth real (módulo nativo + dev build), códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
+**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada, la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, y la Fase 30 sube el respaldo automáticamente a Google Drive al cerrar caja (con cola offline y restore manual desde Drive). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: impresión térmica Bluetooth real (módulo nativo + dev build), códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
 
 ## Cómo correr la app
 
@@ -305,8 +305,8 @@ src/
 
 ## Registro de commits
 
+- `ebfa324` Fase 30: sincronizacion Google Drive - upload auto post-cierre, cola offline, restore manual Drive
 - `c5ff29f` Fase 29: impresion rapida en Ventas (pendientes y cobradas), tablet responsive (840dp y grilla 3-4 col), backup/restore por archivo JSON y borrar cuenta/datos
-- `NUEVO` Fase 30: sincronizacion Google Drive - upload auto post-cierre, cola offline, restore manual Drive
 - `3e64b3c` Fase 28: impresora configurable (sistema/integrada, Bluetooth y demo) con auto-reconexion, botones de impresion y tickets ESC/POS
 - `5931004` Fase 27: proveedores como clientes (directorio, SQLite y proveedor en productos) y UI adaptativa (safe areas por plataforma y ancho maximo centrado)
 - `5bf96b9` Fase 26: stock reservado en pendientes con devolucion al cancelar, codigo FAC visible y buscable, guardar clientes desde facturacion y safe-area Android

@@ -8,23 +8,20 @@ import Card from '../../components/Card';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import Screen from '../../components/Screen';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePrinter } from '../../hooks/usePrinter';
 import type { Business } from '../../models/business';
 import type { CashRegister } from '../../models/cashRegister';
 import type { RootStackParamList } from '../../navigation/types';
 import { getOpenRegister } from '../../services/cashRegisterService';
 import { getBusiness } from '../../services/setupService';
-import { deleteAccountAndData } from '../../services/backupService';
 import { useTheme } from '../../theme';
 import { formatTime } from '../../utils/datetime';
 
-type IconName = string;
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 export default function SettingsScreen() {
   const { colors, spacing, typography, dark, setDark } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { logout } = useAuth();
-  const { statusLabel, available } = usePrinter();
   const [business, setBusiness] = useState<Business | null>(null);
   const [register, setRegister] = useState<CashRegister | null>(null);
 
@@ -39,21 +36,6 @@ export default function SettingsScreen() {
     Alert.alert('Cerrar sesión', 'Se cerrará tu sesión. Tus datos se conservan en el dispositivo.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar sesión', style: 'destructive', onPress: logout },
-    ]);
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert('Borrar cuenta', 'Se borrarán TODOS los datos de este dispositivo. ¿Continuar?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Borrar todo',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteAccountAndData();
-          logout();
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-        },
-      },
     ]);
   };
 
@@ -89,62 +71,6 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
         </Pressable>
-
-        <View style={styles.gap} />
-
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-          VENTAS Y PAGOS
-        </Text>
-        <Card style={styles.cardList}>
-          <SettingsRow
-            icon="document-text-outline"
-            title="Factura e impresión"
-            subtitle="Logo y formato del ticket"
-            onPress={() => navigation.navigate('InvoiceConfig')}
-          />
-          <RowDivider />
-          <SettingsRow
-            icon="print-outline"
-            title="Impresora"
-            subtitle={available ? `Activa: ${statusLabel}` : statusLabel}
-            onPress={() => navigation.navigate('PrinterConfig')}
-          />
-          <RowDivider />
-          <SettingsRow
-            icon="bar-chart-outline"
-            title="Panel de ventas"
-            subtitle="Resumen de los últimos 7 días"
-            onPress={() => navigation.navigate('Dashboard')}
-          />
-        </Card>
-
-        <View style={styles.gap} />
-
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-          CLIENTES
-        </Text>
-        <Card style={styles.cardList}>
-          <SettingsRow
-            icon="people-outline"
-            title="Directorio de clientes"
-            subtitle="Agrega, edita y elimina clientes"
-            onPress={() => navigation.navigate('Customers')}
-          />
-        </Card>
-
-        <View style={styles.gap} />
-
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-          PROVEEDORES
-        </Text>
-        <Card style={styles.cardList}>
-          <SettingsRow
-            icon="cube-outline"
-            title="Directorio de proveedores"
-            subtitle="Quiénes te surten el inventario"
-            onPress={() => navigation.navigate('Providers')}
-          />
-        </Card>
 
         <View style={styles.gap} />
 
@@ -196,33 +122,12 @@ export default function SettingsScreen() {
         <View style={styles.gap} />
 
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-          CUENTA Y SEGURIDAD
+          APARIENCIA
         </Text>
         <Card style={styles.cardList}>
-          <SettingsRow
-            icon="download-outline"
-            title="Exportar respaldo"
-            subtitle="Guarda copia local en un archivo"
-            onPress={() => navigation.navigate('DatosYRespaldo')}
-          />
-          <RowDivider />
-          <SettingsRow
-            icon="upload-outline"
-            title="Restaurar respaldo"
-            subtitle="Importa un archivo anterior"
-            onPress={() => navigation.navigate('DatosYRespaldo')}
-          />
-          <RowDivider />
-          <SettingsRow
-            icon="shield-checkmark-outline"
-            title="Seguridad"
-            subtitle="Pregunta secreta y contraseña"
-            onPress={() => navigation.navigate('Security')}
-          />
-          <RowDivider />
           <View style={styles.rowIcon}>
             <View style={[styles.iconCircle, { backgroundColor: colors.surfaceMuted }]}>
-              <Ionicons name={dark ? 'moon' : 'moon-outline'} size={22} color={colors.textSecondary} />
+              <Ionicons name={dark ? 'moon' : 'moon-outline'} size={22} color={colors.textPrimary} />
             </View>
             <View style={styles.rowText}>
               <Text style={[styles.rowTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>
@@ -241,21 +146,26 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
+        <View style={styles.gap} />
+
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          CONFIGURACIÓN
+        </Text>
+        <Card style={styles.cardList}>
+          <SettingsRow
+            icon="settings-outline"
+            title="Configuración"
+            subtitle="Impresión, clientes, proveedores, respaldos y más"
+            onPress={() => navigation.navigate('Configuration')}
+          />
+        </Card>
+
         <Pressable
           onPress={handleLogout}
           style={({ pressed }) => [styles.logoutRow, { borderColor: colors.danger + '55', opacity: pressed ? 0.75 : 1 }]}
         >
           <Ionicons name="log-out-outline" size={20} color={colors.danger} />
           <Text style={{ color: colors.danger, fontSize: typography.sizes.body, fontWeight: '700' }}>Cerrar sesión</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={handleDeleteAccount}
-          hitSlop={8}
-          style={({ pressed }) => [styles.deleteAccountRow, { opacity: pressed ? 0.75 : 1 }]}
-        >
-          <Ionicons name="trash-outline" size={20} color={colors.danger} />
-          <Text style={{ color: colors.danger, fontSize: typography.sizes.body, fontWeight: '700' }}>Borrar cuenta</Text>
         </Pressable>
 
         <Text style={[styles.footer, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
@@ -284,7 +194,7 @@ function SettingsRow({
       style={({ pressed }) => [styles.rowIcon, { opacity: pressed ? 0.75 : 1 }]}
     >
       <View style={[styles.iconCircle, { backgroundColor: colors.surfaceMuted }]}>
-        <Ionicons name={icon as any} size={22} color={colors.textPrimary} />
+        <Ionicons name={icon} size={22} color={colors.textPrimary} />
       </View>
       <View style={styles.rowText}>
         <Text style={[styles.rowTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>{title}</Text>
@@ -360,14 +270,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     marginTop: 24,
-  },
-  deleteAccountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingVertical: 10,
   },
   footer: {
     textAlign: 'center',
