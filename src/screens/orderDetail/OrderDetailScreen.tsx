@@ -18,6 +18,7 @@ import { getBusiness } from '../../services/setupService';
 import { buildTicket } from '../../services/printerService';
 import { useTheme } from '../../theme';
 import { formatDate, formatTime } from '../../utils/datetime';
+import { invoiceCodeFor } from '../../utils/invoice';
 import { formatMoney } from '../../utils/money';
 
 type Props = {
@@ -116,7 +117,7 @@ export default function OrderDetailScreen({ route }: Props) {
                 { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
               ]}
             >
-              Orden #{order.number}
+              {order.status === 'paid' ? `Factura ${invoiceCodeFor(order.number)}` : `Orden #${order.number}`}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
               {formatDate(order.createdAt)} · {formatTime(order.createdAt)}

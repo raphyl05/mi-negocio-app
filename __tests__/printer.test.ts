@@ -114,13 +114,37 @@ describe('renderTicketText', () => {
     expect(text).toContain('MI NEGOCIO');
     expect(text).toContain('Tel: 809-555-1234');
     expect(text).toContain('Av. Principal');
-    expect(text).toContain('Ticket Nº 7');
+    expect(text).toContain('Factura FAC-0007');
     expect(text).toContain('Hamburguesa');
     expect(text).toContain('2 x RD$250.00');
     expect(text).toContain('RD$500.00');
     expect(text).toContain('Metodo de pago: Efectivo');
     expect(text).not.toContain('PAGO PENDIENTE');
     expect(text).toContain('¡Gracias por su compra!');
+  });
+
+  it('imprime los datos del cliente solo cuando existen', () => {
+    const fullCustomer = {
+      customerName: 'Juan Pérez',
+      phone: '809-555-9876',
+      address: 'Calle 1 #23',
+      description: 'Entregar por la puerta de atrás',
+    };
+    const text = renderTicketText(
+      buildTicket(makeOrder({ customer: fullCustomer }), business),
+    );
+    expect(text).toContain('Cliente: Juan Pérez');
+    expect(text).toContain('Tel: 809-555-9876');
+    expect(text).toContain('Direccion: Calle 1 #23');
+    expect(text).toContain('Nota: Entregar por la puerta de atrás');
+  });
+
+  it('omite los datos del cliente cuando todo está vacío', () => {
+    const text = renderTicketText(buildTicket(makeOrder({ customer: emptyCustomer }), business));
+    expect(text).not.toContain('Cliente:');
+    expect(text).not.toContain('809-555-9876');
+    expect(text).not.toContain('Direccion:');
+    expect(text).not.toContain('Nota:');
   });
 
   it('resalta PAGO PENDIENTE en tickets no cobrados', () => {

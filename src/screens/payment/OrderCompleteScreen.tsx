@@ -16,6 +16,7 @@ import { getBusiness } from '../../services/setupService';
 import { buildTicket } from '../../services/printerService';
 import { useTheme } from '../../theme';
 import { formatTime } from '../../utils/datetime';
+import { invoiceCodeFor } from '../../utils/invoice';
 import { formatMoney } from '../../utils/money';
 
 type Props = {
@@ -62,7 +63,7 @@ export default function OrderCompleteScreen({ route }: Props) {
             Venta completada
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-            Orden {order.number} · {formatTime(order.createdAt)}
+            Factura {invoiceCodeFor(order.number)} · {formatTime(order.createdAt)}
           </Text>
         </View>
 

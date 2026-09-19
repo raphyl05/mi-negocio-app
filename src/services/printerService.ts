@@ -1,6 +1,7 @@
 import type { Order, PaymentMethod } from '../models/order';
 import type { Business } from '../models/business';
 import { formatDate, formatTime } from '../utils/datetime';
+import { invoiceCodeFor } from '../utils/invoice';
 import { formatMoney } from '../utils/money';
 
 export type PrintTicketLine = {
@@ -18,6 +19,9 @@ export type PrintTicket = {
   createdAt: string;
   status: Order['status'];
   customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerDescription?: string;
   lines: PrintTicketLine[];
   subtotalCents: number;
   paymentMethod?: PaymentMethod;
@@ -46,6 +50,9 @@ export function buildTicket(order: Order, business: Business): PrintTicket {
     createdAt: order.paidAt ?? order.createdAt,
     status: order.status,
     customerName: order.customer.customerName,
+    customerPhone: order.customer.phone,
+    customerAddress: order.customer.address,
+    customerDescription: order.customer.description,
     lines: order.items.map((item) => ({
       name: item.product.name,
       quantity: item.quantity,
@@ -82,10 +89,19 @@ export function renderTicketText(ticket: PrintTicket): string {
     lines.push(ticket.businessAddress);
   }
   lines.push(divider);
-  lines.push(`Ticket Nº ${ticket.orderNumber}`);
+  lines.push(ticket.status === 'paid' ? `Factura ${invoiceCodeFor(ticket.orderNumber)}` : `Ticket Nº ${ticket.orderNumber}`);
   lines.push(`${formatDate(ticket.createdAt)}  ${formatTime(ticket.createdAt)}`);
   if (ticket.customerName.trim()) {
     lines.push(`Cliente: ${ticket.customerName.trim()}`);
+  }
+  if (ticket.customerPhone?.trim()) {
+    lines.push(`Tel: ${ticket.customerPhone.trim()}`);
+  }
+  if (ticket.customerAddress?.trim()) {
+    lines.push(`Direccion: ${ticket.customerAddress.trim()}`);
+  }
+  if (ticket.customerDescription?.trim()) {
+    lines.push(`Nota: ${ticket.customerDescription.trim()}`);
   }
   lines.push(divider);
   for (const line of ticket.lines) {
