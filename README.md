@@ -1,4 +1,4 @@
-# MiCaja 🧾
+# Vendelo App 🧾
 
 Aplicación móvil de facturación/POS sencilla para pequeños negocios de comida rápida y vendedores ambulantes.
 React Native + Expo + TypeScript. Funciona 100% offline (MVP).
@@ -31,7 +31,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 ### Hecho (Fase 1)
 
 - [x] Proyecto **Expo SDK 57** + **React Native 0.86** + **TypeScript 6** creado con plantilla `blank-typescript`.
-- [x] Nombre de la app: **"MiCaja"** (`app.json`). Slug: `mi-negocio-app`.
+- [x] Nombre de la app: **"Vendelo App"** con logo `logo-vendelo-app.png` (`app.json`). Slug: `mi-negocio-app`.
 - [x] Soporte web para previsualizar en navegador (`react-dom` + `react-native-web`). **Verificado:** bundle web compila (`npx expo export --platform web`).
 - [x] Verificación: `npx tsc --noEmit` pasa sin errores.
 - [x] Git: rama `main`, remoto `https://github.com/raphyl05/mi-negocio-app`. Subido y actualizado.

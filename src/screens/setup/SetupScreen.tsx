@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
@@ -79,6 +79,9 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
+            <View style={[styles.logoCircle, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
+              <Image source={require('../../../assets/logo-vendelo-app.png')} style={styles.logo} resizeMode="contain" />
+            </View>
             <Text
               style={[
                 styles.title,
@@ -134,6 +137,18 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+  },
+  logoCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  logo: {
+    width: 80,
+    height: 80,
   },
   title: {
     letterSpacing: -0.5,

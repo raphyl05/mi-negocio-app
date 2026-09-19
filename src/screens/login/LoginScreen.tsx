@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
@@ -71,8 +71,8 @@ function LoginForm({ onLogin, onForgot }: { onLogin: () => void; onForgot: () =>
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
-              <Ionicons name="key-outline" size={36} color={colors.primary} />
+            <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
+              <Image source={require('../../../assets/logo-vendelo-app.png')} style={styles.logo} resizeMode="contain" />
             </View>
             <Text
               style={[
@@ -349,6 +349,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+  },
+  logo: {
+    width: 72,
+    height: 72,
   },
   title: {
     letterSpacing: -0.5,
