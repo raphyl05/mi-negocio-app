@@ -35,6 +35,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 25 COMPLETADA ✅** — teclado numérico estricto, edición de montos sin borrar y códigos de factura con letras variables tras `FAC-9999`.
 **Fase 26 COMPLETADA ✅** — stock reservado al guardar pendientes y devuelto al cancelarlas; código FAC visible en pendientes y buscable; guardado de clientes desde facturación (sugerencias + botón); safe-area Android.
 **Fase 27 COMPLETADA ✅** — directorio de proveedores (CRUD igual que clientes, más sección en "Más" y campo proveedor en los productos) + interfaz adaptativa: safe areas por plataforma (borde inferior solo en Android) y contenido centrado con ancho máximo en pantallas grandes.
+**Fase 28 COMPLETADA ✅** — impresora configurable y funcional: pantalla en Más → Impresora (activar, buscar, conectar, imprimir prueba), impresión por el sistema/integrada con `expo-print`, soporte Bluetooth preparado para el módulo nativo (dev build), botones de imprimir donde corresponde solo con impresora activa y auto-reconexión cuando la impresora vuelve a encenderse.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -223,8 +224,19 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **UI adaptativa (detalle safe-area)**: `Screen` hace el borde inferior **solo en Android** (evita que la barra de navegación corte los botones). En iOS/web el sistema ya respeta el gesto home/tab bar, así que se eliminó el borde extra que **dejaba una barra vacía** en iOS.
 - [x] **UI adaptativa (dispositivos anchos)**: `Screen` centra el contenido en una columna con **ancho máximo de 560** en tablet/web; en teléfonos se mantiene a pantalla completa. Los formularios de Clientes y Proveedores ahora son **scrollables y evitan el teclado** (`KeyboardAvoidingView` + `ScrollView`).
 
+### Hecho (Fase 28)
+
+- [x] **Impresora configurable desde Más → Impresora** (`PrinterConfigScreen`): interruptor para activar/desactivar la impresión, estado en vivo (activa/conectando/sin conexión/apagada), **Buscar impresoras activas**, conectar/desconectar e **imprimir ticket de prueba**. La configuración se persiste y la impresora vuelve a conectar al reiniciar la app.
+- [x] **Impresora del sistema / integrada**: transporte `systemPrintTransport` con **`expo-print@~57.0.2`** que abre el diálogo de impresión del sistema (impresoras integradas de terminales POS, AirPrint y `window.print` en web). **Funciona hoy en Expo Go**.
+- [x] **Impresora Bluetooth (térmica 58 mm) preparada**: transporte `bluetoothTransport` con interfaz `BluetoothPrinterBridge` (puente nativo). Hoy, desde Expo Go, la pantalla explica que falta el módulo nativo; cuando el proyecto tenga un **dev build** con el puente implementado, la impresora se conecta desde la misma pantalla sin tocar el resto del código. El generador **ESC/POS** (`escpos.ts`) ya produce los bytes para la térmica (inicialización, texto UTF-8, avance y corte).
+- [x] **Impresora de prueba simulada**: `demoPrintTransport` permite recorrer todo el flujo (buscar → conectar → imprimir) sin hardware.
+- [x] **Botones de imprimir donde corresponde**: solo aparecen cuando hay una impresora activa (condición `ready`) — en **Venta completada** (tras cobrar), en el **detalle de la venta** y dentro de los **modales de ticket y recibo de cierre**.
+- [x] **Auto-reconexión**: si la impresora configurada se apagó y vuelve a encender (o se pierde el enlace), el servicio se reconecta solo: al volver la app a primer plano, con un verificador periódico (15 s) y antes de cada impresión. Todo idempotente vía `ensureConnected`.
+- [x] **Servicio reactivo**: `usePrinter` ahora se suscribe al estado del servicio; la fila **Impresora** en **Más** muestra el estado en vivo y su subtítulo.
+- [x] Tests nuevos (`printerFlow.test.ts`): generador ESC/POS (bytes), flujo conectar/imprimir/desconectar, reconexión y persistencia de la configuración. Total: **163 tests, 20 suites, pasando**. Dependencia nueva justificada: `expo-print`.
+
 ## Lo que falta
-**El MVP (Fases 1–26) está completo.** Con la Fase 27 ya hay proveedores y una interfaz adaptativa. Lo siguiente en la lista de "Posteriores" (fuera del MVP) puede retomarse cualquier día: impresión real térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
+**El MVP (Fases 1–26) está completo.** Con la Fase 27 ya hay proveedores y una interfaz adaptativa; con la Fase 28 ya se imprime por el sistema/integrada y por Bluetooth queda listo de código para cuando se agregue el módulo nativo (dev build). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: impresión térmica Bluetooth real (módulo nativo), códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
 
 ## Cómo correr la app
 
@@ -252,7 +264,7 @@ npm run android       # intenta abrir en Android (si hay emulador/dispositivo co
 
 ## Posteriores (fuera de alcance del MVP)
 
-Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, impresión térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, exportación/backup en nube.
+Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, impresión térmica Bluetooth real (módulo nativo / dev build), códigos de barras, facturación electrónica (DGII/NCF), inventario real, exportación/backup en nube.
 
 ## Notas de entorno / problemas conocidos
 
@@ -271,15 +283,16 @@ src/
   screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, settings, customers, providers
   navigation/      # stack + tabs
   components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
-  services/        # database, repositories, auth (setupService), session (cashRegisterService), stock (stockService), printer (printerService)
-  hooks/           # usePrinter (inactivo)
+  services/        # database, repositories, auth (setupService), session (cashRegisterService), stock (stockService), printer (printerService + carpeta printer/)
+  hooks/           # usePrinter (reactivo al estado de la impresora)
   theme/           # colors, typography, spacing, componentes
   utils/           # money.ts (formato + cálculo centavos), orderSearch.ts, cashClosure.ts
-__tests__/         # tests de dinero, carrito, buildOrder, repositorios (incl. customer/provider), validaciones, orderSearch, cashClosure, printer
+__tests__/         # tests de dinero, carrito, buildOrder, repositorios (incl. customer/provider), validaciones, orderSearch, cashClosure, printer y flujo de impresión
 ```
 
 ## Registro de commits
 
+- `3e64b3c` Fase 28: impresora configurable (sistema/integrada, Bluetooth y demo) con auto-reconexion, botones de impresion y tickets ESC/POS
 - `5931004` Fase 27: proveedores como clientes (directorio, SQLite y proveedor en productos) y UI adaptativa (safe areas por plataforma y ancho maximo centrado)
 - `5bf96b9` Fase 26: stock reservado en pendientes con devolucion al cancelar, codigo FAC visible y buscable, guardar clientes desde facturacion y safe-area Android
 - `6287213` Fase 25: teclado numerico estricto, edicion de montos sin borrar y mas codigos de factura
