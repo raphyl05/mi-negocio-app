@@ -1,12 +1,21 @@
 import type { Order } from '../src/models/order';
 import type { Product } from '../src/models/product';
+import type { Business } from '../src/models/business';
 import type { CartItem } from '../src/utils/cart';
 import {
   buildTicket,
   createInactivePrinterService,
+  logoDataUri,
   printerService,
   renderTicketText,
 } from '../src/services/printerService';
+
+const business: Business = {
+  name: 'Mi Negocio',
+  phone: '809-555-1234',
+  address: 'Av. Principal #12, Santo Domingo',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
 
 const product: Product = {
   id: 'p1',
@@ -42,10 +51,13 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
 
 describe('buildTicket', () => {
   it('arma un ticket con el negocio y los datos de la orden', () => {
-    const ticket = buildTicket(makeOrder(), 'Mi Negocio');
+    const ticket = buildTicket(makeOrder(), business);
     expect(ticket.businessName).toBe('Mi Negocio');
+    expect(ticket.businessPhone).toBe('809-555-1234');
+    expect(ticket.businessAddress).toContain('Av. Principal');
     expect(ticket.orderNumber).toBe(7);
     expect(ticket.createdAt).toBe('2026-09-18T12:30:00.000Z');
+    expect(ticket.status).toBe('paid');
     expect(ticket.customerName).toBe('Cliente');
     expect(ticket.subtotalCents).toBe(50000);
     expect(ticket.paymentMethod).toBe('cash');
@@ -54,7 +66,7 @@ describe('buildTicket', () => {
   });
 
   it('convierte cada línea del carrito en una línea de ticket', () => {
-    const ticket = buildTicket(makeOrder(), 'Negocio');
+    const ticket = buildTicket(makeOrder(), business);
     expect(ticket.lines).toEqual([
       { name: 'Hamburguesa', quantity: 2, unitPriceCents: 25000 },
     ]);
@@ -68,20 +80,28 @@ describe('buildTicket', () => {
       receivedCents: undefined,
       changeCents: undefined,
     });
-    const ticket = buildTicket(pending, 'Negocio');
+    const ticket = buildTicket(pending, business);
     expect(ticket.createdAt).toBe('2026-09-18T08:00:00.000Z');
     expect(ticket.status).toBe('pending');
     expect(ticket.paymentMethod).toBeUndefined();
   });
 
+  it('incluye el logo base64 del negocio cuando existe', () => {
+    const logoBusiness: Business = { ...business, logoBase64: 'aW1hZ2VuLTE=' };
+    const ticket = buildTicket(makeOrder(), logoBusiness);
+    expect(ticket.logoBase64).toBe('aW1hZ2VuLTE=');
+    expect(logoDataUri('aW1hZ2VuLTE=')).toBe('data:image/png;base64,aW1hZ2VuLTE=');
+    expect(logoDataUri(undefined)).toBeNull();
+  });
+
   it('deja el ticket como pagada para órdenes cobradas', () => {
-    const ticket = buildTicket(makeOrder(), 'Negocio');
+    const ticket = buildTicket(makeOrder(), business);
     expect(ticket.status).toBe('paid');
   });
 
   it('soporta ticket de transferencia sin recibido ni cambio', () => {
     const order = makeOrder({ status: 'paid', paymentMethod: 'transfer', receivedCents: undefined, changeCents: undefined });
-    const ticket = buildTicket(order, 'Negocio');
+    const ticket = buildTicket(order, business);
     expect(ticket.paymentMethod).toBe('transfer');
     expect(ticket.receivedCents).toBeUndefined();
     expect(ticket.changeCents).toBeUndefined();
@@ -90,8 +110,10 @@ describe('buildTicket', () => {
 
 describe('renderTicketText', () => {
   it('prepara el formato de impresión de un ticket pagado', () => {
-    const text = renderTicketText(buildTicket(makeOrder(), 'Mi Negocio'));
+    const text = renderTicketText(buildTicket(makeOrder(), business));
     expect(text).toContain('MI NEGOCIO');
+    expect(text).toContain('Tel: 809-555-1234');
+    expect(text).toContain('Av. Principal');
     expect(text).toContain('Ticket Nº 7');
     expect(text).toContain('Hamburguesa');
     expect(text).toContain('2 x RD$250.00');
@@ -109,7 +131,7 @@ describe('renderTicketText', () => {
       receivedCents: undefined,
       changeCents: undefined,
     });
-    const text = renderTicketText(buildTicket(pending, 'Negocio'));
+    const text = renderTicketText(buildTicket(pending, business));
     expect(text).toContain('*** PAGO PENDIENTE ***');
   });
 });
@@ -118,7 +140,7 @@ describe('PrinterService inactivo', () => {
   it('está deshabilitado y rechaza imprimir', async () => {
     const service = createInactivePrinterService();
     expect(service.available).toBe(false);
-    const result = await service.print(buildTicket(makeOrder(), 'Negocio'));
+    const result = await service.print(buildTicket(makeOrder(), business));
     expect(result.ok).toBe(false);
     expect(result.message).toContain('no disponible');
   });

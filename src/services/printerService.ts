@@ -1,4 +1,5 @@
 import type { Order, PaymentMethod } from '../models/order';
+import type { Business } from '../models/business';
 import { formatDate, formatTime } from '../utils/datetime';
 import { formatMoney } from '../utils/money';
 
@@ -10,6 +11,9 @@ export type PrintTicketLine = {
 
 export type PrintTicket = {
   businessName: string;
+  businessPhone?: string;
+  businessAddress?: string;
+  logoBase64?: string;
   orderNumber: number;
   createdAt: string;
   status: Order['status'];
@@ -32,9 +36,12 @@ export interface PrinterService {
   print(ticket: PrintTicket): Promise<PrintResult>;
 }
 
-export function buildTicket(order: Order, businessName: string): PrintTicket {
+export function buildTicket(order: Order, business: Business): PrintTicket {
   return {
-    businessName,
+    businessName: business.name,
+    businessPhone: business.phone,
+    businessAddress: business.address,
+    logoBase64: business.logoBase64,
     orderNumber: order.number,
     createdAt: order.paidAt ?? order.createdAt,
     status: order.status,
@@ -51,6 +58,11 @@ export function buildTicket(order: Order, businessName: string): PrintTicket {
   };
 }
 
+export function logoDataUri(logoBase64?: string): string | null {
+  if (!logoBase64) return null;
+  return `data:image/png;base64,${logoBase64}`;
+}
+
 export function renderTicketText(ticket: PrintTicket): string {
   const divider = '-'.repeat(42);
   const money = (cents: number) => formatMoney(cents);
@@ -63,6 +75,12 @@ export function renderTicketText(ticket: PrintTicket): string {
 
   const lines: string[] = [];
   lines.push(ticket.businessName.toUpperCase());
+  if (ticket.businessPhone) {
+    lines.push(`Tel: ${ticket.businessPhone}`);
+  }
+  if (ticket.businessAddress) {
+    lines.push(ticket.businessAddress);
+  }
   lines.push(divider);
   lines.push(`Ticket Nº ${ticket.orderNumber}`);
   lines.push(`${formatDate(ticket.createdAt)}  ${formatTime(ticket.createdAt)}`);
@@ -72,7 +90,7 @@ export function renderTicketText(ticket: PrintTicket): string {
   lines.push(divider);
   for (const line of ticket.lines) {
     lines.push(line.name);
-    lines.push(`  ${line.quantity} x ${money(line.unitPriceCents)}`.padEnd(26) + money(line.unitPriceCents * line.quantity));
+    lines.push(`  ${line.quantity} x ${money(line.unitPriceCents)}`.padEnd(22) + money(line.unitPriceCents * line.quantity));
   }
   lines.push(divider);
   lines.push('TOTAL'.padEnd(26) + money(ticket.subtotalCents));

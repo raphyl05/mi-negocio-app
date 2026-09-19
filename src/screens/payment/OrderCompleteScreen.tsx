@@ -3,13 +3,17 @@ import { useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
+import TicketPreviewModal from '../../components/TicketPreviewModal';
+import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
+import { getBusiness } from '../../services/setupService';
+import { buildTicket } from '../../services/printerService';
 import { useTheme } from '../../theme';
 import { formatTime } from '../../utils/datetime';
 import { formatMoney } from '../../utils/money';
@@ -22,9 +26,12 @@ export default function OrderCompleteScreen({ route }: Props) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [order, setOrder] = useState<Order | null>(null);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [ticketVisible, setTicketVisible] = useState(false);
 
   useEffect(() => {
     orderRepository.getById(route.params.orderId).then(setOrder);
+    getBusiness().then(setBusiness);
   }, [route.params.orderId]);
 
   if (!order) {
@@ -74,10 +81,22 @@ export default function OrderCompleteScreen({ route }: Props) {
           </View>
         </View>
 
-        <View style={styles.action}>
+        <View style={styles.actions}>
+          <PrimaryButton
+            label="Ver ticket"
+            variant="outline"
+            onPress={() => {
+              if (business) setTicketVisible(true);
+            }}
+          />
+          <View style={styles.actionsGap} />
           <PrimaryButton label="Nueva venta" onPress={() => navigation.popToTop()} />
         </View>
       </ScrollView>
+
+      {order && business ? (
+        <TicketPreviewModal visible={ticketVisible} onClose={() => setTicketVisible(false)} ticket={buildTicket(order, business)} />
+      ) : null}
     </Screen>
   );
 }
@@ -146,7 +165,10 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
   },
-  action: {
+  actions: {
     marginTop: 24,
+  },
+  actionsGap: {
+    marginTop: 12,
   },
 });

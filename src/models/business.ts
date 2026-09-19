@@ -3,5 +3,6 @@ export type Business = {
   ownerName?: string;
   phone?: string;
   address?: string;
+  logoBase64?: string;
   createdAt: string;
 };

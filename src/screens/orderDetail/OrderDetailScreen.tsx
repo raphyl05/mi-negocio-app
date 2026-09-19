@@ -3,17 +3,19 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
 import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
+import TicketPreviewModal from '../../components/TicketPreviewModal';
 import { useCart } from '../../contexts/CartContext';
+import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
 import { getBusiness } from '../../services/setupService';
-import { buildTicket, renderTicketText } from '../../services/printerService';
+import { buildTicket } from '../../services/printerService';
 import { useTheme } from '../../theme';
 import { formatDate, formatTime } from '../../utils/datetime';
 import { formatMoney } from '../../utils/money';
@@ -28,13 +30,11 @@ export default function OrderDetailScreen({ route }: Props) {
   const { restore } = useCart();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [businessName, setBusinessName] = useState('Mi Negocio');
+  const [business, setBusiness] = useState<Business | null>(null);
   const [ticketVisible, setTicketVisible] = useState(false);
 
   useEffect(() => {
-    getBusiness().then((business) => {
-      if (business?.name) setBusinessName(business.name);
-    });
+    getBusiness().then(setBusiness);
   }, []);
 
   const load = useCallback(async () => {
@@ -254,52 +254,11 @@ export default function OrderDetailScreen({ route }: Props) {
         </View>
       </ScrollView>
 
-      <Modal visible={ticketVisible} transparent animationType="slide" onRequestClose={() => setTicketVisible(false)}>
-        <View style={styles.ticketOverlay}>
-          <View style={[styles.ticketCard, { backgroundColor: colors.surface, borderRadius: 16 }]}>
-            <View style={styles.ticketHeader}>
-              <Text
-                style={{
-                  color: colors.textPrimary,
-                  fontSize: typography.sizes.h2,
-                  fontWeight: typography.weights.bold,
-                }}
-              >
-                Ticket #{order.number}
-              </Text>
-              <Pressable onPress={() => setTicketVisible(false)} hitSlop={8}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
-              </Pressable>
-            </View>
-            <ScrollView>
-              <Text
-                selectable
-                style={{
-                  color: colors.textPrimary,
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  lineHeight: 19,
-                }}
-              >
-                {renderTicketText(buildTicket(order, businessName))}
-              </Text>
-            </ScrollView>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontSize: typography.sizes.caption,
-                textAlign: 'center',
-                marginTop: 12,
-              }}
-            >
-              Formato de impresión listo. Conecta la impresora para imprimir.
-            </Text>
-            <View style={styles.ticketClose}>
-              <PrimaryButton label="Cerrar" onPress={() => setTicketVisible(false)} />
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <TicketPreviewModal
+        visible={ticketVisible}
+        onClose={() => setTicketVisible(false)}
+        ticket={buildTicket(order, business ?? { name: 'Mi Negocio', createdAt: order.createdAt })}
+      />
     </Screen>
   );
 }
@@ -401,24 +360,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     fontWeight: '700',
     fontSize: 14,
-  },
-  ticketOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  ticketCard: {
-    maxHeight: '80%',
-    padding: 20,
-  },
-  ticketHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  ticketClose: {
-    marginTop: 14,
   },
 });

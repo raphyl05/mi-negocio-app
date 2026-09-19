@@ -26,6 +26,14 @@ export async function getBusiness(): Promise<Business | null> {
   return JSON.parse(raw) as Business;
 }
 
+export async function saveBusiness(business: Business): Promise<void> {
+  await AsyncStorage.setItem(BUSINESS_KEY, JSON.stringify(business));
+}
+
+export async function clearSession(): Promise<void> {
+  await AsyncStorage.multiRemove([BUSINESS_KEY, USER_KEY]);
+}
+
 export async function getUser(): Promise<User | null> {
   const raw = await AsyncStorage.getItem(USER_KEY);
   if (!raw) return null;
