@@ -1,20 +1,61 @@
-import { createContext, useContext } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { colors } from './colors';
+import { colors, darkColors } from './colors';
+import type { Colors } from './colors';
 import { spacing } from './spacing';
 import { typography } from './typography';
 import { shadows } from './shadows';
 
-export const theme = { colors, spacing, typography, shadows };
+const THEME_KEY = '@micaja/theme';
 
-export type Theme = typeof theme;
+export type Theme = {
+  colors: Colors;
+  spacing: typeof spacing;
+  typography: typeof typography;
+  shadows: typeof shadows;
+};
 
-const ThemeContext = createContext<Theme>(theme);
+type ThemeContextValue = Theme & {
+  dark: boolean;
+  setDark: (dark: boolean) => void;
+};
+
+const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+  const [dark, setDarkState] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(THEME_KEY)
+      .then((value) => {
+        if (value === 'dark') setDarkState(true);
+      })
+      .finally(() => setReady(true));
+  }, []);
+
+  const setDark = (next: boolean) => {
+    setDarkState(next);
+    AsyncStorage.setItem(THEME_KEY, next ? 'dark' : 'light').catch(() => undefined);
+  };
+
+  const value: ThemeContextValue = {
+    colors: dark ? darkColors : colors,
+    spacing,
+    typography,
+    shadows,
+    dark,
+    setDark,
+  };
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-export function useTheme(): Theme {
-  return useContext(ThemeContext);
+export function useTheme(): ThemeContextValue {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme debe usarse dentro de ThemeProvider');
+  }
+  return context;
 }

@@ -7,6 +7,10 @@ export type RootStackParamList = {
   ProductForm: { productId?: string } | undefined;
   OrderDetail: { orderId: string };
   CashClosure: undefined;
+  BusinessEdit: undefined;
+  InvoiceConfig: undefined;
+  Dashboard: undefined;
+  Security: undefined;
 };
 
 export type TabParamList = {

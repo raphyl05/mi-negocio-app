@@ -8,6 +8,10 @@ import OrderCompleteScreen from '../screens/payment/OrderCompleteScreen';
 import PaymentScreen from '../screens/payment/PaymentScreen';
 import ProductFormScreen from '../screens/productForm/ProductFormScreen';
 import CashClosureScreen from '../screens/cash/CashClosureScreen';
+import BusinessEditScreen from '../screens/settings/BusinessEditScreen';
+import DashboardScreen from '../screens/settings/DashboardScreen';
+import InvoiceConfigScreen from '../screens/settings/InvoiceConfigScreen';
+import SecurityScreen from '../screens/settings/SecurityScreen';
 import { useTheme } from '../theme';
 import BottomTabs from './BottomTabs';
 import type { RootStackParamList } from './types';
@@ -42,6 +46,10 @@ export default function RootNavigator() {
         <Stack.Screen name="ProductForm" component={ProductFormScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="CashClosure" component={CashClosureScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="BusinessEdit" component={BusinessEditScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="InvoiceConfig" component={InvoiceConfigScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Security" component={SecurityScreen} options={{ animation: 'slide_from_right' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

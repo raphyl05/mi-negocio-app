@@ -3,5 +3,8 @@ export type User = {
   username: string;
   passwordHash: string;
   passwordSalt: string;
+  securityQuestion?: string;
+  securityAnswerHash?: string;
+  securityAnswerSalt?: string;
   createdAt: string;
 };

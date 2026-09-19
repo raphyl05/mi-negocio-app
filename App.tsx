@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { CartProvider } from './src/contexts/CartContext';
 import { PendingOrdersProvider } from './src/contexts/PendingOrdersContext';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -10,14 +11,15 @@ import SetupScreen from './src/screens/setup/SetupScreen';
 import { isSetupDone } from './src/services/setupService';
 import { ThemeProvider, useTheme } from './src/theme';
 
-type BootStatus = 'loading' | 'setup' | 'loggedOut' | 'main';
+type BootStatus = 'loading' | 'setup' | 'ready';
 
 function BootGate() {
   const { colors, typography } = useTheme();
+  const { authed, login } = useAuth();
   const [status, setStatus] = useState<BootStatus>('loading');
 
   useEffect(() => {
-    isSetupDone().then((done) => setStatus(done ? 'loggedOut' : 'setup'));
+    isSetupDone().then((done) => setStatus(done ? 'ready' : 'setup'));
   }, []);
 
   if (status === 'loading') {
@@ -32,26 +34,37 @@ function BootGate() {
   }
 
   if (status === 'setup') {
-    return <SetupScreen onCompleted={() => setStatus('loggedOut')} />;
+    return <SetupScreen onCompleted={() => setStatus('ready')} />;
   }
 
-  if (status === 'loggedOut') {
-    return <LoginScreen onLogin={() => setStatus('main')} />;
+  if (!authed) {
+    return <LoginScreen onLogin={login} />;
   }
 
   return <RootNavigator />;
+}
+
+function ThemedApp() {
+  const { dark } = useTheme();
+  return (
+    <>
+      <StatusBar style={dark ? 'light' : 'dark'} />
+      <BootGate />
+    </>
+  );
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <CartProvider>
-          <PendingOrdersProvider>
-            <StatusBar style="dark" />
-            <BootGate />
-          </PendingOrdersProvider>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <PendingOrdersProvider>
+              <ThemedApp />
+            </PendingOrdersProvider>
+          </CartProvider>
+        </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

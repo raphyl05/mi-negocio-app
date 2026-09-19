@@ -34,6 +34,51 @@ export async function clearSession(): Promise<void> {
   await AsyncStorage.multiRemove([BUSINESS_KEY, USER_KEY]);
 }
 
+export function normalizeSecurityAnswer(answer: string): string {
+  return answer.trim().toLocaleLowerCase();
+}
+
+export async function saveSecurityQuestion(question: string, answer: string): Promise<boolean> {
+  const user = await getUser();
+  if (!user || !question.trim()) return false;
+  const answerSalt = await generateSalt();
+  const answerHash = await hashPassword(normalizeSecurityAnswer(answer), answerSalt);
+  await updateUser({
+    ...user,
+    securityQuestion: question.trim(),
+    securityAnswerHash: answerHash,
+    securityAnswerSalt: answerSalt,
+  });
+  return true;
+}
+
+export async function updateUser(user: User): Promise<void> {
+  await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export async function hasSecurityQuestion(): Promise<boolean> {
+  const user = await getUser();
+  return Boolean(user?.securityQuestion && user?.securityAnswerHash && user?.securityAnswerSalt);
+}
+
+export async function verifySecurityAnswer(username: string, answer: string): Promise<boolean> {
+  const user = await getUser();
+  if (!user || !user.securityAnswerHash || !user.securityAnswerSalt) return false;
+  if (user.username.trim().toLocaleLowerCase() !== username.trim().toLocaleLowerCase()) return false;
+  const hash = await hashPassword(normalizeSecurityAnswer(answer), user.securityAnswerSalt);
+  return hash === user.securityAnswerHash;
+}
+
+export async function setNewPassword(username: string, newPassword: string): Promise<boolean> {
+  const user = await getUser();
+  if (!user) return false;
+  if (user.username.trim().toLocaleLowerCase() !== username.trim().toLocaleLowerCase()) return false;
+  const salt = await generateSalt();
+  const passwordHash = await hashPassword(newPassword, salt);
+  await updateUser({ ...user, passwordHash, passwordSalt: salt });
+  return true;
+}
+
 export async function getUser(): Promise<User | null> {
   const raw = await AsyncStorage.getItem(USER_KEY);
   if (!raw) return null;

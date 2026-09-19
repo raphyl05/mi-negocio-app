@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ComponentProps } from 'react';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import Card from '../../components/Card';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import Screen from '../../components/Screen';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Business } from '../../models/business';
 import type { CashRegister } from '../../models/cashRegister';
 import type { RootStackParamList } from '../../navigation/types';
@@ -14,9 +16,12 @@ import { getBusiness } from '../../services/setupService';
 import { useTheme } from '../../theme';
 import { formatTime } from '../../utils/datetime';
 
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
 export default function SettingsScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, typography, dark, setDark } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { logout } = useAuth();
   const [business, setBusiness] = useState<Business | null>(null);
   const [register, setRegister] = useState<CashRegister | null>(null);
 
@@ -26,6 +31,13 @@ export default function SettingsScreen() {
       getOpenRegister().then(setRegister);
     }, []),
   );
+
+  const handleLogout = () => {
+    Alert.alert('Cerrar sesión', 'Se cerrará tu sesión. Tus datos se conservan en el dispositivo.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Cerrar sesión', style: 'destructive', onPress: logout },
+    ]);
+  };
 
   return (
     <Screen>
@@ -42,38 +54,51 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           MI NEGOCIO
         </Text>
-        <Card style={styles.cardGap}>
-          <View style={styles.rowIcon}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
-              <Ionicons name="storefront-outline" size={22} color={colors.primary} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={[styles.rowTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>
-                {business?.name ?? 'Sin configurar'}
-              </Text>
-              {business?.ownerName ? (
-                <Text style={[styles.rowSubtitle, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-                  {business.ownerName}
-                </Text>
-              ) : null}
-            </View>
+        <Pressable
+          onPress={() => navigation.navigate('BusinessEdit')}
+          style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, borderRadius: 16, opacity: pressed ? 0.85 : 1 }]}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="storefront-outline" size={22} color={colors.primary} />
           </View>
-          {business?.address ? (
-            <Text style={[styles.detail, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-              {business.address}
+          <View style={styles.rowText}>
+            <Text style={[styles.rowTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>
+              {business?.name ?? 'Sin configurar'}
             </Text>
-          ) : null}
-          {business?.phone ? (
-            <Text style={[styles.detail, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-              {business.phone}
+            <Text style={[styles.rowSubtitle, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+              {business?.address || business?.phone ? [business.address, business.phone].filter(Boolean).join(' · ') : 'Editar datos del negocio'}
             </Text>
-          ) : null}
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </Pressable>
+
+        <View style={styles.gap} />
+
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          VENTAS Y PAGOS
+        </Text>
+        <Card style={styles.cardList}>
+          <SettingsRow
+            icon="print-outline"
+            title="Factura e impresión"
+            subtitle="Logo y formato del ticket"
+            onPress={() => navigation.navigate('InvoiceConfig')}
+          />
+          <RowDivider />
+          <SettingsRow
+            icon="bar-chart-outline"
+            title="Panel de ventas"
+            subtitle="Resumen de los últimos 7 días"
+            onPress={() => navigation.navigate('Dashboard')}
+          />
         </Card>
+
+        <View style={styles.gap} />
 
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           CAJA
         </Text>
-        <Card style={styles.cardGap}>
+        <Card style={styles.cardList}>
           {register ? (
             <>
               <View style={styles.rowIcon}>
@@ -85,29 +110,18 @@ export default function SettingsScreen() {
                     Caja abierta
                   </Text>
                   <Text style={[styles.rowSubtitle, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-                    Desde las {formatTime(register.openedAt)}
+                    Desde las {formatTime(register.openedAt)} · inicial{' '}
+                    <MoneyDisplay cents={register.openingAmountCents} size="small" />
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.detail, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-                Efectivo inicial <MoneyDisplay cents={register.openingAmountCents} />
-              </Text>
-
-              <Pressable
+              <RowDivider />
+              <SettingsRow
+                icon="receipt-outline"
+                title="Resumen del día y cierre"
+                subtitle="Revisa el cuadre y cierra el turno"
                 onPress={() => navigation.navigate('CashClosure')}
-                style={({ pressed }) => [
-                  styles.closureButton,
-                  {
-                    backgroundColor: pressed ? colors.primaryLight : colors.surface,
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <Ionicons name="receipt-outline" size={18} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '700' }}>
-                  Resumen del día y cierre
-                </Text>
-              </Pressable>
+              />
             </>
           ) : (
             <View style={styles.rowIcon}>
@@ -126,17 +140,94 @@ export default function SettingsScreen() {
           )}
         </Card>
 
+        <View style={styles.gap} />
+
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          CUENTA Y SEGURIDAD
+        </Text>
+        <Card style={styles.cardList}>
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            title="Seguridad"
+            subtitle="Pregunta secreta y contraseña"
+            onPress={() => navigation.navigate('Security')}
+          />
+          <RowDivider />
+          <View style={styles.rowIcon}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.surfaceMuted }]}>
+              <Ionicons name={dark ? 'moon' : 'moon-outline'} size={22} color={colors.textSecondary} />
+            </View>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>
+                Tema oscuro
+              </Text>
+              <Text style={[styles.rowSubtitle, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+                {dark ? 'Activado' : 'Desactivado'}
+              </Text>
+            </View>
+            <Switch
+              value={dark}
+              onValueChange={setDark}
+              trackColor={{ false: colors.border, true: colors.primaryLight }}
+              thumbColor={dark ? colors.primary : colors.surfaceMuted}
+            />
+          </View>
+        </Card>
+
+        <Pressable
+          onPress={handleLogout}
+          style={({ pressed }) => [styles.logoutRow, { borderColor: colors.danger + '55', opacity: pressed ? 0.75 : 1 }]}
+        >
+          <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+          <Text style={{ color: colors.danger, fontSize: typography.sizes.body, fontWeight: '700' }}>Cerrar sesión</Text>
+        </Pressable>
+
         <Text style={[styles.footer, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-          Cierra la caja al terminar tu turno desde el resumen del día.
+          Los datos se guardan solo en este dispositivo.
         </Text>
       </ScrollView>
     </Screen>
   );
 }
 
+function SettingsRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: IconName;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  const { colors, typography } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.rowIcon, { opacity: pressed ? 0.75 : 1 }]}
+    >
+      <View style={[styles.iconCircle, { backgroundColor: colors.surfaceMuted }]}>
+        <Ionicons name={icon} size={22} color={colors.textPrimary} />
+      </View>
+      <View style={styles.rowText}>
+        <Text style={[styles.rowTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>{title}</Text>
+        <Text style={[styles.rowSubtitle, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+    </Pressable>
+  );
+}
+
+function RowDivider() {
+  const { colors } = useTheme();
+  return <View style={[styles.divider, { backgroundColor: colors.border }]} />;
+}
+
 const styles = StyleSheet.create({
   container: {
     padding: 24,
+    paddingBottom: 40,
   },
   pageTitle: {
     letterSpacing: -0.5,
@@ -146,14 +237,20 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
-  cardGap: {
-    marginBottom: 20,
+  gap: {
+    height: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
+    padding: 14,
   },
   rowIcon: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingVertical: 6,
   },
   iconCircle: {
     width: 42,
@@ -171,21 +268,25 @@ const styles = StyleSheet.create({
   rowSubtitle: {
     marginTop: 2,
   },
-  detail: {
-    marginLeft: 54,
+  cardList: {
+    padding: 14,
+    gap: 8,
   },
-  closureButton: {
+  divider: {
+    height: 1,
+  },
+  logoutRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    marginLeft: 54,
+    minHeight: 54,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 24,
   },
   footer: {
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 16,
   },
 });
