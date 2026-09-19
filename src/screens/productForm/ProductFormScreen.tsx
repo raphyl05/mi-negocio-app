@@ -4,15 +4,17 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { ComponentProps } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import PrimaryButton from '../../components/PrimaryButton';
 import QuickEditModal from '../../components/QuickEditModal';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import type { ProductImageType } from '../../models/product';
+import type { Provider } from '../../models/provider';
 import type { RootStackParamList } from '../../navigation/types';
 import { productRepository } from '../../repositories/productRepository';
+import { providerRepository } from '../../repositories/providerRepository';
 import { useTheme } from '../../theme';
 import { parseMoney, formatMoneyBlur } from '../../utils/money';
 import { formatPhoneBlur, unformatPhoneFocus, sanitizeMoneyInput, sanitizeIntegerInput, sanitizePhoneInput } from '../../utils/inputFormat';
@@ -51,11 +53,17 @@ export default function ProductFormScreen() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [providerFlash, setProviderFlash] = useState(false);
 
   useEffect(() => {
     productRepository.list().then((all) => {
       setCategories(Array.from(new Set(all.map((p) => p.category))));
     });
+  }, []);
+
+  useEffect(() => {
+    providerRepository.list().then(setProviders);
   }, []);
 
   useEffect(() => {
@@ -198,6 +206,40 @@ export default function ProductFormScreen() {
     setRenamingCategory(null);
   };
 
+  const providerSuggestions = useMemo(() => {
+    const name = provider.trim().toLowerCase();
+    const phone = providerPhone.trim().toLowerCase();
+    if (!name && !phone) return [];
+    return providers
+      .filter(
+        (item) =>
+          (name && item.name.toLowerCase().includes(name)) ||
+          (phone && item.phone.toLowerCase().includes(phone)),
+      )
+      .slice(0, 5);
+  }, [providers, provider, providerPhone]);
+
+  const useProvider = (saved: Provider) => {
+    setProvider(saved.name);
+    setProviderPhone(saved.phone);
+  };
+
+  const canSaveProvider = provider.trim().length > 0;
+
+  const handleSaveProvider = async () => {
+    if (!canSaveProvider) return;
+    await providerRepository.create({
+      name: provider.trim(),
+      phone: providerPhone,
+      address: '',
+      note: '',
+      createdAt: new Date().toISOString(),
+    });
+    setProviders(await providerRepository.list());
+    setProviderFlash(true);
+    setTimeout(() => setProviderFlash(false), 2500);
+  };
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -276,6 +318,32 @@ export default function ProductFormScreen() {
             placeholder="Nombre del proveedor"
             autoCapitalize="words"
           />
+          {providerSuggestions.length > 0 ? (
+            <View style={[styles.providerSuggestions, { borderColor: colors.border }]}>
+              {providerSuggestions.map((saved) => (
+                <Pressable
+                  key={saved.id}
+                  onPress={() => useProvider(saved)}
+                  style={({ pressed }) => [
+                    styles.providerSuggestionRow,
+                    { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.75 : 1 },
+                  ]}
+                >
+                  <View style={styles.providerSuggestionText}>
+                    <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                      {saved.name}
+                    </Text>
+                    {saved.phone ? (
+                      <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                        {saved.phone}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="download-outline" size={18} color={colors.primary} />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
           <TextField
             label="Teléfono del proveedor"
             value={providerPhone}
@@ -286,6 +354,32 @@ export default function ProductFormScreen() {
             formatOnBlur={formatPhoneBlur}
             sanitize={sanitizePhoneInput}
           />
+          <Pressable
+            onPress={handleSaveProvider}
+            disabled={!canSaveProvider}
+            style={({ pressed }) => [
+              styles.providerSaveRow,
+              {
+                backgroundColor: providerFlash ? colors.success + '1A' : colors.surfaceMuted,
+                opacity: !canSaveProvider || pressed ? 0.6 : 1,
+              },
+            ]}
+          >
+            <Ionicons
+              name={providerFlash ? 'checkmark-circle' : 'bookmark-outline'}
+              size={18}
+              color={providerFlash ? colors.success : colors.primary}
+            />
+            <Text
+              style={{
+                color: providerFlash ? colors.success : colors.primary,
+                fontSize: typography.sizes.body,
+                fontWeight: '700',
+              }}
+            >
+              {providerFlash ? 'Proveedor guardado' : 'Guardar proveedor'}
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.section}>
@@ -446,6 +540,32 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     marginLeft: 4,
+  },
+  providerSuggestions: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 6,
+    gap: 6,
+  },
+  providerSuggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  providerSuggestionText: {
+    flex: 1,
+    gap: 2,
+  },
+  providerSaveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 44,
+    borderRadius: 12,
   },
   fieldGroup: {
     gap: 10,

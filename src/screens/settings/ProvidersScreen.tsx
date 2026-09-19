@@ -6,18 +6,18 @@ import EmptyState from '../../components/EmptyState';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
-import type { Customer } from '../../models/customer';
-import { customerRepository } from '../../repositories/customerRepository';
+import type { Provider } from '../../models/provider';
+import { providerRepository } from '../../repositories/providerRepository';
 import { useTheme } from '../../theme';
 import { formatPhoneBlur, unformatPhoneFocus, sanitizePhoneInput } from '../../utils/inputFormat';
 
-export default function CustomersScreen() {
+export default function ProvidersScreen() {
   const { colors, spacing, typography } = useTheme();
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Customer | null>(null);
+  const [editing, setEditing] = useState<Provider | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -26,7 +26,7 @@ export default function CustomersScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setCustomers(await customerRepository.list());
+    setProviders(await providerRepository.list());
     setLoading(false);
   }, []);
 
@@ -45,24 +45,24 @@ export default function CustomersScreen() {
     setShowForm(true);
   };
 
-  const openEdit = (customer: Customer) => {
-    setEditing(customer);
-    setName(customer.name);
-    setPhone(customer.phone);
-    setAddress(customer.address);
-    setNote(customer.note);
+  const openEdit = (provider: Provider) => {
+    setEditing(provider);
+    setName(provider.name);
+    setPhone(provider.phone);
+    setAddress(provider.address);
+    setNote(provider.note);
     setShowForm(true);
   };
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre del cliente.');
+      Alert.alert('Falta el nombre', 'Escribe el nombre del proveedor.');
       return;
     }
     setSaving(true);
     try {
       const createdAt = editing?.createdAt ?? new Date().toISOString();
-      await customerRepository.create({ id: editing?.id, name: name.trim(), phone: phone.trim(), address: address.trim(), note: note.trim(), createdAt });
+      await providerRepository.create({ id: editing?.id, name: name.trim(), phone: phone.trim(), address: address.trim(), note: note.trim(), createdAt });
       setShowForm(false);
       await load();
     } finally {
@@ -70,14 +70,14 @@ export default function CustomersScreen() {
     }
   };
 
-  const handleDelete = (customer: Customer) => {
-    Alert.alert('Eliminar cliente', `Se eliminará a "${customer.name}". Esta acción no se puede deshacer.`, [
+  const handleDelete = (provider: Provider) => {
+    Alert.alert('Eliminar proveedor', `Se eliminará a "${provider.name}". Esta acción no se puede deshacer.`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
         onPress: async () => {
-          await customerRepository.remove(customer.id);
+          await providerRepository.remove(provider.id);
           await load();
         },
       },
@@ -97,24 +97,24 @@ export default function CustomersScreen() {
                 { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
               ]}
             >
-              Clientes
+              Proveedores
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
-              Clientela registrada para llenar tus facturas rápido.
+              Quiénes te surten tu inventario y cómo contactarlos.
             </Text>
           </View>
 
           <FlatList
-            data={customers}
-            keyExtractor={(customer) => customer.id}
+            data={providers}
+            keyExtractor={(provider) => provider.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               loading ? null : (
                 <EmptyState
-                  icon="people-outline"
-                  title="Sin clientes todavía"
-                  subtitle="Agrega tu primer cliente y aparcerá aquí y en el carrito."
+                  icon="cube-outline"
+                  title="Sin proveedores todavía"
+                  subtitle="Agrega tu primer proveedor y aparecerá aquí y en el catálogo."
                 />
               )
             }
@@ -142,7 +142,7 @@ export default function CustomersScreen() {
           />
 
           <View style={styles.action}>
-            <PrimaryButton label="Agregar cliente" onPress={openNew} />
+            <PrimaryButton label="Agregar proveedor" onPress={openNew} />
           </View>
         </View>
       ) : (
@@ -158,17 +158,17 @@ export default function CustomersScreen() {
                 { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
               ]}
             >
-              {editing ? 'Editar cliente' : 'Nuevo cliente'}
+              {editing ? 'Editar proveedor' : 'Nuevo proveedor'}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginBottom: 12 }}>
               Solo el nombre es obligatorio.
             </Text>
-            <TextField label="Nombre *" value={name} onChangeText={setName} autoCapitalize="words" placeholder="Ej. Juan Pérez" formatOnFocus={undefined} formatOnBlur={undefined} />
+            <TextField label="Nombre *" value={name} onChangeText={setName} autoCapitalize="words" placeholder="Ej. Distribuidora López" formatOnFocus={undefined} formatOnBlur={undefined} />
             <TextField label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" formatOnFocus={unformatPhoneFocus} formatOnBlur={formatPhoneBlur} sanitize={sanitizePhoneInput} />
-            <TextField label="Dirección" value={address} onChangeText={setAddress} placeholder="Dirección del cliente" />
-            <TextField label="Nota" value={note} onChangeText={setNote} placeholder="Ej. Prefiere entrega por la tarde" />
+            <TextField label="Dirección" value={address} onChangeText={setAddress} placeholder="Dirección del proveedor" />
+            <TextField label="Nota" value={note} onChangeText={setNote} placeholder="Ej. Despacha cada lunes" />
             <View style={styles.formActions}>
-              <PrimaryButton label={editing ? 'Guardar cambios' : 'Guardar cliente'} onPress={handleSave} loading={saving} />
+              <PrimaryButton label={editing ? 'Guardar cambios' : 'Guardar proveedor'} onPress={handleSave} loading={saving} />
               <PrimaryButton label="Cancelar" variant="outline" onPress={() => setShowForm(false)} />
             </View>
           </ScrollView>

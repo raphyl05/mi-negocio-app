@@ -65,6 +65,15 @@ CREATE TABLE IF NOT EXISTS customers (
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers (name);
+CREATE TABLE IF NOT EXISTS providers (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_providers_name ON providers (name);
 `);
 
   await ensureColumn(db, 'products', 'provider', 'TEXT');

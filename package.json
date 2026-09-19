@@ -41,7 +41,7 @@
     "preset": "jest-expo",
     "moduleNameMapper": {
       "^(\\.\\.?/.*)\\.native$": "$1.ts",
-      "^(\\.\\.?/.*Sqlite(?:Product|Order|Customer)Repository)$": "$1.ts"
+      "^(\\.\\.?/.*Sqlite(?:Product|Order|Customer|Provider)Repository)$": "$1.ts"
     }
   }
 }

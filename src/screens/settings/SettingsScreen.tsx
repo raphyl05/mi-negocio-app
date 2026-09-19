@@ -110,6 +110,20 @@ export default function SettingsScreen() {
         <View style={styles.gap} />
 
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          PROVEEDORES
+        </Text>
+        <Card style={styles.cardList}>
+          <SettingsRow
+            icon="cube-outline"
+            title="Directorio de proveedores"
+            subtitle="Quiénes te surten el inventario"
+            onPress={() => navigation.navigate('Providers')}
+          />
+        </Card>
+
+        <View style={styles.gap} />
+
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           CAJA
         </Text>
         <Card style={styles.cardList}>
