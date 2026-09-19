@@ -14,6 +14,7 @@ import { useCart } from '../../contexts/CartContext';
 import type { RootStackParamList } from '../../navigation/types';
 import { useTheme } from '../../theme';
 import { formatMoney } from '../../utils/money';
+import { formatPhoneBlur, unformatPhoneFocus } from '../../utils/inputFormat';
 import type { CartItem } from '../../utils/cart';
 
 export default function CartScreen() {
@@ -72,6 +73,8 @@ export default function CartScreen() {
                   onChangeText={(text) => setCustomerField('phone', text)}
                   keyboardType="phone-pad"
                   placeholder="809-000-0000"
+                  formatOnFocus={unformatPhoneFocus}
+                  formatOnBlur={formatPhoneBlur}
                 />
                 <TextField
                   label="Dirección"

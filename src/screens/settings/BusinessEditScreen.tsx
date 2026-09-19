@@ -8,6 +8,7 @@ import TextField from '../../components/TextField';
 import type { RootStackParamList } from '../../navigation/types';
 import { getBusiness, saveBusiness } from '../../services/setupService';
 import { useTheme } from '../../theme';
+import { formatPhoneBlur, unformatPhoneFocus } from '../../utils/inputFormat';
 
 type Validation = { name?: string };
 
@@ -74,7 +75,7 @@ export default function BusinessEditScreen() {
         <View style={styles.form}>
           <TextField label="Nombre del negocio" value={name} onChangeText={(t) => { setName(t); setErrors({}); }} error={errors.name} placeholder="Ej. Comedor El Buen Sabor" />
           <TextField label="Dueño / encargado" value={ownerName} onChangeText={setOwnerName} placeholder="Opcional" />
-          <TextField label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" />
+          <TextField label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" formatOnFocus={unformatPhoneFocus} formatOnBlur={formatPhoneBlur} />
           <TextField label="Dirección" value={address} onChangeText={setAddress} placeholder="Opcional" />
         </View>
 

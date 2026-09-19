@@ -1,4 +1,4 @@
-import { formatMoney, calcSubtotal, calcChange, calcDifference, parseMoney } from '../src/utils/money';
+import { formatMoney, calcSubtotal, calcChange, calcDifference, parseMoney, formatMoneyBlur, unformatMoneyFocus } from '../src/utils/money';
 
 describe('formatMoney', () => {
   it('formatea pesos dominicanos con dos decimales', () => {
@@ -77,5 +77,36 @@ describe('parseMoney', () => {
     expect(parseMoney('-5')).toBeNull();
     expect(parseMoney('12.345')).toBeNull();
     expect(parseMoney('500 pesos')).toBeNull();
+  });
+});
+
+describe('formatMoneyBlur', () => {
+  it('se aplica al salir del campo: 500 -> RD$500.00', () => {
+    expect(formatMoneyBlur('500')).toBe('RD$500.00');
+    expect(formatMoneyBlur('500.50')).toBe('RD$500.50');
+    expect(formatMoneyBlur('0')).toBe('RD$0.00');
+  });
+
+  it('agrupa montos grandes con separador de miles', () => {
+    expect(formatMoneyBlur('1500')).toBe('RD$1,500.00');
+    expect(formatMoneyBlur('4850.25')).toBe('RD$4,850.25');
+  });
+
+  it('deja intacto lo que no se puede interpretar', () => {
+    expect(formatMoneyBlur('')).toBe('');
+    expect(formatMoneyBlur('abc')).toBe('abc');
+    expect(formatMoneyBlur('500 pesos')).toBe('500 pesos');
+  });
+});
+
+describe('unformatMoneyFocus', () => {
+  it('quita RD$, comas y espacios al enfocar un valor formateado', () => {
+    expect(unformatMoneyFocus('RD$1,500.00')).toBe('1500.00');
+    expect(unformatMoneyFocus('RD$500.00')).toBe('500.00');
+  });
+
+  it('no altera un texto que aún no fue formateado', () => {
+    expect(unformatMoneyFocus('500')).toBe('500');
+    expect(unformatMoneyFocus('')).toBe('');
   });
 });

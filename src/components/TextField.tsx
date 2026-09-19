@@ -13,6 +13,8 @@ type TextFieldProps = {
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: TextInputProps['autoCapitalize'];
   multiline?: boolean;
+  formatOnFocus?: (text: string) => string;
+  formatOnBlur?: (text: string) => string;
 };
 
 export default function TextField({
@@ -25,6 +27,8 @@ export default function TextField({
   keyboardType,
   autoCapitalize = 'sentences',
   multiline = false,
+  formatOnFocus,
+  formatOnBlur,
 }: TextFieldProps) {
   const { colors, spacing, typography } = useTheme();
   const [focused, setFocused] = useState(false);
@@ -39,8 +43,20 @@ export default function TextField({
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={() => {
+          setFocused(true);
+          if (formatOnFocus) {
+            const next = formatOnFocus(value);
+            if (next !== value) onChangeText(next);
+          }
+        }}
+        onBlur={() => {
+          setFocused(false);
+          if (formatOnBlur) {
+            const next = formatOnBlur(value);
+            if (next !== value) onChangeText(next);
+          }
+        }}
         secureTextEntry={secureTextEntry}
         placeholder={placeholder}
         placeholderTextColor={colors.textSecondary}

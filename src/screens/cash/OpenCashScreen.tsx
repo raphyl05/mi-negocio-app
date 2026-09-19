@@ -6,7 +6,7 @@ import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import { openRegister } from '../../services/cashRegisterService';
 import { useTheme } from '../../theme';
-import { parseMoney } from '../../utils/money';
+import { parseMoney, formatMoneyBlur, unformatMoneyFocus } from '../../utils/money';
 
 type OpenCashScreenProps = {
   onOpened: () => void;
@@ -74,6 +74,8 @@ export default function OpenCashScreen({ onOpened }: OpenCashScreenProps) {
               error={error ?? undefined}
               keyboardType="decimal-pad"
               placeholder="Ej. 500 o 500.50"
+              formatOnFocus={unformatMoneyFocus}
+              formatOnBlur={formatMoneyBlur}
             />
           </View>
 

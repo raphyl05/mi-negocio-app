@@ -19,7 +19,7 @@ import { getBusiness } from '../../services/setupService';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme/colors';
 import { calcCashClosure, isOrderInRegister, renderClosureReceiptText } from '../../utils/cashClosure';
-import { parseMoney } from '../../utils/money';
+import { parseMoney, formatMoneyBlur, unformatMoneyFocus } from '../../utils/money';
 
 export default function CashClosureScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -173,6 +173,8 @@ export default function CashClosureScreen() {
             error={countingError ?? undefined}
             keyboardType="decimal-pad"
             placeholder="Ej. 700 o 700.50"
+            formatOnFocus={unformatMoneyFocus}
+            formatOnBlur={formatMoneyBlur}
           />
 
           {difference !== null ? (

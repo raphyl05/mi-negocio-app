@@ -41,3 +41,16 @@ export function parseMoney(text: string): number | null {
   const [intPart, decPart = ''] = normalized.split('.');
   return parseInt(intPart, 10) * 100 + parseInt(decPart.padEnd(2, '0'), 10);
 }
+
+export function formatMoneyBlur(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  const cents = parseMoney(trimmed);
+  if (cents === null) return trimmed;
+  return formatMoney(cents);
+}
+
+export function unformatMoneyFocus(text: string): string {
+  if (!text.includes('RD$')) return text;
+  return text.replace(/RD\$/g, '').replace(/,/g, '').replace(/\s+/g, '');
+}
