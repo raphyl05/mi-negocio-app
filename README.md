@@ -227,6 +227,7 @@ __tests__/         # tests de dinero, carrito, buildOrder, repositorios, validac
 
 ## Registro de commits
 
+- `93230bf` Fase 15: abstraccion PrinterService y hook inactivo usePrinter
 - `a09748f` Fase 14: resumen del día y cierre de caja (efectivo esperado vs contado)
 - `97f3dc8` Ajustes: proveedor por producto, eliminar categoría y corregir test de repositorio
 - `1cc6d55` Ajuste: editar cantidades en carrito + Fase 13 (historial de ventas pagadas)
