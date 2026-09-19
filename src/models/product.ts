@@ -9,7 +9,6 @@ export type Product = {
   emoji?: string;
   icon?: string;
   imageUri?: string;
-  trackStock: boolean;
   stockQuantity: number;
   active: boolean;
   provider?: string;

@@ -2,20 +2,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import ProductImage from '../../components/ProductImage';
+import QuickEditModal from '../../components/QuickEditModal';
 import Screen from '../../components/Screen';
 import type { Product } from '../../models/product';
 import type { RootStackParamList } from '../../navigation/types';
 import { productRepository } from '../../repositories/productRepository';
 import { useTheme } from '../../theme';
+import { formatMoney, parseMoney } from '../../utils/money';
 
 export default function ProductsScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [products, setProducts] = useState<Product[]>([]);
+  const [quick, setQuick] = useState<{ product: Product; mode: 'price' | 'stock' } | null>(null);
 
   const load = useCallback(async () => {
     const all = await productRepository.list();
@@ -32,6 +35,28 @@ export default function ProductsScreen() {
     if (a.active !== b.active) return a.active ? -1 : 1;
     return a.createdAt.localeCompare(b.createdAt);
   });
+
+  const openQuickActions = (product: Product) => {
+    Alert.alert(product.name, '¿Qué quieres ajustar?', [
+      { text: 'Cambiar precio', onPress: () => setQuick({ product, mode: 'price' }) },
+      { text: 'Ajustar stock', onPress: () => setQuick({ product, mode: 'stock' }) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const applyQuick = async (value: string, direction: 'add' | 'subtract') => {
+    if (!quick) return;
+    const { product, mode } = quick;
+    if (mode === 'price') {
+      const cents = parseMoney(value) ?? 0;
+      await productRepository.update({ ...product, priceCents: cents });
+    } else {
+      const delta = parseInt(value.trim(), 10);
+      await productRepository.adjustStock(product.id, direction === 'add' ? delta : -delta);
+    }
+    setQuick(null);
+    await load();
+  };
 
   return (
     <Screen>
@@ -71,21 +96,45 @@ export default function ProductsScreen() {
           data={sorted}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => <ProductRow product={item} />}
+          renderItem={({ item }) => <ProductRow product={item} onEdit={() => navigation.navigate('ProductForm', { productId: item.id })} onLongPress={() => openQuickActions(item)} />}
         />
       )}
+
+      <QuickEditModal
+        visible={quick !== null}
+        mode={quick?.mode ?? 'price'}
+        productName={quick?.product.name ?? ''}
+        currentValue={
+          quick
+            ? quick.mode === 'price'
+              ? formatMoney(quick.product.priceCents, { decimals: false })
+              : `${quick.product.stockQuantity} en stock`
+            : ''
+        }
+        onSubmit={applyQuick}
+        onClose={() => setQuick(null)}
+      />
     </Screen>
   );
 }
 
-function ProductRow({ product }: { product: Product }) {
+function ProductRow({
+  product,
+  onEdit,
+  onLongPress,
+}: {
+  product: Product;
+  onEdit: () => void;
+  onLongPress: () => void;
+}) {
   const { colors, spacing, typography } = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const outOfStock = product.trackStock && product.stockQuantity <= 0;
+  const outOfStock = product.stockQuantity <= 0;
 
   return (
     <Pressable
-      onPress={() => navigation.navigate('ProductForm', { productId: product.id })}
+      onPress={onEdit}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       style={({ pressed }) => [
         styles.row,
         { backgroundColor: colors.surface, opacity: pressed ? 0.9 : product.active ? 1 : 0.55 },
@@ -108,17 +157,15 @@ function ProductRow({ product }: { product: Product }) {
       </View>
       <View style={styles.rowRight}>
         <MoneyDisplay cents={product.priceCents} size="small" />
-        {product.trackStock ? (
-          <Text
-            style={{
-              color: outOfStock ? colors.danger : colors.textSecondary,
-              fontSize: typography.sizes.caption,
-              fontWeight: '600',
-            }}
-          >
-            Stock: {product.stockQuantity}
-          </Text>
-        ) : null}
+        <Text
+          style={{
+            color: outOfStock ? colors.danger : colors.textSecondary,
+            fontSize: typography.sizes.caption,
+            fontWeight: '600',
+          }}
+        >
+          Stock: {product.stockQuantity}
+        </Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.border} style={styles.chevron} />
     </Pressable>

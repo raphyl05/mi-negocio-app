@@ -101,7 +101,6 @@ export type StockIssue = {
 export function findStockIssue(items: CartItem[], products: Product[]): StockIssue | null {
   const byId = new Map(products.map((p) => [p.id, p]));
   for (const item of items) {
-    if (!item.product.trackStock) continue;
     const live = byId.get(item.product.id);
     const available = live?.stockQuantity ?? 0;
     if (available < item.quantity) {

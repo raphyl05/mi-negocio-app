@@ -12,7 +12,6 @@ type ProductRow = {
   emoji: string | null;
   icon: string | null;
   imageUri: string | null;
-  trackStock: number;
   stockQuantity: number;
   active: number;
   provider: string | null;
@@ -30,7 +29,6 @@ function rowToProduct(row: ProductRow): Product {
     emoji: row.emoji ?? undefined,
     icon: row.icon ?? undefined,
     imageUri: row.imageUri ?? undefined,
-    trackStock: row.trackStock === 1,
     stockQuantity: row.stockQuantity,
     active: row.active === 1,
     provider: row.provider ?? undefined,
@@ -61,8 +59,8 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
     async create(product) {
       const created: Product = { ...product, id: product.id || generateId() };
       await db.runAsync(
-        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, trackStock, stockQuantity, active, provider, providerPhone, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, stockQuantity, active, provider, providerPhone, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           created.id,
           created.name,
@@ -72,7 +70,6 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
           created.emoji ?? null,
           created.icon ?? null,
           created.imageUri ?? null,
-          created.trackStock ? 1 : 0,
           created.stockQuantity,
           created.active ? 1 : 0,
           created.provider ?? null,
@@ -85,7 +82,7 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
 
     async update(product) {
       await db.runAsync(
-        `UPDATE products SET name = ?, priceCents = ?, category = ?, imageType = ?, emoji = ?, icon = ?, imageUri = ?, trackStock = ?, stockQuantity = ?, active = ?, provider = ?, providerPhone = ?
+        `UPDATE products SET name = ?, priceCents = ?, category = ?, imageType = ?, emoji = ?, icon = ?, imageUri = ?, stockQuantity = ?, active = ?, provider = ?, providerPhone = ?
          WHERE id = ?`,
         [
           product.name,
@@ -95,7 +92,6 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
           product.emoji ?? null,
           product.icon ?? null,
           product.imageUri ?? null,
-          product.trackStock ? 1 : 0,
           product.stockQuantity,
           product.active ? 1 : 0,
           product.provider ?? null,
@@ -125,6 +121,25 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
         quantity,
         id,
       );
+    },
+
+    async adjustStock(id, delta) {
+      await db.runAsync(
+        'UPDATE products SET stockQuantity = MAX(0, stockQuantity + ?) WHERE id = ?',
+        delta,
+        id,
+      );
+      const row = await db.getFirstAsync<ProductRow>('SELECT * FROM products WHERE id = ?', id);
+      return row ? rowToProduct(row) : null;
+    },
+
+    async renameCategory(oldName, newName) {
+      const result = await db.getFirstAsync<{ n: number }>(
+        'SELECT count(*) as n FROM products WHERE category = ?',
+        oldName,
+      );
+      await db.runAsync('UPDATE products SET category = ? WHERE category = ?', newName, oldName);
+      return result?.n ?? 0;
     },
   };
 }

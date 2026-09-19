@@ -13,6 +13,8 @@ export interface ProductRepository {
   remove(id: string): Promise<void>;
   removeByCategory(category: string): Promise<number>;
   decreaseStock(id: string, quantity: number): Promise<void>;
+  adjustStock(id: string, delta: number): Promise<Product | null>;
+  renameCategory(oldName: string, newName: string): Promise<number>;
 }
 
 export function createInMemoryProductRepository(): ProductRepository {
@@ -58,6 +60,26 @@ export function createInMemoryProductRepository(): ProductRepository {
           ? { ...product, stockQuantity: Math.max(0, product.stockQuantity - quantity) }
           : product,
       );
+    },
+
+    async adjustStock(id, delta) {
+      let updated: Product | null = null;
+      products = products.map((product) => {
+        if (product.id !== id) return product;
+        updated = { ...product, stockQuantity: Math.max(0, product.stockQuantity + delta) };
+        return updated;
+      });
+      return updated;
+    },
+
+    async renameCategory(oldName, newName) {
+      let renamed = 0;
+      products = products.map((product) => {
+        if (product.category !== oldName) return product;
+        renamed += 1;
+        return { ...product, category: newName };
+      });
+      return renamed;
     },
   };
 }
@@ -105,6 +127,14 @@ class LazyProductRepository implements ProductRepository {
 
   async decreaseStock(id: string, quantity: number) {
     return (await this.ready()).decreaseStock(id, quantity);
+  }
+
+  async adjustStock(id: string, delta: number) {
+    return (await this.ready()).adjustStock(id, delta);
+  }
+
+  async renameCategory(oldName: string, newName: string) {
+    return (await this.ready()).renameCategory(oldName, newName);
   }
 }
 

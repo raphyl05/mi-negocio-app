@@ -1,6 +1,6 @@
 import { validateProduct } from '../src/utils/productValidation';
 
-const base = { name: 'Hamburguesa', priceText: '250', category: 'Comidas', trackStock: false, stockText: '' };
+const base = { name: 'Hamburguesa', priceText: '250', category: 'Comidas', stockText: '50' };
 
 describe('validateProduct', () => {
   it('acepta un producto válido', () => {
@@ -25,12 +25,12 @@ describe('validateProduct', () => {
     expect(errors.category).toBe('La categoría es obligatoria');
   });
 
-  it('valida el stock solo si se controla', () => {
-    const valid = validateProduct({ ...base, trackStock: true, stockText: '12' });
+  it('valida el stock siempre', () => {
+    const valid = validateProduct({ ...base, stockText: '12' });
     expect(valid).toEqual({});
-    expect(validateProduct({ ...base, trackStock: true, stockText: '' }).stock).toBeDefined();
-    expect(validateProduct({ ...base, trackStock: true, stockText: '1.5' }).stock).toBeDefined();
-    expect(validateProduct({ ...base, trackStock: true, stockText: '-3' }).stock).toBeDefined();
-    expect(validateProduct({ ...base, trackStock: true, stockText: 'abc' }).stock).toBeDefined();
+    expect(validateProduct({ ...base, stockText: '' }).stock).toBeDefined();
+    expect(validateProduct({ ...base, stockText: '1.5' }).stock).toBeDefined();
+    expect(validateProduct({ ...base, stockText: '-3' }).stock).toBeDefined();
+    expect(validateProduct({ ...base, stockText: 'abc' }).stock).toBeDefined();
   });
 });

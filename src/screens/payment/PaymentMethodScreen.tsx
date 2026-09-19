@@ -62,9 +62,7 @@ export default function PaymentMethodScreen({ route }: Props) {
 
   const decrementStocks = async (orderItems: CartItem[]) => {
     for (const item of orderItems) {
-      if (item.product.trackStock) {
-        await productRepository.decreaseStock(item.product.id, item.quantity);
-      }
+      await productRepository.decreaseStock(item.product.id, item.quantity);
     }
   };
 

@@ -4,7 +4,6 @@ export type ProductFormInput = {
   name: string;
   priceText: string;
   category: string;
-  trackStock: boolean;
   stockText: string;
 };
 
@@ -31,11 +30,9 @@ export function validateProduct(input: ProductFormInput): ProductFormErrors {
     errors.category = 'La categoría es obligatoria';
   }
 
-  if (input.trackStock) {
-    const cleaned = input.stockText.trim();
-    if (cleaned === '' || !/^\d+$/.test(cleaned)) {
-      errors.stock = 'La cantidad debe ser un número entero mayor o igual a 0';
-    }
+  const cleaned = input.stockText.trim();
+  if (cleaned === '' || !/^\d+$/.test(cleaned)) {
+    errors.stock = 'La cantidad debe ser un número entero mayor o igual a 0';
   }
 
   return errors;

@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS products (
   emoji TEXT,
   icon TEXT,
   imageUri TEXT,
-  trackStock INTEGER NOT NULL DEFAULT 0,
+  trackStock INTEGER NOT NULL DEFAULT 1,
   stockQuantity INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1,
   provider TEXT,
@@ -61,12 +61,14 @@ CREATE TABLE IF NOT EXISTS order_meta (
   await ensureColumn(db, 'products', 'provider', 'TEXT');
   await ensureColumn(db, 'products', 'providerPhone', 'TEXT');
 
+  await db.runAsync('UPDATE products SET trackStock = 1');
+
   const productCount = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM products');
   if (!productCount || productCount.count === 0) {
     for (const product of SEED_PRODUCTS) {
       await db.runAsync(
-        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, trackStock, stockQuantity, active, provider, providerPhone, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, stockQuantity, active, provider, providerPhone, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           product.id,
           product.name,
@@ -76,7 +78,6 @@ CREATE TABLE IF NOT EXISTS order_meta (
           product.emoji ?? null,
           product.icon ?? null,
           product.imageUri ?? null,
-          product.trackStock ? 1 : 0,
           product.stockQuantity,
           product.active ? 1 : 0,
           product.provider ?? null,

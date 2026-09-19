@@ -22,7 +22,6 @@ const burger: Product = {
   category: 'Comidas',
   imageType: 'emoji',
   emoji: '🍔',
-  trackStock: true,
   stockQuantity: 15,
   active: true,
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -35,7 +34,6 @@ const soda: Product = {
   category: 'Bebidas',
   imageType: 'emoji',
   emoji: '🥤',
-  trackStock: false,
   stockQuantity: 0,
   active: true,
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -153,12 +151,11 @@ it('limpia el carrito', () => {
     expect(issue?.available).toBe(15);
   });
 
-  it('findStockIssue ignora productos sin control de stock', () => {
-    const items: CartItem[] = [{ product: soda, quantity: 999 }];
-    expect(findStockIssue(items, [soda])).toBeNull();
-  });
-
   it('findStockIssue ignora productos dentro del stock', () => {
     expect(findStockIssue([{ product: burger, quantity: 5 }], [burger])).toBeNull();
+  });
+
+  it('findStockIssue detecta stock insuficiente para productos sin stock', () => {
+    expect(findStockIssue([{ product: soda, quantity: 1 }], [soda])).not.toBeNull();
   });
 });

@@ -23,10 +23,6 @@ export type CustomerInfo = {
 
 const EMPTY_CUSTOMER: CustomerInfo = { customerName: '', phone: '', address: '', description: '' };
 
-function stockCap(product: Product): number | undefined {
-  return product.trackStock ? product.stockQuantity : undefined;
-}
-
 type CartContextType = {
   items: CartItem[];
   count: number;
@@ -52,14 +48,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const add = useCallback((product: Product) => setItems((current) => addProductToCart(current, product)), []);
   const addQuantity = useCallback(
     (product: Product, quantity: number) =>
-      setItems((current) => addQuantityToCart(current, product, quantity, stockCap(product))),
+      setItems((current) => addQuantityToCart(current, product, quantity, product.stockQuantity)),
     [],
   );
   const increase = useCallback(
     (productId: string) =>
       setItems((current) => {
         const item = current.find((cartItem) => cartItem.product.id === productId);
-        return increaseItem(current, productId, item ? stockCap(item.product) : undefined);
+        return increaseItem(current, productId, item?.product.stockQuantity);
       }),
     [],
   );
@@ -71,7 +67,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (productId: string, quantityText: string) =>
       setItems((current) => {
         const item = current.find((cartItem) => cartItem.product.id === productId);
-        return updateItemQuantity(current, productId, quantityText, item ? stockCap(item.product) : undefined);
+        return updateItemQuantity(current, productId, quantityText, item?.product.stockQuantity);
       }),
     [],
   );

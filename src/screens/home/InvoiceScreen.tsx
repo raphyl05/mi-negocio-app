@@ -63,13 +63,11 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
     if (adding) return;
     const quantity = parseCartQuantity(quantities[product.id] ?? '1');
     setAdding(true);
-    if (product.trackStock) {
-      const inCart = inCartQuantity(items, product.id);
-      if (inCart + quantity > product.stockQuantity) {
-        setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
-        setAdding(false);
-        return;
-      }
+    const inCart = inCartQuantity(items, product.id);
+    if (inCart + quantity > product.stockQuantity) {
+      setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
+      setAdding(false);
+      return;
     }
     setStockError(null);
     addQuantity(product, quantity);
@@ -228,8 +226,8 @@ function ProductCard({
   onAdd: () => void;
 }) {
   const { colors, spacing, typography, shadows } = useTheme();
-  const outOfStock = product.trackStock && product.stockQuantity <= 0;
-  const lowStock = !outOfStock && product.trackStock && product.stockQuantity <= 5;
+  const outOfStock = product.stockQuantity <= 0;
+  const lowStock = !outOfStock && product.stockQuantity <= 5;
 
   return (
     <View style={[styles.productCard, { backgroundColor: colors.surface, borderRadius: 16, boxShadow: shadows.card }]}>
@@ -243,17 +241,15 @@ function ProductCard({
       <Text style={[styles.productPrice, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>
         {formatMoney(product.priceCents)}
       </Text>
-      {product.trackStock ? (
-        <Text
-          style={{
-            color: outOfStock ? colors.danger : lowStock ? colors.warning : colors.textSecondary,
-            fontSize: typography.sizes.caption,
-            fontWeight: lowStock || outOfStock ? '700' : '400',
-          }}
-        >
-          {outOfStock ? 'Agotado' : lowStock ? `¡Solo quedan ${product.stockQuantity}!` : `Quedan ${product.stockQuantity}`}
-        </Text>
-      ) : null}
+      <Text
+        style={{
+          color: outOfStock ? colors.danger : lowStock ? colors.warning : colors.textSecondary,
+          fontSize: typography.sizes.caption,
+          fontWeight: lowStock || outOfStock ? '700' : '400',
+        }}
+      >
+        {outOfStock ? 'Agotado' : lowStock ? `¡Solo quedan ${product.stockQuantity}!` : `Quedan ${product.stockQuantity}`}
+      </Text>
 
       <View style={styles.addRow}>
         <TextInput

@@ -7,6 +7,7 @@ import type { ComponentProps } from 'react';
 import { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import PrimaryButton from '../../components/PrimaryButton';
+import QuickEditModal from '../../components/QuickEditModal';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import type { ProductImageType } from '../../models/product';
@@ -40,7 +41,6 @@ export default function ProductFormScreen() {
   const [provider, setProvider] = useState('');
   const [providerPhone, setProviderPhone] = useState('');
   const [active, setActive] = useState(true);
-  const [trackStock, setTrackStock] = useState(false);
   const [stockText, setStockText] = useState('');
   const [imageType, setImageType] = useState<ProductImageType>('emoji');
   const [emoji, setEmoji] = useState('');
@@ -49,6 +49,7 @@ export default function ProductFormScreen() {
   const [errors, setErrors] = useState<ProductFormErrors>({});
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
 
   useEffect(() => {
     productRepository.list().then((all) => {
@@ -69,8 +70,7 @@ export default function ProductFormScreen() {
       setProvider(product.provider ?? '');
       setProviderPhone(product.providerPhone ?? '');
       setActive(product.active);
-      setTrackStock(product.trackStock);
-      setStockText(product.trackStock ? String(product.stockQuantity) : '');
+      setStockText(String(product.stockQuantity));
       setImageType(product.imageType);
       setEmoji(product.emoji ?? '');
       setIcon(product.icon ?? PRODUCT_ICON_CHOICES[0]);
@@ -92,12 +92,12 @@ export default function ProductFormScreen() {
   };
 
   const handleSave = async () => {
-    const validated = validateProduct({ name, priceText, category, trackStock, stockText });
+    const validated = validateProduct({ name, priceText, category, stockText });
     setErrors(validated);
     if (Object.keys(validated).length > 0) return;
 
     const priceCents = parseMoney(priceText) ?? 0;
-    const stockQuantity = trackStock ? Math.max(0, parseInt(stockText.trim(), 10) || 0) : 0;
+    const stockQuantity = Math.max(0, parseInt(stockText.trim(), 10) || 0);
     const image: { imageType: ProductImageType; emoji?: string; icon?: string; imageUri?: string } =
       imageType === 'emoji'
         ? { imageType: 'emoji', emoji: emoji.trim() || DEFAULT_PRODUCT_EMOJI }
@@ -121,7 +121,6 @@ export default function ProductFormScreen() {
           name: cleanName,
           priceCents,
           category: cleanCategory,
-          trackStock,
           stockQuantity,
           active,
           provider: provider.trim() || undefined,
@@ -133,7 +132,6 @@ export default function ProductFormScreen() {
           name: cleanName,
           priceCents,
           category: cleanCategory,
-          trackStock,
           stockQuantity,
           active: true,
           createdAt: new Date().toISOString(),
@@ -161,6 +159,42 @@ export default function ProductFormScreen() {
         },
       },
     ]);
+  };
+
+  const handleCategoryLongPress = (c: string) => {
+    Alert.alert('Categoría', `¿Qué quieres hacer con "${c}"?`, [
+      { text: 'Renombrar', onPress: () => setRenamingCategory(c) },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert('Eliminar categoría', `¿Eliminar "${c}" y todos sus productos?`, [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Eliminar',
+              style: 'destructive',
+              onPress: async () => {
+                await productRepository.removeByCategory(c);
+                setCategories((prev) => prev.filter((cat) => cat !== c));
+                if (category === c) setCategory('');
+              },
+            },
+          ]);
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const handleRenameCategory = async (newName: string) => {
+    if (!renamingCategory) return;
+    const cleanName = newName.trim().replace(/^\w/, (ch) => ch.toUpperCase());
+    if (cleanName && cleanName !== renamingCategory) {
+      await productRepository.renameCategory(renamingCategory, cleanName);
+      setCategories((prev) => prev.map((cat) => (cat === renamingCategory ? cleanName : cat)));
+      if (category === renamingCategory) setCategory(cleanName);
+    }
+    setRenamingCategory(null);
   };
 
   return (
@@ -193,41 +227,31 @@ export default function ProductFormScreen() {
           <View style={styles.fieldGroup}>
             <TextField label="Categoría" value={category} onChangeText={setCategory} error={errors.category} placeholder="Ej. Comidas" />
             {categories.length > 0 ? (
-              <View style={styles.categoryChips}>
-                {categories.map((c) => (
-                  <Pressable
-                    key={c}
-                    onPress={() => setCategory(c)}
-                    onLongPress={() => {
-                      Alert.alert(
-                        'Eliminar categoría',
-                        `¿Eliminar "${c}" y todos sus productos?`,
-                        [
-                          { text: 'Cancelar', style: 'cancel' },
-                          {
-                            text: 'Eliminar',
-                            style: 'destructive',
-                            onPress: async () => {
-                              await productRepository.removeByCategory(c);
-                              setCategories((prev) => prev.filter((cat) => cat !== c));
-                            },
-                          },
-                        ],
-                      );
-                    }}
-                    style={[
-                      styles.categoryChip,
-                      { backgroundColor: category === c ? colors.primaryLight : colors.surfaceMuted },
-                    ]}
-                  >
-                    <Text
-                      style={{ color: category === c ? colors.primary : colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '600' }}
+              <>
+                <View style={styles.categoryChips}>
+                  {categories.map((c) => (
+                    <Pressable
+                      key={c}
+                      onPress={() => setCategory(c)}
+                      onLongPress={() => handleCategoryLongPress(c)}
+                      delayLongPress={350}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: category === c ? colors.primaryLight : colors.surfaceMuted },
+                      ]}
                     >
-                      {c}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+                      <Text
+                        style={{ color: category === c ? colors.primary : colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '600' }}
+                      >
+                        {c}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                  Mantén presionada una categoría para renombrarla o eliminarla.
+                </Text>
+              </>
             ) : null}
           </View>
         </View>
@@ -331,33 +355,17 @@ export default function ProductFormScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold }}>
-                Controlar stock
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
-                Descuenta existencias al vender
-              </Text>
-            </View>
-            <Switch
-              value={trackStock}
-              onValueChange={setTrackStock}
-              trackColor={{ false: colors.border, true: colors.primaryLight }}
-              thumbColor={trackStock ? colors.primary : colors.surfaceMuted}
-            />
-          </View>
-
-          {trackStock ? (
-            <TextField
-              label="Cantidad en stock"
-              value={stockText}
-              onChangeText={setStockText}
-              error={errors.stock}
-              keyboardType="number-pad"
-              placeholder="Ej. 50"
-            />
-          ) : null}
+          <Text style={[styles.sectionLabel, { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold }]}>
+            Stock
+          </Text>
+          <TextField
+            label="Cantidad en stock"
+            value={stockText}
+            onChangeText={setStockText}
+            error={errors.stock}
+            keyboardType="number-pad"
+            placeholder="Ej. 50"
+          />
 
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
@@ -390,6 +398,15 @@ export default function ProductFormScreen() {
           ) : null}
         </View>
       </ScrollView>
+
+      <QuickEditModal
+        visible={renamingCategory !== null}
+        mode="text"
+        productName="Categoría"
+        currentValue={renamingCategory ?? ''}
+        onSubmit={(value) => handleRenameCategory(value)}
+        onClose={() => setRenamingCategory(null)}
+      />
     </Screen>
   );
 }

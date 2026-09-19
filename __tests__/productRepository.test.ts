@@ -9,7 +9,6 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     category: 'Pruebas',
     imageType: 'emoji',
     emoji: '🍽️',
-    trackStock: false,
     stockQuantity: 0,
     active: true,
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -44,18 +43,32 @@ describe('productRepository (en memoria)', () => {
 
   it('descuenta stock sin pasar de cero', async () => {
     const repo = createInMemoryProductRepository();
-    const created = await repo.create(makeProduct({ trackStock: true, stockQuantity: 5 }));
+    const created = await repo.create(makeProduct({ stockQuantity: 5 }));
     await repo.decreaseStock(created.id, 3);
     expect((await repo.getById(created.id))?.stockQuantity).toBe(2);
     await repo.decreaseStock(created.id, 10);
     expect((await repo.getById(created.id))?.stockQuantity).toBe(0);
   });
 
-  it('no descuenta stock de productos sin control', async () => {
+  it('ajusta stock sumando y restando sin pasar de cero', async () => {
     const repo = createInMemoryProductRepository();
-    const created = await repo.create(makeProduct({ trackStock: false, stockQuantity: 0 }));
-    await repo.decreaseStock(created.id, 2);
-    expect((await repo.getById(created.id))?.stockQuantity).toBe(0);
+    const created = await repo.create(makeProduct({ stockQuantity: 10 }));
+    const afterAdd = await repo.adjustStock(created.id, 20);
+    expect(afterAdd?.stockQuantity).toBe(30);
+    const afterSub = await repo.adjustStock(created.id, -45);
+    expect(afterSub?.stockQuantity).toBe(0);
+    expect(await repo.adjustStock('no-existe', 5)).toBeNull();
+  });
+
+  it('renombra una categoría en todos sus productos', async () => {
+    const repo = createInMemoryProductRepository();
+    await repo.create(makeProduct({ name: 'A', category: 'Nueva' }));
+    await repo.create(makeProduct({ name: 'B', category: 'Nueva' }));
+    const renamed = await repo.renameCategory('Nueva', 'Nueva Renombrada');
+    expect(renamed).toBe(2);
+    const list = await repo.list();
+    expect(list.filter((p) => p.category === 'Nueva Renombrada')).toHaveLength(2);
+    expect(list.filter((p) => p.category === 'Nueva')).toHaveLength(0);
   });
 
   it('filtra por categoría y lista todo', async () => {
