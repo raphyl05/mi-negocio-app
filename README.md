@@ -41,6 +41,15 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 
 **Fase 30 COMPLETADA ✅** — sincronización con Google Drive: subida automática del respaldo completo tras cada cierre de caja, reintento automático al reconectarse (cola offline), descarga manual exclusiva vía "Restaurar desde Drive", cuenta persistente hasta desvinculación manual, sin congelar la app (subida en segundo plano).
 
+**Fase 31 COMPLETADA ✅** — ajustes detallados de la versión actual:
+
+- **Carrito:** la barra inferior (datos del cliente, subtotal y Continuar) queda **fija al pie de la pantalla**; ya no se centra ni le quita espacio a la lista de productos.
+- **Mi negocio:** ahora incluye el **LOGO DE LA FACTURA** (elegir/cambiar/quitar) y el **mensaje del ticket** (editable, con "Gracias por su compra!" por defecto). Ahí viven todos los datos que salen en la factura; se eliminó la pantalla "Factura e impresión".
+- **Datos y respaldo:** Google Drive y el "sync automático al cerrar caja" **quedaron fuera de la vista** (se retoman en una versión posterior). Solo respaldo/restore por archivo y borrar cuenta.
+- **Cierre de caja:** la tarjeta ahora dice **EFECTIVO EN CAJA** y muestra el **total contado** (lo que hay físicamente en la bandeja, sin suponer); el cuadre comparativo contra lo esperado sigue reflejado como diferencia.
+- **Caja cerrada = app bloqueada:** con la caja cerrada solo se puede editar el inventario; la pestaña **Ventas** queda bloqueada hasta abrir caja desde Inicio, y si había productos en el carrito se **limpian** al quedar la caja cerrada (todo empieza como un día nuevo).
+- **Ventas:** se quitó la búsqueda por rango de fechas (Desde/Hasta).
+
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
 > https://docs.expo.dev/versions/v57.0.0/
@@ -232,7 +241,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 
 - [x] **Impresora configurable desde Más → Impresora** (`PrinterConfigScreen`): interruptor para activar/desactivar la impresión, estado en vivo (activa/conectando/sin conexión/apagada), **Buscar impresoras activas**, conectar/desconectar e **imprimir ticket de prueba**. La configuración se persiste y la impresora vuelve a conectar al reiniciar la app.
 - [x] **Impresora del sistema / integrada**: transporte `systemPrintTransport` con **`expo-print@~57.0.2`** que abre el diálogo de impresión del sistema (impresoras integradas de terminales POS, AirPrint y `window.print` en web). **Funciona hoy en Expo Go**.
-- [x] **Impresora Bluetooth (térmica 58 mm) preparada**: transporte `bluetoothTransport` con interfaz `BluetoothPrinterBridge` (puente nativo). Hoy, desde Expo Go, la pantalla explica que falta el módulo nativo; cuando el proyecto tenga un **dev build** con el puente implementado, la impresora se conecta desde la misma pantalla sin tocar el resto del código. El generador **ESC/POS** (`escpos.ts`) ya produce los bytes para la térmica (inicialización, texto UTF-8, avance y corte).
+- [x] **Impresora Bluetooth (BLE 58 mm) implementada**: transporte `bluetoothTransport` sobre un puente BLE nuevo (`bleBridge.native.ts`) con **`react-native-ble-plx`**: escaneo de térmicas BLE, conexión, detección automática del canal de escritura (servicio/characteristic) y envío de los bytes ESC/POS por fragmentos. Requiere **app compilada** (dev build / EAS), no Expo Go — la dependencia y el plugin de Expo (`app.json` → permisos Bluetooth) quedan configurados. Si además existe un módulo nativo propio `BluetoothPrinterBridge`, se usa primero. El generador **ESC/POS** (`escpos.ts`) ya produce los bytes para la térmica (inicialización, texto UTF-8, avance y corte).
 - [x] **Impresora de prueba simulada**: `demoPrintTransport` permite recorrer todo el flujo (buscar → conectar → imprimir) sin hardware.
 - [x] **Botones de imprimir donde corresponde**: solo aparecen cuando hay una impresora activa (condición `ready`) — en **Venta completada** (tras cobrar), en el **detalle de la venta** y dentro de los **modales de ticket y recibo de cierre**.
 - [x] **Auto-reconexión**: si la impresora configurada se apagó y vuelve a encender (o se pierde el enlace), el servicio se reconecta solo: al volver la app a primer plano, con un verificador periódico (15 s) y antes de cada impresión. Todo idempotente vía `ensureConnected`.
@@ -248,7 +257,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
 
 ## Lo que falta
-**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada, la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, y la Fase 30 sube el respaldo automáticamente a Google Drive al cerrar caja (con cola offline y restore manual desde Drive). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: impresión térmica Bluetooth real (módulo nativo + dev build), códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
+**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, y la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y el respaldo en la nube.
 
 ## Cómo correr la app
 
@@ -276,7 +285,7 @@ npm run android       # intenta abrir en Android (si hay emulador/dispositivo co
 
 ## Posteriores (fuera de alcance del MVP)
 
-Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, impresión térmica Bluetooth real (módulo nativo / dev build), códigos de barras, facturación electrónica (DGII/NCF), inventario real, exportación/backup en nube.
+Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF), inventario real, exportación/backup en nube.
 
 ## Notas de entorno / problemas conocidos
 
@@ -285,6 +294,7 @@ Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltipl
   - No agregar `allowScripts` a `package.json`: no resuelve el problema (probado).
 - **Encoding:** no escribir `package.json` (ni ningún .json de Expo) con BOM (UTF-8 con marca) — Expo falla al parsearlo (`Unexpected token`). Salidas de PowerShell con `Set-Content -Encoding UTF8` y algunos editores añaden BOM. Verificar primer byte (debe ser `{` = 123, no 239).
 - **`.git`** fue inicializado por `create-expo-app` automáticamente; se renombró la rama a `main`.
+- **Web export roto en la versión actual de `expo-sqlite` (~57.0.3)**: `npx expo export --platform web` falla con `Unable to resolve module ./wa-sqlite/wa-sqlite.wasm` (la carpeta `web/wa-sqlite` del paquete no se resuelve desde `build/` en Metro). No depende del código de la app y no afecta Android/iOS ni Expo Go; pendiente de arreglo/upstream.
 - **JSX requiere `.tsx`**: un archivo `.ts` con JSX (como el Provider del theme) falla en typecheck.
 - En `tsconfig.json` se declaró `"types": ["jest"]` para que la base de Expo reconozca `describe/it/expect`.
 - Estructura del proyecto (Fases 2+):
@@ -306,6 +316,7 @@ src/
 ## Registro de commits
 
 - `9750f2c` Pestana Mas limpia: esencial (negocio, caja, tema, cerrar sesion) y pantalla Configuracion aparte
+- `2188426` Fase 31: ajustes detallados - pie del carrito fijo, logo y mensaje del ticket en Mi negocio, Drive fuera de la vista (sin sync al cerrar), cierre de caja con total contado, app bloqueada con caja cerrada (solo inventario) y Ventas sin rango de fechas
 - `ebfa324` Fase 30: sincronizacion Google Drive - upload auto post-cierre, cola offline, restore manual Drive
 - `c5ff29f` Fase 29: impresion rapida en Ventas (pendientes y cobradas), tablet responsive (840dp y grilla 3-4 col), backup/restore por archivo JSON y borrar cuenta/datos
 - `3e64b3c` Fase 28: impresora configurable (sistema/integrada, Bluetooth y demo) con auto-reconexion, botones de impresion y tickets ESC/POS
