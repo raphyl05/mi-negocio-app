@@ -39,6 +39,8 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 
 **Fase 29 COMPLETADA ✅** — impresión rápida desde Ventas (pendientes y cobradas, con marca clara de pendiente/pagada), soporte tablet mejorado (ancho de contenido 840dp en pantallas ≥720dp y grilla de facturación de 3–4 columnas), respaldo/restore offline por archivo JSON y opción de borrar cuenta + datos desde Más → Datos y respaldo.
 
+**Fase 30 COMPLETADA ✅** — sincronización con Google Drive: subida automática del respaldo completo tras cada cierre de caja, reintento automático al reconectarse (cola offline), descarga manual exclusiva vía "Restaurar desde Drive", cuenta persistente hasta desvinculación manual, sin congelar la app (subida en segundo plano).
+
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
 > https://docs.expo.dev/versions/v57.0.0/
@@ -303,7 +305,8 @@ src/
 
 ## Registro de commits
 
-- `NUEVO` Fase 29: impresion rapida en Ventas (pendientes y cobradas), tablet responsive (840dp y grilla 3-4 col), backup/restore por archivo JSON y borrar cuenta/datos
+- `c5ff29f` Fase 29: impresion rapida en Ventas (pendientes y cobradas), tablet responsive (840dp y grilla 3-4 col), backup/restore por archivo JSON y borrar cuenta/datos
+- `NUEVO` Fase 30: sincronizacion Google Drive - upload auto post-cierre, cola offline, restore manual Drive
 - `3e64b3c` Fase 28: impresora configurable (sistema/integrada, Bluetooth y demo) con auto-reconexion, botones de impresion y tickets ESC/POS
 - `5931004` Fase 27: proveedores como clientes (directorio, SQLite y proveedor en productos) y UI adaptativa (safe areas por plataforma y ancho maximo centrado)
 - `5bf96b9` Fase 26: stock reservado en pendientes con devolucion al cancelar, codigo FAC visible y buscable, guardar clientes desde facturacion y safe-area Android

@@ -117,7 +117,7 @@ export async function restoreBackupFromFile(): Promise<void> {
   }
 }
 
-async function applyRestoredBundle(bundle: BackupBundle): Promise<void> {
+export async function applyRestoredBundle(bundle: BackupBundle): Promise<void> {
   try {
     await clearAppStorage();
     await deleteDatabaseFileNative();
