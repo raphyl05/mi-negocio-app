@@ -1,7 +1,13 @@
 import type { Order } from '../src/models/order';
 import type { Product } from '../src/models/product';
+import type { Business } from '../src/models/business';
 import type { CartItem } from '../src/utils/cart';
-import { calcCashClosure, computeCashTotals, isOrderInRegister } from '../src/utils/cashClosure';
+import {
+  calcCashClosure,
+  computeCashTotals,
+  isOrderInRegister,
+  renderClosureReceiptText,
+} from '../src/utils/cashClosure';
 
 const burger: Product = {
   id: 'p1',
@@ -12,6 +18,13 @@ const burger: Product = {
   emoji: '🍔',
   stockQuantity: 0,
   active: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+
+const business: Business = {
+  name: 'Mi Negocio',
+  phone: '809-222-3344',
+  address: 'Calle 1, Santiago',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
@@ -53,7 +66,7 @@ describe('isOrderInRegister', () => {
 });
 
 describe('computeCashTotals', () => {
-  it('separa efectivo y transferencia y suma el cambio devuelto', () => {
+  it('separa efectivo y transferencia sin contar el cambio devuelto', () => {
     const orders = [
       makePaid(60000, 'cash', 100000, 40000),
       makePaid(25000, 'transfer'),
@@ -63,7 +76,6 @@ describe('computeCashTotals', () => {
     expect(totals.orderCount).toBe(3);
     expect(totals.salesCents).toBe(110000);
     expect(totals.cashSalesCents).toBe(85000);
-    expect(totals.cashChangeCents).toBe(40000);
     expect(totals.transferSalesCents).toBe(25000);
   });
 
@@ -79,24 +91,23 @@ describe('computeCashTotals', () => {
       orderCount: 0,
       salesCents: 0,
       cashSalesCents: 0,
-      cashChangeCents: 0,
       transferSalesCents: 0,
     });
   });
 });
 
 describe('calcCashClosure', () => {
-  it('efectivo esperado = inicial + ventas en efectivo − cambio', () => {
+  it('efectivo esperado = inicial + ventas en efectivo', () => {
     const orders = [
-      makePaid(60000, 'cash', 100000, 40000),
+      makePaid(60000, 'cash', 100000),
       makePaid(25000, 'transfer'),
     ];
     const closure = calcCashClosure({
       openingAmountCents: 50000,
-      countedCashCents: 70000,
+      countedCashCents: 110000,
       orders,
     });
-    expect(closure.expectedCashCents).toBe(70000);
+    expect(closure.expectedCashCents).toBe(110000);
     expect(closure.differenceCents).toBe(0);
   });
 
@@ -110,19 +121,43 @@ describe('calcCashClosure', () => {
     const closure = calcCashClosure({
       openingAmountCents: 50000,
       countedCashCents: 65000,
-      orders: [makePaid(60000, 'cash', 100000, 40000)],
+      orders: [makePaid(60000, 'cash', 100000)],
     });
-    expect(closure.expectedCashCents).toBe(70000);
-    expect(closure.differenceCents).toBe(5000);
+    expect(closure.expectedCashCents).toBe(110000);
+    expect(closure.differenceCents).toBe(45000);
   });
 
   it('diferencia negativa cuando sobra dinero', () => {
     const closure = calcCashClosure({
       openingAmountCents: 50000,
-      countedCashCents: 75000,
-      orders: [makePaid(60000, 'cash', 100000, 40000)],
+      countedCashCents: 115000,
+      orders: [makePaid(60000, 'cash', 100000)],
     });
-    expect(closure.expectedCashCents).toBe(70000);
+    expect(closure.expectedCashCents).toBe(110000);
     expect(closure.differenceCents).toBe(-5000);
+  });
+});
+
+describe('renderClosureReceiptText', () => {
+  it('prepara el recibo con el negocio y el resumen', () => {
+    const closure = calcCashClosure({
+      openingAmountCents: 50000,
+      countedCashCents: 65000,
+      orders: [
+        makePaid(60000, 'cash', 100000),
+        makePaid(25000, 'transfer', undefined, 0, '2026-09-18T11:00:00.000Z'),
+      ],
+    });
+    const text = renderClosureReceiptText(business, closure, '2026-09-18T18:00:00.000Z');
+    expect(text).toContain('MI NEGOCIO');
+    expect(text).toContain('Tel: 809-222-3344');
+    expect(text).toContain('CIERRE DE CAJA');
+    expect(text).toContain('18/09/2026');
+    expect(text).toContain('RD$850.00');
+    expect(text).toContain('RD$600.00');
+    expect(text).toContain('RD$250.00');
+    expect(text).toContain('RD$1,100.00');
+    expect(text).toContain('(falta)');
+    expect(text).toContain('¡Gracias por su trabajo!');
   });
 });

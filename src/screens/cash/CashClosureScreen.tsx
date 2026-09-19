@@ -6,16 +6,19 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 're
 import Card from '../../components/Card';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
+import ReceiptPreviewModal from '../../components/ReceiptPreviewModal';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
+import type { Business } from '../../models/business';
 import type { CashRegister } from '../../models/cashRegister';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
 import { closeRegister, getOpenRegister } from '../../services/cashRegisterService';
+import { getBusiness } from '../../services/setupService';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme/colors';
-import { calcCashClosure, isOrderInRegister } from '../../utils/cashClosure';
+import { calcCashClosure, isOrderInRegister, renderClosureReceiptText } from '../../utils/cashClosure';
 import { parseMoney } from '../../utils/money';
 
 export default function CashClosureScreen() {
@@ -24,9 +27,11 @@ export default function CashClosureScreen() {
 
   const [register, setRegister] = useState<CashRegister | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [business, setBusiness] = useState<Business | null>(null);
   const [countedText, setCountedText] = useState('');
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [receiptText, setReceiptText] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -35,9 +40,11 @@ export default function CashClosureScreen() {
       if (!active || !reg) return;
       const paid = await orderRepository.listPaid();
       const sessionOrders = paid.filter((order) => isOrderInRegister(order, reg.openedAt));
+      const biz = await getBusiness();
       if (!active) return;
       setRegister(reg);
       setOrders(sessionOrders);
+      setBusiness(biz);
       if (countedText === '') {
         const expected = calcCashClosure({
           openingAmountCents: reg.openingAmountCents,
@@ -110,15 +117,15 @@ export default function CashClosureScreen() {
         onPress: async () => {
           setClosing(true);
           try {
-            await closeRegister({
+            const record = await closeRegister({
               openingAmountCents: summary.openingAmountCents,
               expectedCashCents: summary.expectedCashCents,
               countedCashCents: summary.countedCashCents,
               differenceCents: summary.differenceCents,
             });
-            Alert.alert('Caja cerrada', 'El turno terminó. Se guardó el resumen del cierre.', [
-              { text: 'Listo', onPress: () => navigation.goBack() },
-            ]);
+            setReceiptText(
+              renderClosureReceiptText(business ?? { name: 'Mi Negocio', createdAt: record.closedAt }, summary, record.closedAt),
+            );
           } finally {
             setClosing(false);
           }
@@ -147,7 +154,6 @@ export default function CashClosureScreen() {
           <Text style={styles.sectionLabel}>VENTAS DEL TURNO</Text>
           <SummaryRow label="Total vendido" cents={summary.salesCents} />
           <SummaryRow label="En efectivo" cents={summary.cashSalesCents} />
-          <SummaryRow label="Cambio devuelto" cents={summary.cashChangeCents} subtract />
           <SummaryRow label="Por transferencia" cents={summary.transferSalesCents} />
         </Card>
 
@@ -155,7 +161,7 @@ export default function CashClosureScreen() {
           <Text style={styles.sectionLabel}>EFECTIVO EN CAJA (ESPERADO)</Text>
           <MoneyDisplay cents={summary.expectedCashCents} size="large" />
           <Text style={[styles.hint, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-            {money(summary.openingAmountCents)} inicial {summary.cashChangeCents > 0 ? `− ${money(summary.cashChangeCents)} de cambio` : ''}
+            {money(summary.openingAmountCents)} de apertura + {money(summary.cashSalesCents)} de ventas en efectivo.
           </Text>
         </Card>
 
@@ -194,18 +200,26 @@ export default function CashClosureScreen() {
           <PrimaryButton label="Volver" variant="outline" onPress={() => navigation.goBack()} />
         </View>
       </ScrollView>
+
+      <ReceiptPreviewModal
+        visible={receiptText !== null}
+        title="Recibo de cierre"
+        text={receiptText ?? ''}
+        logoBase64={business?.logoBase64}
+        note="Formato de impresión listo. Conecta la impresora para imprimir el recibo."
+        onClose={() => {
+          setReceiptText(null);
+          navigation.goBack();
+        }}
+      />
     </Screen>
   );
 
-  function SummaryRow({ label, cents, subtract }: { label: string; cents: number; subtract?: boolean }) {
+  function SummaryRow({ label, cents }: { label: string; cents: number }) {
     return (
       <View style={styles.summaryRow}>
         <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>{label}</Text>
-        {subtract ? (
-          <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600' }}>−{money(cents)}</Text>
-        ) : (
-          <MoneyDisplay cents={cents} size="small" />
-        )}
+        <MoneyDisplay cents={cents} size="small" />
       </View>
     );
   }
