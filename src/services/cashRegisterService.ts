@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CashRegister } from '../models/cashRegister';
 import { generateId } from '../utils/password';
-import { queueSync, processQueue } from './syncQueue';
 
 const REGISTER_KEY = '@micaja/cashRegister';
 const CLOSURES_KEY = '@micaja/cashClosures';
@@ -45,7 +44,5 @@ export async function closeRegister(closure: Omit<CashClosureRecord, 'id' | 'clo
   const closures = await listCashClosures();
   await AsyncStorage.setItem(CLOSURES_KEY, JSON.stringify([...closures, record]));
   await AsyncStorage.removeItem(REGISTER_KEY);
-  queueSync('cierre');
-  processQueue().catch(() => { /* se procesa en segundo plano o en reconexión */ });
   return record;
 }

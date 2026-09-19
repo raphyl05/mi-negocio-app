@@ -230,7 +230,8 @@ export default function PrinterConfigScreen() {
           <View style={styles.noteRow}>
             <Ionicons name="bluetooth-outline" size={18} color={colors.textSecondary} />
             <Text style={[styles.note, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-              La impresora térmica Bluetooth (58 mm) se conectará aquí mismo cuando la app tenga el módulo nativo.
+              Conecta la impresora térmica BLE (58 mm) desde aquí. Debe ser una térmica con Bluetooth BLE y la app debe
+              estar compilada con React Native (EAS/development build), no desde Expo Go.
             </Text>
           </View>
           {bluetoothInfo?.reason ? (

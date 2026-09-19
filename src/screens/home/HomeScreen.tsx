@@ -2,6 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Screen from '../../components/Screen';
+import { useCart } from '../../contexts/CartContext';
 import type { CashRegister } from '../../models/cashRegister';
 import { getOpenRegister } from '../../services/cashRegisterService';
 import { useTheme } from '../../theme';
@@ -10,14 +11,18 @@ import InvoiceScreen from './InvoiceScreen';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
+  const { clear } = useCart();
   const [register, setRegister] = useState<CashRegister | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const reg = await getOpenRegister();
+    if (!reg) {
+      clear();
+    }
     setRegister(reg);
     setLoading(false);
-  }, []);
+  }, [clear]);
 
   useFocusEffect(
     useCallback(() => {

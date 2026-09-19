@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Card from '../../components/Card';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -19,7 +19,16 @@ import { getBusiness } from '../../services/setupService';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme/colors';
 import { calcCashClosure, isOrderInRegister, renderClosureReceiptText } from '../../utils/cashClosure';
-import { parseMoney, formatMoneyBlur } from '../../utils/money';
+import {
+  ALL_DENOMINATIONS,
+  BILL_DENOMINATIONS,
+  COIN_DENOMINATIONS,
+  countTotalCents,
+  hasAnyCount,
+  sanitizeDenominationInput,
+} from '../../utils/cashDenomination';
+import type { DenominationCounts } from '../../utils/cashDenomination';
+import { parseMoney, formatMoney, formatMoneyBlur } from '../../utils/money';
 import { sanitizeMoneyInput } from '../../utils/inputFormat';
 
 export default function CashClosureScreen() {
@@ -34,6 +43,14 @@ export default function CashClosureScreen() {
   const [closing, setClosing] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [receiptText, setReceiptText] = useState<string | null>(null);
+  const [useDenominations, setUseDenominations] = useState(false);
+  const [denomCounts, setDenomCounts] = useState<DenominationCounts>(
+    Object.fromEntries(ALL_DENOMINATIONS.map((denomination) => [String(denomination), ''])),
+  );
+
+  const setDenomCount = (denomination: number, text: string) => {
+    setDenomCounts((current) => ({ ...current, [String(denomination)]: text }));
+  };
 
   useEffect(() => {
     let active = true;
@@ -47,14 +64,6 @@ export default function CashClosureScreen() {
       setRegister(reg);
       setOrders(sessionOrders);
       setBusiness(biz);
-      if (countedText === '') {
-        const expected = calcCashClosure({
-          openingAmountCents: reg.openingAmountCents,
-          countedCashCents: 0,
-          orders: sessionOrders,
-        }).expectedCashCents;
-        setCountedText((expected / 100).toFixed(2));
-      }
       setLoadedOnce(true);
     })();
     return () => {
@@ -72,11 +81,15 @@ export default function CashClosureScreen() {
     );
   }
 
-  const counted = parseMoney(countedText);
+  const manualCounted = parseMoney(countedText);
+  const denomTotal = countTotalCents(denomCounts);
+  const denomHasAny = hasAnyCount(denomCounts);
+  const countingDone = useDenominations ? denomHasAny : manualCounted !== null;
+  const countedCents = useDenominations ? denomTotal : (manualCounted ?? 0);
   const summary = register
     ? calcCashClosure({
         openingAmountCents: register.openingAmountCents,
-        countedCashCents: counted ?? 0,
+        countedCashCents: countingDone ? countedCents : 0,
         orders,
       })
     : null;
@@ -93,8 +106,13 @@ export default function CashClosureScreen() {
     );
   }
 
-  const difference = counted !== null ? summary.differenceCents : null;
-  const countingError = attempted && counted === null ? 'Ingresa el efectivo contado, por ejemplo 700 o 700.50' : null;
+  const difference = countingDone && summary ? summary.differenceCents : null;
+  const manualError =
+    attempted && !useDenominations && manualCounted === null
+      ? 'Ingresa el efectivo contado, por ejemplo 700 o 700.50'
+      : null;
+  const denominationError =
+    attempted && useDenominations && !denomHasAny ? 'Ingresa al menos una denominación.' : null;
 
   const doClose = async (cents: number) => {
     setClosing(true);
@@ -119,8 +137,8 @@ export default function CashClosureScreen() {
   };
 
   const handleClose = () => {
-    const cents = parseMoney(countedText);
-    if (cents === null || cents < 0) {
+    const cents = useDenominations ? denomTotal : parseMoney(countedText);
+    if (cents === null || cents < 0 || (useDenominations && !denomHasAny)) {
       setAttempted(true);
       return;
     }
@@ -180,25 +198,52 @@ export default function CashClosureScreen() {
         </Card>
 
         <Card style={styles.card}>
-          <Text style={styles.sectionLabel}>EFECTIVO EN CAJA (ESPERADO)</Text>
-          <MoneyDisplay cents={summary.expectedCashCents} size="large" />
+          <Text style={styles.sectionLabel}>EFECTIVO EN CAJA</Text>
+          <MoneyDisplay cents={countingDone ? countedCents : 0} size="large" />
           <Text style={[styles.hint, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-            {money(summary.openingAmountCents)} de apertura + {money(summary.cashSalesCents)} de ventas en efectivo.
+            El total que contaste hoy (apertura + ventas en efectivo), sin suponer.
           </Text>
         </Card>
 
         <Card style={styles.card}>
-          <TextField
-            label="Efectivo contado (RD$)"
-            value={countedText}
-            onChangeText={setCountedText}
-            error={countingError ?? undefined}
-            keyboardType="decimal-pad"
-            placeholder="Ej. 700 o 700.50"
-            formatOnBlur={formatMoneyBlur}
-            sanitize={sanitizeMoneyInput}
-            selectTextOnFocus
-          />
+          <View style={styles.denomToggle}>
+            <View style={styles.denomToggleText}>
+              <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '700' }}>
+                Contar por denominaciones
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
+                Billetes y monedas (RD$)
+              </Text>
+            </View>
+            <Switch
+              value={useDenominations}
+              onValueChange={setUseDenominations}
+              trackColor={{ false: colors.border, true: colors.primaryLight }}
+              thumbColor={useDenominations ? colors.primary : colors.surfaceMuted}
+            />
+          </View>
+
+          {useDenominations ? (
+            <DenominationCounter counts={denomCounts} onChange={setDenomCount} />
+          ) : (
+            <TextField
+              label="Efectivo contado (RD$)"
+              value={countedText}
+              onChangeText={setCountedText}
+              error={manualError ?? undefined}
+              keyboardType="decimal-pad"
+              placeholder="Ej. 700 o 700.50"
+              formatOnBlur={formatMoneyBlur}
+              sanitize={sanitizeMoneyInput}
+              selectTextOnFocus
+            />
+          )}
+
+          {denominationError ? (
+            <Text style={[styles.denomError, { color: colors.danger, fontSize: typography.sizes.caption }]}>
+              {denominationError}
+            </Text>
+          ) : null}
 
           {difference !== null ? (
             <View style={styles.diffRow}>
@@ -250,6 +295,53 @@ export default function CashClosureScreen() {
   }
 }
 
+function DenominationCounter({
+  counts,
+  onChange,
+}: {
+  counts: DenominationCounts;
+  onChange: (denomination: number, text: string) => void;
+}) {
+  const { colors, typography } = useTheme();
+
+  const renderRow = (denomination: number) => (
+    <View key={denomination} style={styles.denomRow}>
+      <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body }}>
+        {formatMoney(denomination * 100)}
+      </Text>
+      <TextInput
+        value={counts[String(denomination)] ?? ''}
+        onChangeText={(text) => onChange(denomination, sanitizeDenominationInput(text))}
+        keyboardType="number-pad"
+        placeholder="0"
+        placeholderTextColor={colors.textSecondary}
+        style={[
+          styles.denomInput,
+          { backgroundColor: colors.surfaceMuted, borderColor: colors.border, color: colors.textPrimary },
+        ]}
+        textAlign="center"
+      />
+    </View>
+  );
+
+  return (
+    <View style={styles.denomBlock}>
+      <Text style={[styles.groupLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+        BILLETES
+      </Text>
+      {BILL_DENOMINATIONS.map(renderRow)}
+      <Text style={[styles.groupLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+        MONEDAS
+      </Text>
+      {COIN_DENOMINATIONS.map(renderRow)}
+      <View style={[styles.denomTotal, { borderTopColor: colors.border }]}>
+        <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>Total contado</Text>
+        <MoneyDisplay cents={countTotalCents(counts)} size="small" />
+      </View>
+    </View>
+  );
+}
+
 function diffColor(colors: Colors, difference: number): string {
   if (difference === 0) return colors.success + '1F';
   if (difference > 0) return colors.danger + '1A';
@@ -296,6 +388,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  denomToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  denomToggleText: {
+    flex: 1,
+    gap: 2,
+  },
+  denomError: {
+    marginLeft: 4,
+  },
+  denomBlock: {
+    gap: 8,
+  },
+  groupLabel: {
+    letterSpacing: 1,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  denomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  denomInput: {
+    minWidth: 72,
+    height: 40,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  denomTotal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    marginTop: 6,
+    paddingTop: 10,
   },
   diffRow: {
     flexDirection: 'row',

@@ -1,60 +1,71 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import EmptyState from '../../components/EmptyState';
 import MoneyDisplay from '../../components/MoneyDisplay';
+import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TicketPreviewModal from '../../components/TicketPreviewModal';
+import type { CashRegister } from '../../models/cashRegister';
 import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
-import type { RootStackParamList } from '../../navigation/types';
+import type { RootStackParamList, TabParamList } from '../../navigation/types';
+import { getOpenRegister } from '../../services/cashRegisterService';
 import { orderRepository } from '../../repositories/orderRepository';
 import { getBusiness } from '../../services/setupService';
 import { buildTicket } from '../../services/printerService';
 import { releaseOrderStock } from '../../services/stockService';
 import { usePrinter } from '../../hooks/usePrinter';
 import { useTheme } from '../../theme';
-import { formatTime, inDateRange, parseDateInput } from '../../utils/datetime';
+import { formatTime } from '../../utils/datetime';
 import { invoiceCodeFor } from '../../utils/invoice';
 import { filterOrders } from '../../utils/orderSearch';
 
 type Segment = 'pending' | 'paid';
 
+type VentasNav = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'Sales'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
 export default function VentasScreen() {
   const { colors, spacing, typography } = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<VentasNav>();
   const [segment, setSegment] = useState<Segment>('pending');
   const [pending, setPending] = useState<Order[]>([]);
   const [paid, setPaid] = useState<Order[]>([]);
   const [query, setQuery] = useState('');
-  const [fromText, setFromText] = useState('');
-  const [toText, setToText] = useState('');
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [business, setBusiness] = useState<Business | null>(null);
   const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
+  const [register, setRegister] = useState<CashRegister | null>(null);
+  const [checked, setChecked] = useState(false);
   const { available } = usePrinter();
 
   const load = useCallback(async () => {
-    const [businessData, pendingOrders, paidOrders] = await Promise.all([
+    const [businessData, pendingOrders, paidOrders, openRegister] = await Promise.all([
       getBusiness(),
       orderRepository.listPending(),
       orderRepository.listPaid(),
+      getOpenRegister(),
     ]);
     setBusiness(businessData);
     setPending(pendingOrders);
     setPaid(paidOrders);
+    setRegister(openRegister);
     setSelected(new Set());
     setSelecting(false);
+    setChecked(true);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       setQuery('');
-      setFromText('');
-      setToText('');
       load();
     }, [load]),
   );
@@ -66,11 +77,8 @@ export default function VentasScreen() {
   }, [pending, query, selecting]);
 
   const filteredPaid = useMemo(() => {
-    const fromDate = parseDateInput(fromText);
-    const toDate = parseDateInput(toText);
-    const byRange = paid.filter((order) => inDateRange(order.createdAt, fromDate ?? undefined, toDate ?? undefined));
-    return filterOrders(byRange, query);
-  }, [paid, fromText, toText, query]);
+    return filterOrders(paid, query);
+  }, [paid, query]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -117,6 +125,42 @@ export default function VentasScreen() {
 
   const showPending = segment === 'pending';
   const list = showPending ? filteredPending : filteredPaid;
+
+  if (!checked) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!register) {
+    return (
+      <Screen>
+        <View style={styles.locked}>
+          <View style={[styles.lockedIcon, { backgroundColor: colors.warning + '1F' }]}>
+            <Ionicons name="lock-closed" size={36} color={colors.warning} />
+          </View>
+          <Text
+            style={[
+              styles.lockedTitle,
+              { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+            ]}
+          >
+            Caja cerrada
+          </Text>
+          <Text style={[styles.lockedSubtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
+            Las ventas se desbloquean al abrir la caja desde Inicio. Mientras tanto solo puedes editar el inventario.
+          </Text>
+          <View style={styles.lockedAction}>
+            <PrimaryButton label="Abrir caja" onPress={() => navigation.navigate('Home')} />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -187,48 +231,7 @@ export default function VentasScreen() {
               },
             ]}
           />
-          {!showPending ? (
-            <View style={styles.dateRow}>
-              <View style={styles.dateField}>
-                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginBottom: 4 }}>Desde</Text>
-                <TextInput
-                  value={fromText}
-                  onChangeText={setFromText}
-                  placeholder="dd/mm/aaaa"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                  style={[
-                    styles.searchInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      fontSize: typography.sizes.body,
-                    },
-                  ]}
-                />
-              </View>
-              <View style={styles.dateField}>
-                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginBottom: 4 }}>Hasta</Text>
-                <TextInput
-                  value={toText}
-                  onChangeText={setToText}
-                  placeholder="dd/mm/aaaa"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                  style={[
-                    styles.searchInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      fontSize: typography.sizes.body,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-          ) : null}
+          {!showPending ? null : null}
         </View>
       ) : null}
 
@@ -504,6 +507,37 @@ const styles = StyleSheet.create({
   },
   dateField: {
     flex: 1,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locked: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 32,
+  },
+  lockedIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  lockedTitle: {
+    letterSpacing: -0.5,
+  },
+  lockedSubtitle: {
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  lockedAction: {
+    alignSelf: 'stretch',
+    marginTop: 16,
   },
   list: {
     paddingHorizontal: 24,

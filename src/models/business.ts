@@ -4,5 +4,6 @@ export type Business = {
   phone?: string;
   address?: string;
   logoBase64?: string;
+  invoiceMessage?: string;
   createdAt: string;
 };

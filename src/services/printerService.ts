@@ -32,6 +32,7 @@ export type PrintTicket = {
   businessPhone?: string;
   businessAddress?: string;
   logoBase64?: string;
+  invoiceMessage?: string;
   orderNumber: number;
   createdAt: string;
   status: Order['status'];
@@ -60,6 +61,7 @@ export function buildTicket(order: Order, business: Business): PrintTicket {
     businessPhone: business.phone,
     businessAddress: business.address,
     logoBase64: business.logoBase64,
+    invoiceMessage: business.invoiceMessage,
     orderNumber: order.number,
     createdAt: order.paidAt ?? order.createdAt,
     status: order.status,
@@ -133,7 +135,7 @@ export function renderTicketText(ticket: PrintTicket): string {
     lines.push(`Cambio: ${money(ticket.changeCents)}`);
   }
   lines.push('');
-  lines.push('¡Gracias por su compra!');
+  lines.push(ticket.invoiceMessage?.trim() || '¡Gracias por su compra!');
   if (ticket.status === 'pending') {
     lines.push('');
     lines.push('*** PAGO PENDIENTE ***');

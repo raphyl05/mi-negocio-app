@@ -2,13 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ComponentProps } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Card from '../../components/Card';
 import Screen from '../../components/Screen';
-import { useAuth } from '../../contexts/AuthContext';
 import { usePrinter } from '../../hooks/usePrinter';
 import type { RootStackParamList } from '../../navigation/types';
-import { deleteAccountAndData } from '../../services/backupService';
 import { useTheme } from '../../theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -16,23 +14,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 export default function ConfigurationScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { logout } = useAuth();
   const { statusLabel, available } = usePrinter();
-
-  const handleDeleteAccount = () => {
-    Alert.alert('Borrar cuenta', 'Se borrarán TODOS los datos de este dispositivo. ¿Continuar?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Borrar todo',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteAccountAndData();
-          logout();
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-        },
-      },
-    ]);
-  };
 
   return (
     <Screen>
@@ -55,13 +37,6 @@ export default function ConfigurationScreen() {
           VENTAS Y PAGOS
         </Text>
         <Card style={styles.cardList}>
-          <SettingsRow
-            icon="document-text-outline"
-            title="Factura e impresión"
-            subtitle="Logo y formato del ticket"
-            onPress={() => navigation.navigate('InvoiceConfig')}
-          />
-          <RowDivider />
           <SettingsRow
             icon="print-outline"
             title="Impresora"
@@ -114,7 +89,7 @@ export default function ConfigurationScreen() {
           <SettingsRow
             icon="cloud-outline"
             title="Datos y respaldo"
-            subtitle="Google Drive, exportar, restaurar o borrar"
+            subtitle="Exportar, restaurar o borrar"
             onPress={() => navigation.navigate('DatosYRespaldo')}
           />
           <RowDivider />
@@ -125,15 +100,6 @@ export default function ConfigurationScreen() {
             onPress={() => navigation.navigate('Security')}
           />
         </Card>
-
-        <Pressable
-          onPress={handleDeleteAccount}
-          hitSlop={8}
-          style={({ pressed }) => [styles.deleteAccountRow, { opacity: pressed ? 0.75 : 1 }]}
-        >
-          <Ionicons name="trash-outline" size={20} color={colors.danger} />
-          <Text style={{ color: colors.danger, fontSize: typography.sizes.body, fontWeight: '700' }}>Borrar cuenta</Text>
-        </Pressable>
 
         <Text style={[styles.footer, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           Los datos se guardan solo en este dispositivo.
@@ -229,14 +195,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-  },
-  deleteAccountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 24,
-    paddingVertical: 10,
   },
   footer: {
     textAlign: 'center',

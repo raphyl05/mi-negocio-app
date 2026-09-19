@@ -6,6 +6,14 @@
     "orientation": "portrait",
     "icon": "./assets/logo-vendelo-app.png",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "bluetoothAlwaysPermission": "Usa Bluetooth para conectar la impresora térmica."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true
     },
