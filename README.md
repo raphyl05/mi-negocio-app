@@ -22,6 +22,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase 12 COMPLETADA ✅** — órdenes guardadas funcionales (detalle, cobrar, editar carrito, eliminar, búsqueda) y ajustes de cantidades/teclado en pago.
 **Fase 13 COMPLETADA ✅** — historial de ventas pagadas: nueva pestaña "Historial" con búsqueda y detalle de cada venta cobrada.
 **Fase 14 COMPLETADA ✅** — resumen del día y cierre de caja: efectivo esperado vs contado, diferencia auto-calculada y registro del cierre desde "Más".
+**Fase 15 COMPLETADA ✅** — abstracción `PrinterService` (sin imprimir aún) + hook inactivo `usePrinter` listo para conectar impresión cuando se decida.
 
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
@@ -162,13 +163,16 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - [x] **Cierre de caja**: `closeRegister` en `src/services/cashRegisterService.ts` guarda el registro del cierre (inicial, esperado, contado, diferencia) en AsyncStorage y elimina la caja abierta; al volver, Inicio pide abrir caja de nuevo.
 - [x] Tests nuevos: `cashClosure.test.ts` (10 tests). Total: **75 tests pasando**.
 
-## Lo que falta (Fase 15)
+### Hecho (Fase 15)
 
-Cada fase queda **funcional por sí sola** y la siguiente solo se conecta a la anterior.
+- [x] **`PrinterService`** en `src/services/printerService.ts`: interfaz (`available`, `label`, `print`) con implementación **inactiva** (`createInactivePrinterService`) que devuelve "Impresión aún no disponible". Singleton `printerService` listo para que en el futuro se conecte a impresión térmica/Bluetooth sin tocar pantallas.
+- [x] **`buildTicket`**: convierte una `Order` + nombre del negocio en un ticket imprimible (negocio, nº, fecha de pago, cliente, líneas con cantidad y precio, total, método, recibido y cambio). Puro y testeable.
+- [x] **Hook inactivo `usePrinter`** en `src/hooks/usePrinter.ts`: expone `available`, `statusLabel` y `printOrder(order, businessName)`. Aún **no está conectado a ninguna pantalla** (sin imprimir todavía, como acordado).
+- [x] Tests nuevos: `printer.test.ts` (6 tests). Total: **81 tests pasando**.
 
-| Fase | Qué falta hacer | Verificación |
-|---|---|---|
-| 15 | Abstracción `PrinterService` (sin imprimir aún) | hook inactivo presente |
+## Lo que falta
+
+**El MVP (Fases 1–15) está completo.** Lo siguiente en la lista de "Posteriores" (fuera del MVP) puede retomarse cualquier día: impresión real térmica/Bluetooth, códigos de barras, facturación electrónica (DGII/NCF), inventario real, clientes/proveedores, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y exportación/backup en nube.
 
 ## Cómo correr la app
 
@@ -211,13 +215,14 @@ Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltipl
 ```
 src/
   models/          # business, user, product, order, cashRegister
-  screens/         # setup, login, cashRegister, invoicing, cart, payment, orderDetail, sales, products, settings
+  screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, history, settings
   navigation/      # stack + tabs
   components/      # ProductCard, CartItem, MoneyDisplay, PrimaryButton...
-  services/        # database, repositories, auth, printer, session
+  services/        # database, repositories, auth (setupService), session (cashRegisterService), printer (printerService)
+  hooks/           # usePrinter (inactivo)
   theme/           # colors, typography, spacing, componentes
   utils/           # money.ts (formato + cálculo centavos), orderSearch.ts, cashClosure.ts
-__tests__/         # tests de dinero, carrito, buildOrder, repositorios, validaciones, orderSearch
+__tests__/         # tests de dinero, carrito, buildOrder, repositorios, validaciones, orderSearch, cashClosure, printer
 ```
 
 ## Registro de commits
