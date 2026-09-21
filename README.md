@@ -56,6 +56,14 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **Columna centrada de 560dp para formularios:** nuevo componente `Column` de 560dp de ancho máximo centrado, aplicado a todas las pantallas de formulario/confirmación: Configura tu negocio, Iniciar sesión y Recuperar contraseña, Carrito, Cobrar, ¿Cómo cobrar?, Venta completada, Detalle de orden, Mi negocio, Editar producto, Abrir caja, Resumen del día y Datos y respaldo. En teléfonos se ve igual que antes; en tablets/iPad el contenido queda compacto y centrado (estilo diálogo). Las listas (Inicio, Ventas, Productos, Ajustes) siguen con ancho fluido de 840dp.
 - **Calendario de Ventas renovado:** corregido el bug de días duplicados en la semana y el rango Desde/Hasta ahora se elige desde cada campo (uno a la vez), se lista solo si queda invertido y permite limpiar por campo o el rango completo.
 
+**Fase 33 COMPLETADA ✅** — transacciones atómicas en cobros/anulaciones + idempotencia de pago y anulación:
+
+- **Repositorio transaccional `withTransaction(fn)`:** abstracción inyectable con **dos implementaciones** — `transaction.native.ts` (expo-sqlite real con `withTransactionAsync` en Android/iOS) y `transaction.ts` (passthrough/identidad para web y tests). `orderService` ahora ejecuta **guardar pendiente, cobrar, cobrar pendiente, cancelar y anular** **dentro de una transacción**: si algo falla a mitad (p. ej. stock insuficiente), **no queda nada a medias** (ni la orden guardada ni el stock descontado; todo vuelve a como estaba).
+- **Idempotencia estricta (nunca dobles):** cobrar dos veces la misma orden → `"Esta orden ya fue cobrada."`; anular dos veces la misma venta → `"Esta venta ya fue anulada anteriormente."`; cancelar dos veces una pendiente **no devuelve stock dos veces**; el cambio/vuelto en efectivo se calcula una sola vez. Validado con tests.
+- **Antidoble toque al cobrar:** en ¿Cómo cobrar?, el botón de cobrar queda **bloqueado al primer toque** (`submittedRef`) para que el doble tap no produzca un doble cobro ni por el sistema ni por BLE.
+- **Stock devuelto de forma segura al anular:** anular una venta cobrada marca `voided` y **devuelve todo el stock de sus líneas en la misma transacción** (o se anula y se devuelve, o no pasa nada; nunca a medias).
+- **Tests:** `__tests__/orderService.test.ts` (18 tests) con repositorios en memoria + `withTransaction` de identidad (SQLite jamás entra al entorno de test). Total: **203 tests, 24 suites, pasando** + `tsc --noEmit` limpio.
+
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
 > https://docs.expo.dev/versions/v57.0.0/
@@ -320,6 +328,8 @@ src/
 ```
 
 ## Registro de commits
+
+- `f1fd4b0` Fase 33: transacciones atómicas e idempotencia de pago/anulación — conTransaction inyectable (SQLite real + passthrough web/tests), cobrar/anular/cancelar dentro de la misma transacción (nunca a medias), stock devuelto en la misma transacción al anular, doble-toque bloqueado al cobrar y 203 tests pasando (24 suites, 18 de ellos en orderService)
 
 - `34193d1` Fase 32: datos del cliente a pantalla completa con Continuar, columna 560dp centrada (Column) para las pantallas de formulario en iPad/tablet y calendario de Ventas renovado (rango por campo, automático y con bug de llaves duplicadas corregido)
 - `9750f2c` Pestana Mas limpia: esencial (negocio, caja, tema, cerrar sesion) y pantalla Configuracion aparte
