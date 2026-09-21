@@ -457,6 +457,11 @@ src/
 
 ## Registro de commits
 
+- `a2f27ac` F3 + F3.1: backend ASP.NET Core Source of Truth (auth, negocios, dispositivos, catálogo, órdenes, inventario, caja, sync pull/push, backups) con contrato `API-CONTRACT`, auditoría F3.1 e informes (`INFORME-F3`/`INFORME-F3-1`); rename slug a vendelo-app; README y `.gitignore` actualizados — 27/27 tests backend, 298 tests cliente
+
+- `a6d0ebf` FASE 1: preparación SQLite para sync (updatedAt/deletedAt, tombstones, ledger `stock_movements`, `sync_state` + deviceId, backups retrocompatibles y transacciones atómicas) con auditoría F1.1 — 298 tests pasando
+
+- `d32e79e` Fases 0-19: auditoría técnica y endurecimiento del núcleo financiero
 - `f1fd4b0` Fase 33: transacciones atómicas e idempotencia de pago/anulación — conTransaction inyectable (SQLite real + passthrough web/tests), cobrar/anular/cancelar dentro de la misma transacción (nunca a medias), stock devuelto en la misma transacción al anular, doble-toque bloqueado al cobrar y 203 tests pasando (24 suites, 18 de ellos en orderService)
 
 - `34193d1` Fase 32: datos del cliente a pantalla completa con Continuar, columna 560dp centrada (Column) para las pantallas de formulario en iPad/tablet y calendario de Ventas renovado (rango por campo, automático y con bug de llaves duplicadas corregido)
