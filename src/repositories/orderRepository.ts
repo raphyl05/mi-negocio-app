@@ -8,6 +8,7 @@ export interface OrderRepository {
   getById(id: string): Promise<Order | null>;
   listPending(): Promise<Order[]>;
   listPaid(): Promise<Order[]>;
+  listAll(): Promise<Order[]>;
   update(order: Order): Promise<Order>;
   remove(id: string): Promise<void>;
 }
@@ -44,6 +45,10 @@ export function createInMemoryOrderRepository(): OrderRepository {
       return orders
         .filter((order) => order.status === 'paid')
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+
+    async listAll() {
+      return [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
 
     async update(order) {
@@ -88,6 +93,10 @@ class LazyOrderRepository implements OrderRepository {
 
   async listPaid() {
     return (await this.ready()).listPaid();
+  }
+
+  async listAll() {
+    return (await this.ready()).listAll();
   }
 
   async update(order: Order) {

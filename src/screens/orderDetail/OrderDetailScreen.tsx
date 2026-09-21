@@ -10,13 +10,14 @@ import PrimaryButton from '../../components/PrimaryButton';
 import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
 import TicketPreviewModal from '../../components/TicketPreviewModal';
+import VoidReasonModal from '../../components/VoidReasonModal';
 import { useCart } from '../../contexts/CartContext';
 import { usePrinter } from '../../hooks/usePrinter';
 import type { Business } from '../../models/business';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
-import { releaseOrderStock } from '../../services/stockService';
+import { orderService } from '../../services/orderService';
 import { getBusiness } from '../../services/setupService';
 import { buildTicket } from '../../services/printerService';
 import { useTheme } from '../../theme';
@@ -38,6 +39,8 @@ export default function OrderDetailScreen({ route }: Props) {
   const [business, setBusiness] = useState<Business | null>(null);
   const [ticketVisible, setTicketVisible] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [voiding, setVoiding] = useState(false);
+  const [voidReasonVisible, setVoidReasonVisible] = useState(false);
 
   useEffect(() => {
     getBusiness().then(setBusiness);
@@ -56,27 +59,49 @@ export default function OrderDetailScreen({ route }: Props) {
   );
 
   const handleEdit = async () => {
-    if (!order) return;
+    if (!order || order.status !== 'pending') return;
+    const result = await orderService.cancelPendingOrder(order.id);
+    if (!result.ok) {
+      Alert.alert('No se pudo editar la orden', result.message);
+      return;
+    }
     restore(order.items, order.customer);
-    await releaseOrderStock(order.items);
-    await orderRepository.remove(order.id);
     navigation.replace('Cart');
   };
 
   const handleDelete = () => {
-    if (!order) return;
+    if (!order || order.status !== 'pending') return;
     Alert.alert('Eliminar orden', `Se eliminará la orden ${invoiceCodeFor(order.number)}. Se devolverá el stock.`, [
       { text: 'Volver', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
         onPress: async () => {
-          await releaseOrderStock(order.items);
-          await orderRepository.remove(order.id);
+          const result = await orderService.cancelPendingOrder(order.id);
+          if (!result.ok) {
+            Alert.alert('No se pudo eliminar', result.message);
+            return;
+          }
           navigation.goBack();
         },
       },
     ]);
+  };
+
+  const handleConfirmVoid = async (reason: string) => {
+    if (!order) return;
+    setVoidReasonVisible(false);
+    setVoiding(true);
+    try {
+      const result = await orderService.voidOrder(order.id, reason);
+      if (!result.ok) {
+        Alert.alert('No se pudo anular la venta', result.message);
+        return;
+      }
+      await load();
+    } finally {
+      setVoiding(false);
+    }
   };
 
   const handleBack = () => navigation.goBack();
@@ -138,7 +163,11 @@ export default function OrderDetailScreen({ route }: Props) {
                 { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
               ]}
             >
-              {order.status === 'paid' ? `Factura ${invoiceCodeFor(order.number)}` : `Factura ${invoiceCodeFor(order.number)} (Pendiente)`}
+              {order.status === 'paid'
+                ? `Factura ${invoiceCodeFor(order.number)}`
+                : order.status === 'voided'
+                  ? `Factura ${invoiceCodeFor(order.number)} (Anulada)`
+                  : `Factura ${invoiceCodeFor(order.number)} (Pendiente)`}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
               {formatDate(order.createdAt)} · {formatTime(order.createdAt)}
@@ -147,22 +176,29 @@ export default function OrderDetailScreen({ route }: Props) {
           <View
             style={[
               styles.statusChip,
-              { backgroundColor: order.status === 'paid' ? colors.success + '1F' : colors.warning + '1F' },
+              {
+                backgroundColor:
+                  order.status === 'paid'
+                    ? colors.success + '1F'
+                    : order.status === 'voided'
+                      ? colors.danger + '1F'
+                      : colors.warning + '1F',
+              },
             ]}
           >
             <Ionicons
-              name={order.status === 'paid' ? 'checkmark' : 'time'}
+              name={order.status === 'paid' ? 'checkmark' : order.status === 'voided' ? 'close' : 'time'}
               size={14}
-              color={order.status === 'paid' ? colors.success : colors.warning}
+              color={order.status === 'paid' ? colors.success : order.status === 'voided' ? colors.danger : colors.warning}
             />
             <Text
               style={{
-                color: order.status === 'paid' ? colors.success : colors.warning,
+                color: order.status === 'paid' ? colors.success : order.status === 'voided' ? colors.danger : colors.warning,
                 fontSize: typography.sizes.caption,
                 fontWeight: '700',
               }}
             >
-              {order.status === 'paid' ? 'Pagada' : 'Pendiente'}
+              {order.status === 'paid' ? 'Pagada' : order.status === 'voided' ? 'Anulada' : 'Pendiente'}
             </Text>
           </View>
         </View>
@@ -253,30 +289,68 @@ export default function OrderDetailScreen({ route }: Props) {
                 ) : null}
               </>
             ) : null}
+            {order.status === 'voided' ? (
+              <View style={[styles.voidedBox, { borderTopColor: colors.border, borderTopWidth: 1 }]}>
+                <View style={styles.paidRow}>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Anulada el</Text>
+                  <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body }}>
+                    {order.voidedAt ? `${formatDate(order.voidedAt)} · ${formatTime(order.voidedAt)}` : '—'}
+                  </Text>
+                </View>
+                <View style={styles.paidRow}>
+                  <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>Motivo</Text>
+                  <Text style={{ color: colors.danger, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                    {order.voidReason ?? 'Anulación'}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
         <View style={styles.actions}>
-          {available ? (
+          {order.status === 'paid' && available ? (
             <PrimaryButton label="Imprimir ticket" onPress={handlePrint} loading={printing} />
           ) : null}
           {available ? <View style={styles.actionsGap} /> : null}
           <PrimaryButton
-            label={order.status === 'paid' ? 'Reimprimir ticket' : 'Ver ticket (pago pendiente)'}
+            label={
+              order.status === 'paid'
+                ? 'Reimprimir ticket'
+                : order.status === 'voided'
+                  ? 'Ver ticket (anulada)'
+                  : 'Ver ticket (pago pendiente)'
+            }
             variant="outline"
             onPress={() => setTicketVisible(true)}
           />
-          <View style={styles.actionsGap} />
-          <PrimaryButton label="Cobrar orden" onPress={() => navigation.replace('PaymentMethod', { orderId: order.id })} />
-          <View style={styles.actionsGap} />
-          <PrimaryButton label="Editar carrito" variant="outline" onPress={handleEdit} />
-          <View style={styles.actionsGap} />
-          <Pressable
-            onPress={handleDelete}
-            style={({ pressed }) => [styles.deleteButton, { borderColor: colors.danger + '55', opacity: pressed ? 0.75 : 1 }]}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.danger} />
-            <Text style={[styles.deleteLabel, { color: colors.danger }]}>Eliminar orden</Text>
-          </Pressable>
+          {order.status === 'pending' ? (
+            <>
+              <View style={styles.actionsGap} />
+              <PrimaryButton label="Cobrar orden" onPress={() => navigation.replace('PaymentMethod', { orderId: order.id })} />
+              <View style={styles.actionsGap} />
+              <PrimaryButton label="Editar carrito" variant="outline" onPress={handleEdit} />
+              <View style={styles.actionsGap} />
+              <Pressable
+                onPress={handleDelete}
+                style={({ pressed }) => [styles.deleteButton, { borderColor: colors.danger + '55', opacity: pressed ? 0.75 : 1 }]}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                <Text style={[styles.deleteLabel, { color: colors.danger }]}>Eliminar orden</Text>
+              </Pressable>
+            </>
+          ) : null}
+          {order.status === 'paid' ? (
+            <>
+              <View style={styles.actionsGap} />
+              <Pressable
+                onPress={() => setVoidReasonVisible(true)}
+                style={({ pressed }) => [styles.deleteButton, { borderColor: colors.danger + '55', opacity: pressed ? 0.75 : 1 }]}
+              >
+                <Ionicons name="close-circle-outline" size={18} color={colors.danger} />
+                <Text style={[styles.deleteLabel, { color: colors.danger }]}>Anular venta</Text>
+              </Pressable>
+            </>
+          ) : null}
         </View>
         </Column>
       </ScrollView>
@@ -285,6 +359,13 @@ export default function OrderDetailScreen({ route }: Props) {
         visible={ticketVisible}
         onClose={() => setTicketVisible(false)}
         ticket={buildTicket(order, business ?? { name: 'Mi Negocio', createdAt: order.createdAt })}
+      />
+      <VoidReasonModal
+        visible={voidReasonVisible}
+        orderLabel={`Factura ${invoiceCodeFor(order.number)}`}
+        voiding={voiding}
+        onSubmit={handleConfirmVoid}
+        onClose={() => setVoidReasonVisible(false)}
       />
     </Screen>
   );
@@ -361,6 +442,11 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     marginTop: 4,
+  },
+  voidedBox: {
+    gap: 4,
+    paddingTop: 12,
+    marginTop: 12,
   },
   totalRow: {
     flexDirection: 'row',

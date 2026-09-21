@@ -9,10 +9,8 @@ import Screen from '../../components/Screen';
 import { useCart } from '../../contexts/CartContext';
 import type { Order } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
-import { orderRepository } from '../../repositories/orderRepository';
-import { reserveOrderStock } from '../../services/stockService';
+import { orderService } from '../../services/orderService';
 import { useTheme } from '../../theme';
-import { buildOrder } from '../../utils/order';
 import { invoiceCodeFor } from '../../utils/invoice';
 
 export default function PaymentScreen() {
@@ -25,11 +23,13 @@ export default function PaymentScreen() {
   const handleSaveOrder = async () => {
     setSaving(true);
     try {
-      const order = buildOrder({ items, customer, status: 'pending' });
-      const saved = await orderRepository.save(order);
-      await reserveOrderStock(order.items);
+      const result = await orderService.savePendingOrder({ items, customer });
+      if (!result.ok) {
+        Alert.alert('No se pudo guardar la orden', result.message);
+        return;
+      }
       clear();
-      setSavedOrder(saved);
+      setSavedOrder(result.order);
     } finally {
       setSaving(false);
     }

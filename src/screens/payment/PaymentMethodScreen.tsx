@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Column from '../../components/Column';
 import MoneyDisplay from '../../components/MoneyDisplay';
@@ -12,14 +12,11 @@ import { useCart } from '../../contexts/CartContext';
 import type { Order, PaymentMethod } from '../../models/order';
 import type { RootStackParamList } from '../../navigation/types';
 import { orderRepository } from '../../repositories/orderRepository';
-import { productRepository } from '../../repositories/productRepository';
-import { reserveOrderStock } from '../../services/stockService';
+import { orderService } from '../../services/orderService';
 import { useTheme } from '../../theme';
 import { calcChange, formatMoney, parseMoney, formatMoneyBlur } from '../../utils/money';
 import { sanitizeMoneyInput } from '../../utils/inputFormat';
 import { invoiceCodeFor } from '../../utils/invoice';
-import { buildOrder } from '../../utils/order';
-import { findStockIssue } from '../../utils/cart';
 import type { CartItem } from '../../utils/cart';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
@@ -37,6 +34,7 @@ export default function PaymentMethodScreen({ route }: Props) {
   const [receivedText, setReceivedText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const submittedRef = useRef(false);
 
   const orderId = route.params?.orderId;
   const [existing, setExisting] = useState<Order | null>(null);
@@ -64,47 +62,26 @@ export default function PaymentMethodScreen({ route }: Props) {
   const showChange = receivedCents !== null && receivedCents >= subtotalCents;
   const changeCents = showChange ? calcChange(subtotalCents, receivedCents) : null;
 
-  const findStockProblem = async (orderItems: CartItem[]): Promise<string | null> => {
-    const live = await productRepository.list();
-    const issue = findStockIssue(orderItems, live);
-    if (!issue) return null;
-    if (issue.available === 0 && !live.some((p) => p.id === issue.product.id)) {
-      return `"${issue.product.name}" ya no está en el catálogo. Actualiza o elimina la orden.`;
-    }
-    return `Stock insuficiente para "${issue.product.name}": quedan ${issue.available} y llevas ${
-      orderItems.find((item) => item.product.id === issue.product.id)?.quantity ?? 0
-    }.`;
-  };
-
   const completePayment = async (payMethod: PaymentMethod, received?: number) => {
-    const orderItems = existing ? existing.items : items;
-    const stockProblem = await findStockProblem(orderItems);
-    if (stockProblem) {
-      setError(stockProblem);
-      return;
-    }
+    if (submittedRef.current) return;
+    submittedRef.current = true;
     setSaving(true);
     try {
-      if (existing) {
-        const change = received !== undefined ? calcChange(existing.subtotalCents, received) : undefined;
-        const paid: Order = {
-          ...existing,
-          status: 'paid',
-          paymentMethod: payMethod,
-          receivedCents: received,
-          changeCents: change,
-          paidAt: new Date().toISOString(),
-        };
-        await orderRepository.update(paid);
-        navigation.replace('OrderComplete', { orderId: existing.id });
+      const result = existing
+        ? await orderService.payPendingOrder(existing.id, payMethod, received)
+        : await orderService.payNewOrder({
+            items,
+            customer,
+            paymentMethod: payMethod,
+            receivedCents: received,
+          });
+      if (!result.ok) {
+        setError(result.message);
+        submittedRef.current = false;
         return;
       }
-
-      const order = buildOrder({ items, customer, status: 'paid', paymentMethod: payMethod, receivedCents: received });
-      const saved = await orderRepository.save(order);
-      await reserveOrderStock(items);
-      clear();
-      navigation.replace('OrderComplete', { orderId: saved.id });
+      if (!existing) clear();
+      navigation.replace('OrderComplete', { orderId: result.order.id });
     } finally {
       setSaving(false);
     }

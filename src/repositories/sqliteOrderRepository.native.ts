@@ -20,6 +20,8 @@ type OrderRow = {
   changeCents: number | null;
   createdAt: string;
   paidAt: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
 };
 
 function rowToOrder(row: OrderRow): Order {
@@ -40,13 +42,15 @@ function rowToOrder(row: OrderRow): Order {
     changeCents: row.changeCents ?? undefined,
     createdAt: row.createdAt,
     paidAt: row.paidAt ?? undefined,
+    voidedAt: row.voidedAt ?? undefined,
+    voidReason: row.voidReason ?? undefined,
   };
 }
 
 async function insertOrder(db: SQLiteDatabase, order: Order): Promise<void> {
   await db.runAsync(
-    `INSERT INTO orders (id, number, items, subtotalCents, customerName, phone, address, description, status, paymentMethod, receivedCents, changeCents, createdAt, paidAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO orders (id, number, items, subtotalCents, customerName, phone, address, description, status, paymentMethod, receivedCents, changeCents, createdAt, paidAt, voidedAt, voidReason)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       order.id,
       order.number,
@@ -62,6 +66,8 @@ async function insertOrder(db: SQLiteDatabase, order: Order): Promise<void> {
       order.changeCents ?? null,
       order.createdAt,
       order.paidAt ?? null,
+      order.voidedAt ?? null,
+      order.voidReason ?? null,
     ],
   );
 }
@@ -101,9 +107,16 @@ export async function createSqliteOrderRepository(): Promise<OrderRepository> {
       return rows.map(rowToOrder);
     },
 
+    async listAll() {
+      const rows = await db.getAllAsync<OrderRow>(
+        'SELECT * FROM orders ORDER BY createdAt DESC',
+      );
+      return rows.map(rowToOrder);
+    },
+
     async update(order) {
       await db.runAsync(
-        `UPDATE orders SET items = ?, subtotalCents = ?, customerName = ?, phone = ?, address = ?, description = ?, status = ?, paymentMethod = ?, receivedCents = ?, changeCents = ?, paidAt = ?
+        `UPDATE orders SET items = ?, subtotalCents = ?, customerName = ?, phone = ?, address = ?, description = ?, status = ?, paymentMethod = ?, receivedCents = ?, changeCents = ?, paidAt = ?, voidedAt = ?, voidReason = ?
          WHERE id = ?`,
         [
           JSON.stringify(order.items),
@@ -117,6 +130,8 @@ export async function createSqliteOrderRepository(): Promise<OrderRepository> {
           order.receivedCents ?? null,
           order.changeCents ?? null,
           order.paidAt ?? null,
+          order.voidedAt ?? null,
+          order.voidReason ?? null,
           order.id,
         ],
       );

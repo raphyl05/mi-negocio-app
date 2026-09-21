@@ -19,7 +19,7 @@ import { getOpenRegister } from '../../services/cashRegisterService';
 import { orderRepository } from '../../repositories/orderRepository';
 import { getBusiness } from '../../services/setupService';
 import { buildTicket } from '../../services/printerService';
-import { releaseOrderStock } from '../../services/stockService';
+import { orderService } from '../../services/orderService';
 import { usePrinter } from '../../hooks/usePrinter';
 import { useTheme } from '../../theme';
 import { formatTime, inDateRange, parseDateInput } from '../../utils/datetime';
@@ -44,8 +44,7 @@ export default function VentasScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<VentasNav>();
   const [segment, setSegment] = useState<Segment>('pending');
-  const [pending, setPending] = useState<Order[]>([]);
-  const [paid, setPaid] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [queryGuardadas, setQueryGuardadas] = useState('');
   const [queryCobradas, setQueryCobradas] = useState('');
   const [fromText, setFromText] = useState('');
@@ -61,15 +60,13 @@ export default function VentasScreen() {
   const { available } = usePrinter();
 
   const load = useCallback(async () => {
-    const [businessData, pendingOrders, paidOrders, openRegister] = await Promise.all([
+    const [businessData, allOrders, openRegister] = await Promise.all([
       getBusiness(),
-      orderRepository.listPending(),
-      orderRepository.listPaid(),
+      orderRepository.listAll(),
       getOpenRegister(),
     ]);
     setBusiness(businessData);
-    setPending(pendingOrders);
-    setPaid(paidOrders);
+    setOrders(allOrders);
     setRegister(openRegister);
     setSelected(new Set());
     setSelecting(false);
@@ -90,6 +87,10 @@ export default function VentasScreen() {
 
   const hasRange = fromText.trim().length > 0 || toText.trim().length > 0;
 
+  const pending = useMemo(() => orders.filter((order) => order.status === 'pending'), [orders]);
+  const paid = useMemo(() => orders.filter((order) => order.status === 'paid'), [orders]);
+  const voided = useMemo(() => orders.filter((order) => order.status === 'voided'), [orders]);
+
   const filteredPending = useMemo(() => {
     const textMatch = filterOrders(pending, queryGuardadas);
     if (!selecting && textMatch.length === pending.length) return pending;
@@ -106,8 +107,18 @@ export default function VentasScreen() {
       : register
         ? paid.filter((order) => isOrderInRegister(order, register.openedAt))
         : paid;
-    return filterOrders(base, queryCobradas);
-  }, [paid, queryCobradas, fromText, toText, hasRange, register]);
+    const withVoided = hasRange
+      ? [
+          ...base,
+          ...voided.filter((order) => {
+            const from = parseDateInput(fromText);
+            const to = parseDateInput(toText);
+            return inDateRange(order.createdAt, from ?? undefined, to ?? undefined);
+          }),
+        ]
+      : [...base, ...voided];
+    return filterOrders(withVoided, queryCobradas);
+  }, [paid, voided, queryCobradas, fromText, toText, hasRange, register]);
 
   const switchSegment = (next: Segment) => {
     setSegment(next);
@@ -160,9 +171,7 @@ export default function VentasScreen() {
           style: 'destructive',
           onPress: async () => {
             for (const id of selected) {
-              const order = pending.find((o) => o.id === id);
-              if (order) await releaseOrderStock(order.items);
-              await orderRepository.remove(id);
+              await orderService.cancelPendingOrder(id);
             }
             await load();
           },
@@ -239,7 +248,7 @@ export default function VentasScreen() {
 
       <View style={styles.segmentRow}>
         <SegmentButton label="Guardadas" count={pending.length} active={segment === 'pending'} onPress={() => switchSegment('pending')} />
-        <SegmentButton label="Cobradas" count={paid.length} active={segment === 'paid'} onPress={() => switchSegment('paid')} />
+        <SegmentButton label="Cobradas" count={paid.length + voided.length} active={segment === 'paid'} onPress={() => switchSegment('paid')} />
       </View>
 
       {segment === 'pending' && selecting ? (
@@ -374,7 +383,7 @@ export default function VentasScreen() {
                 onPrint={handlePrint}
               />
             ) : (
-              <PaidRow order={item} onPress={() => navigation.navigate('OrderDetail', { orderId: item.id })} onPrint={handlePrint} />
+              <PaidRow order={item} isVoided={item.status === 'voided'} onPress={() => navigation.navigate('OrderDetail', { orderId: item.id })} onPrint={handlePrint} />
             )
           }
           ListFooterComponent={
@@ -521,7 +530,7 @@ function PendingRow({
   );
 }
 
-function PaidRow({ order, onPress, onPrint }: { order: Order; onPress: () => void; onPrint: (order: Order) => void }) {
+function PaidRow({ order, isVoided, onPress, onPrint }: { order: Order; isVoided: boolean; onPress: () => void; onPrint: (order: Order) => void }) {
   const { colors, spacing, typography } = useTheme();
   const hasCustomer = Boolean(order.customer.customerName.trim());
 
@@ -530,8 +539,10 @@ function PaidRow({ order, onPress, onPrint }: { order: Order; onPress: () => voi
       onPress={onPress}
       style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, borderRadius: 16, opacity: pressed ? 0.85 : 1 }]}
     >
-      <View style={[styles.numberBadge, { backgroundColor: colors.success + '1F' }]}>
-        <Text style={{ color: colors.success, fontSize: typography.sizes.caption, fontWeight: '800' }}>{invoiceCodeFor(order.number)}</Text>
+      <View style={[styles.numberBadge, { backgroundColor: isVoided ? colors.danger + '1F' : colors.success + '1F' }]}>
+        <Text style={{ color: isVoided ? colors.danger : colors.success, fontSize: typography.sizes.caption, fontWeight: '800' }}>
+          {isVoided ? 'Anulada' : invoiceCodeFor(order.number)}
+        </Text>
       </View>
       <View style={styles.rowInfo}>
         <Text
@@ -541,14 +552,14 @@ function PaidRow({ order, onPress, onPrint }: { order: Order; onPress: () => voi
           {hasCustomer ? order.customer.customerName : 'Venta sin cliente'}
         </Text>
         <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption }}>
-          {formatTime(order.createdAt)} · Pagada
+          {formatTime(order.createdAt)} · {isVoided ? 'Anulada' : 'Pagada'}
         </Text>
       </View>
       <MoneyDisplay cents={order.subtotalCents} size="small" />
       <Pressable onPress={(e) => { e.stopPropagation(); onPrint(order); }} hitSlop={8} style={styles.printIcon}>
         <Ionicons name="print-outline" size={18} color={colors.primary} />
       </Pressable>
-      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+      <Ionicons name="close-circle" size={16} color={isVoided ? colors.danger : colors.success} />
     </Pressable>
   );
 }

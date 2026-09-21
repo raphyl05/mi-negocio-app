@@ -1,6 +1,6 @@
 import type { CartItem } from '../utils/cart';
 
-export type OrderStatus = 'pending' | 'paid';
+export type OrderStatus = 'pending' | 'paid' | 'voided';
 
 export type PaymentMethod = 'cash' | 'transfer';
 
@@ -23,4 +23,6 @@ export type Order = {
   changeCents?: number;
   createdAt: string;
   paidAt?: string;
+  voidedAt?: string;
+  voidReason?: string;
 };

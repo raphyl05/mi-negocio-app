@@ -78,6 +78,8 @@ CREATE INDEX IF NOT EXISTS idx_providers_name ON providers (name);
 
   await ensureColumn(db, 'products', 'provider', 'TEXT');
   await ensureColumn(db, 'products', 'providerPhone', 'TEXT');
+  await ensureColumn(db, 'orders', 'voidedAt', 'TEXT');
+  await ensureColumn(db, 'orders', 'voidReason', 'TEXT');
 
   await db.runAsync('UPDATE products SET trackStock = 1');
 

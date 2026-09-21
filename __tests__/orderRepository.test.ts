@@ -2,6 +2,7 @@ import { createInMemoryOrderRepository } from '../src/repositories/orderReposito
 import { buildOrder } from '../src/utils/order';
 import type { CartItem } from '../src/utils/cart';
 import type { Product } from '../src/models/product';
+import type { Order } from '../src/models/order';
 
 const burger: Product = {
   id: 'p1',
@@ -53,8 +54,28 @@ describe('orderRepository (en memoria)', () => {
     expect(await repo.getById(order.id)).toBeNull();
   });
 
-  it('devuelve null si la orden no existe', async () => {
+it('devuelve null si la orden no existe', async () => {
     const repo = createInMemoryOrderRepository();
     expect(await repo.getById('no-existe')).toBeNull();
+  });
+
+  it('listAll incluye pendientes, pagadas y anuladas', async () => {
+    const repo = createInMemoryOrderRepository();
+    await repo.save(buildOrder({ items, customer: emptyCustomer, status: 'pending' }));
+    const paid = await repo.save(buildOrder({ items, customer: emptyCustomer, status: 'paid' }));
+    const voided: Order = {
+      ...paid,
+      status: 'voided',
+      voidedAt: '2026-01-02T00:00:00.000Z',
+      voidReason: 'Prueba',
+    };
+    await repo.update(voided);
+
+    const all = await repo.listAll();
+    expect(all).toHaveLength(2);
+    expect(all.filter((o) => o.status === 'pending')).toHaveLength(1);
+    expect(all.filter((o) => o.status === 'voided')).toHaveLength(1);
+    expect(await repo.listPending()).toHaveLength(1);
+    expect(await repo.listPaid()).toHaveLength(0);
   });
 });

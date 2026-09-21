@@ -59,7 +59,7 @@ export async function buildBackupBundle(): Promise<BackupBundle> {
     cashClosures: closures ? (JSON.parse(closures) as CashClosureRecord[]) : null,
     printer,
     products: await productRepository.list(),
-    orders: [...(await orderRepository.listPending()), ...(await orderRepository.listPaid())],
+    orders: await orderRepository.listAll(),
     customers: await customerRepository.list(),
     providers: await providerRepository.list(),
   };
@@ -153,11 +153,9 @@ async function restoreRepo<T>(repo: { list(): Promise<T[]>; create(item: T): Pro
   for (const item of items) await repo.create(item);
 }
 
-async function restoreOrders(repo: { listPending(): Promise<Order[]>; listPaid(): Promise<Order[]>; remove(id: string): Promise<void>; save(order: Order): Promise<Order> }, orders: Order[]): Promise<void> {
-  const pending = await repo.listPending();
-  for (const o of pending) await repo.remove(o.id);
-  const paid = await repo.listPaid();
-  for (const o of paid) await repo.remove(o.id);
+async function restoreOrders(repo: { listAll(): Promise<Order[]>; remove(id: string): Promise<void>; save(order: Order): Promise<Order> }, orders: Order[]): Promise<void> {
+  const existing = await repo.listAll();
+  for (const o of existing) await repo.remove(o.id);
   for (const o of [...orders].sort((a, b) => a.number - b.number)) await repo.save(o);
 }
 
