@@ -457,6 +457,8 @@ src/
 
 ## Registro de commits
 
+- `4ba6a7f` F4: autenticación server completada (logout, change-password con revocación por `changeEpoch`, `/auth/me`, reuso de refresh = 409, rate-limit 429 + Retry-After) — 36/36 tests backend
+
 - `a2f27ac` F3 + F3.1: backend ASP.NET Core Source of Truth (auth, negocios, dispositivos, catálogo, órdenes, inventario, caja, sync pull/push, backups) con contrato `API-CONTRACT`, auditoría F3.1 e informes (`INFORME-F3`/`INFORME-F3-1`); rename slug a vendelo-app; README y `.gitignore` actualizados — 27/27 tests backend, 298 tests cliente
 
 - `a6d0ebf` FASE 1: preparación SQLite para sync (updatedAt/deletedAt, tombstones, ledger `stock_movements`, `sync_state` + deviceId, backups retrocompatibles y transacciones atómicas) con auditoría F1.1 — 298 tests pasando
