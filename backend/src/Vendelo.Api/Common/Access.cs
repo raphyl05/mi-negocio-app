@@ -52,6 +52,11 @@ public sealed class AccessService(VendeloDbContext db)
 
         var who = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, ct)
             ?? throw AppException.NotFound("usuario");
+
+        var issuedCep = user.FindFirst("cep")?.Value;
+        if (issuedCep is not null && long.TryParse(issuedCep, out var cep)
+            && who.ChangeEpoch.ToUnixTimeSeconds() > cep)
+            throw new AppException("INVALID_TOKEN", "Tu sesión fue revocada. Vuelve a iniciar sesión.", 401);
         var business = await db.Businesses.AsNoTracking().FirstOrDefaultAsync(x => x.Id == businessId, ct)
             ?? throw AppException.NotFound("negocio");
         var membership = await db.Memberships.AsNoTracking()

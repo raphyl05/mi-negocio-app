@@ -34,7 +34,8 @@ public sealed class TokenService
 
     public DateTimeOffset HandshakeTtl => DateTimeOffset.Now.AddMinutes(AccessTtlMinutes);
 
-    public string CreateAccessToken(string userId, string username, string businessId, string role, string deviceId)
+    public string CreateAccessToken(string userId, string username, string businessId, string role, string deviceId,
+        long changeEpoch)
     {
         var handler = new JwtSecurityTokenHandler();
         var now = DateTimeOffset.UtcNow;
@@ -42,9 +43,11 @@ public sealed class TokenService
         {
             new(JwtRegisteredClaimNames.Sub, userId),
             new(JwtRegisteredClaimNames.UniqueName, username),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new("busid", businessId),
             new("role", role),
             new("dev", deviceId),
+            new("cep", changeEpoch.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         };
         var descriptor = new SecurityTokenDescriptor
         {

@@ -5,6 +5,7 @@ public sealed class AppException : Exception
     public string Code { get; }
     public int Status { get; }
     public object? Details { get; }
+    public int? RetryAfterSeconds { get; init; }
 
     public AppException(string code, string message, int status = 400, object? details = null)
         : base(message)

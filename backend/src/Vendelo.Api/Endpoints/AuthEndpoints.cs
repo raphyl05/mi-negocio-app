@@ -20,17 +20,36 @@ public static class AuthEndpoints
         g.MapPost("/auth/register", RegisterAsync);
         g.MapPost("/auth/login", LoginAsync);
         g.MapPost("/auth/refresh", RefreshAsync);
-        g.MapGet("/auth/session", SessionAsync).RequireAuthorization();
+        g.MapPost("/auth/logout", LogoutAsync);
+        g.MapPost("/auth/change-password", ChangePasswordAsync).RequireAuthorization();
+        g.MapGet("/auth/me", MeAsync).RequireAuthorization();
+        g.MapGet("/auth/session", MeAsync).RequireAuthorization();
         g.MapPost("/accounts/recover", RecoverAsync);
     }
 
+    private static void BumpRate(RateLimiter limiter, string key, int max)
+    {
+        var wait = limiter.Consume(key, max, RlWindow);
+        if (wait > 0)
+            throw new AppException("RATE_LIMITED", "Demasiados intentos. Inténtalo de nuevo en un momento.", 429)
+            {
+                RetryAfterSeconds = wait
+            };
+    }
+
+    private static readonly TimeSpan RlWindow = TimeSpan.FromMinutes(1);
+
     private static async Task<IResult> RegisterAsync(
-        RegisterRequestDto req, VendeloDbContext db, TokenService tokens, CancellationToken ct)
+        RegisterRequestDto req, HttpContext http, VendeloDbContext db, TokenService tokens, RateLimiter rl,
+        CancellationToken ct)
     {
         req.Identifier = (req.Identifier ?? "").Trim();
         req.Password ??= "";
         req.DeviceId = (req.DeviceId ?? "").Trim();
         req.Name = (req.Name ?? "").Trim();
+        var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        BumpRate(rl, $"reg:ip:{ip}", 120);
+        if (req.Identifier.Length >= 3) BumpRate(rl, $"reg:acc:{req.Identifier.ToLowerInvariant()}", 8);
         if (req.Identifier.Length is < 3 or > 255) throw Bad("identifier inválido.");
         if (req.Password.Length < 8) throw Bad("password debe tener mínimo 8 caracteres.");
         if (string.IsNullOrWhiteSpace(req.DeviceId) || req.DeviceId.Length > 64) throw Bad("deviceId inválido.");
@@ -119,9 +138,14 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> LoginAsync(
-        LoginRequestDto req, VendeloDbContext db, TokenService tokens, CancellationToken ct)
+        LoginRequestDto req, HttpContext http, VendeloDbContext db, TokenService tokens, RateLimiter rl,
+        CancellationToken ct)
     {
         req.Identifier = (req.Identifier ?? "").Trim();
+        var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        BumpRate(rl, $"login:ip:{ip}", 300);
+        if (req.Identifier.Length >= 3) BumpRate(rl, $"login:acc:{req.Identifier.ToLowerInvariant()}", 8);
+        if (!string.IsNullOrWhiteSpace(req.DeviceId)) BumpRate(rl, $"login:dev:{req.DeviceId}", 20);
         if (req.Identifier.Length < 3)
             throw new AppException("UNAUTHORIZED", "Credenciales inválidas.", 401);
 
@@ -145,10 +169,15 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> RefreshAsync(
-        RefreshRequestDto req, VendeloDbContext db, TokenService tokens, CancellationToken ct)
+        RefreshRequestDto req, HttpContext http, VendeloDbContext db, TokenService tokens, RateLimiter rl,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.RefreshToken))
             throw new AppException("UNAUTHORIZED", "refreshToken inválido.", 401);
+
+        var ip = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        BumpRate(rl, $"ref:ip:{ip}", 300);
+        if (!string.IsNullOrWhiteSpace(req.DeviceId)) BumpRate(rl, $"ref:dev:{req.DeviceId}", 30);
 
         var hash = PasswordHasher.Sha256(req.RefreshToken);
         var session = await db.DeviceSessions.AsTracking()
@@ -156,7 +185,12 @@ public static class AuthEndpoints
         if (session is null)
             throw new AppException("INVALID_TOKEN", "Sesión inválida. Vuelve a iniciar sesión.", 401);
 
-        if (!session.Active || DateTimeOffset.UtcNow > session.ExpiresAt || DateTimeOffset.UtcNow > session.AbsoluteExpiresAt)
+        // PARTE 5: reuso de un refresh ya rotado = 409 (señal de robo).
+        if (!session.Active)
+            throw new AppException("TOKEN_REUSE",
+                "El refresh token ya fue utilizado. Vuelve a iniciar sesión.", 409);
+
+        if (DateTimeOffset.UtcNow > session.ExpiresAt || DateTimeOffset.UtcNow > session.AbsoluteExpiresAt)
         {
             session.Active = false;
             await db.SaveChangesAsync(ct);
@@ -164,6 +198,13 @@ public static class AuthEndpoints
         }
 
         var user = await db.Users.FirstAsync(x => x.Id == session.UserId, ct);
+        if (user.ChangeEpoch > session.CreatedAt)
+        {
+            session.Active = false;
+            await db.SaveChangesAsync(ct);
+            throw new AppException("INVALID_TOKEN", "Tu sesión fue revocada. Vuelve a iniciar sesión.", 401);
+        }
+
         var device = await db.Devices.FirstOrDefaultAsync(x => x.Id == session.DeviceId, ct);
         var membership = await db.Memberships.AsNoTracking()
             .FirstOrDefaultAsync(x => x.UserId == session.UserId && x.Active, ct);
@@ -177,7 +218,7 @@ public static class AuthEndpoints
         return Results.Ok(await SessionPayloadAsync(db, pair, user, business, membership.Role, ct));
     }
 
-    private static async Task<IResult> SessionAsync(
+    private static async Task<IResult> MeAsync(
         HttpContext http, VendeloDbContext db, CancellationToken ct)
     {
         var user = http.User.UserIdOf();
@@ -188,8 +229,49 @@ public static class AuthEndpoints
         var b = await db.Businesses.AsNoTracking().FirstAsync(x => x.Id == businessId, ct);
         var m = await db.Memberships.AsNoTracking()
             .FirstAsync(x => x.UserId == user && x.BusinessId == businessId, ct);
-        // PARTE 32.3: valida el par. No se emiten tokens nuevos.
+        // PARTE 5.2 / 32: perfil + membresías. No se emiten tokens nuevos.
         return Results.Ok(await SessionPayloadAsync(db, null, u, b, m.Role, ct));
+    }
+
+    private static async Task<IResult> LogoutAsync(
+        LogoutRequestDto req, VendeloDbContext db, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.RefreshToken))
+            throw AppException.Validation("refreshToken es obligatorio.");
+
+        var hash = PasswordHasher.Sha256(req.RefreshToken);
+        var session = await db.DeviceSessions.AsTracking()
+            .FirstOrDefaultAsync(x => x.RefreshTokenHash == hash, ct);
+        if (session is not null)
+        {
+            session.Active = false;
+            await db.SaveChangesAsync(ct);
+        }
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ChangePasswordAsync(
+        ChangePasswordRequestDto req, HttpContext http, VendeloDbContext db, CancellationToken ct)
+    {
+        var userId = http.User.UserIdOf() ?? throw AppException.Forbidden("Sesión incompleta.");
+        req.NewPassword ??= "";
+        req.CurrentPassword ??= "";
+        if (req.NewPassword.Length < 8) throw Bad("La nueva contraseña debe tener mínimo 8 caracteres.");
+        if (req.NewPassword == req.CurrentPassword) throw Bad("La nueva contraseña debe ser diferente a la actual.");
+
+        var user = await db.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == userId, ct)
+            ?? throw AppException.NotFound("usuario");
+        if (!PasswordHasher.Verify(req.CurrentPassword, user.PasswordHash))
+            throw new AppException("INVALID_PASSWORD", "La contraseña actual no es correcta.", 400);
+
+        user.PasswordHash = PasswordHasher.Hash(req.NewPassword);
+        user.ChangeEpoch = DateTimeOffset.UtcNow;
+
+        var sessions = await db.DeviceSessions.AsTracking()
+            .Where(x => x.UserId == userId && x.Active).ToListAsync(ct);
+        foreach (var s in sessions) s.Active = false;
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 
     private static Task<IResult> RecoverAsync(RecoverRequestDto? req, CancellationToken ct)
@@ -224,7 +306,8 @@ public static class AuthEndpoints
         var user = await db.Users.FirstAsync(x => x.Id == userId, ct);
         var membership = await db.Memberships.AsNoTracking()
             .FirstAsync(x => x.UserId == userId && x.BusinessId == businessId && x.Active, ct);
-        var access = tokens.CreateAccessToken(userId, user.Username, businessId, membership.Role, deviceId);
+        var access = tokens.CreateAccessToken(userId, user.Username, businessId, membership.Role, deviceId,
+            user.ChangeEpoch.ToUnixTimeSeconds());
         var (refresh, hash) = tokens.CreateRefreshToken();
 
         var session = new DeviceSession

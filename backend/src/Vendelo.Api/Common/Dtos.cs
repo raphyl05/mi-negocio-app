@@ -22,6 +22,8 @@ public sealed class ApiErrorHandlingMiddleware(RequestDelegate next)
         catch (AppException ex)
         {
             ctx.Response.StatusCode = ex.Status;
+            if (ex.RetryAfterSeconds is int retryAfter)
+                ctx.Response.Headers["Retry-After"] = retryAfter.ToString();
             await Write(ctx, ex.Code, ex.Message, ex.Details);
         }
         catch (Exception ex)
@@ -111,6 +113,17 @@ public sealed class RefreshRequestDto
 {
     [JsonPropertyName("refreshToken")] public string RefreshToken { get; set; } = "";
     [JsonPropertyName("deviceId")] public string? DeviceId { get; set; }
+}
+
+public sealed class LogoutRequestDto
+{
+    [JsonPropertyName("refreshToken")] public string RefreshToken { get; set; } = "";
+}
+
+public sealed class ChangePasswordRequestDto
+{
+    [JsonPropertyName("currentPassword")] public string CurrentPassword { get; set; } = "";
+    [JsonPropertyName("newPassword")] public string NewPassword { get; set; } = "";
 }
 
 public sealed class MembershipDto

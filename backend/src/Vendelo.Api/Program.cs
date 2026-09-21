@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -44,11 +45,34 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30)
         };
+        // PARTE 5: `users.changeEpoch` (reset/cambio de contraseña) invalida todas las sesiones
+        // emitidas antes del cambio, en todos los endpoints autenticados.
+        opt.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var db = ctx.HttpContext.RequestServices.GetRequiredService<VendeloDbContext>();
+                var userId = ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var cep = ctx.Principal?.FindFirst("cep")?.Value;
+                if (userId is null || cep is null)
+                {
+                    ctx.Fail("Sesión incompleta.");
+                    return;
+                }
+                var who = await db.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Id == userId);
+                if (who is null
+                    || !long.TryParse(cep, out var issuedCep)
+                    || who.ChangeEpoch.ToUnixTimeSeconds() > issuedCep)
+                    ctx.Fail("Tu sesión fue revocada. Vuelve a iniciar sesión.");
+            }
+        };
     });
 builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddScoped<AccessService>();
+builder.Services.AddSingleton<RateLimiter>();
 
 var app = builder.Build();
 

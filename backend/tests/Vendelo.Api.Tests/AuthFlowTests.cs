@@ -111,7 +111,7 @@ public sealed class AuthFlowTests : IClassFixture<ApiFactory>
         Assert.NotEqual(r.RefreshToken, pair!.RefreshToken);
 
         var replay = await _client.PostAsync("/api/v1/auth/refresh", TestClient.Json(new { refreshToken = r.RefreshToken }));
-        Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, replay.StatusCode);
 
         var replay2 = await _client.PostAsync("/api/v1/auth/refresh", TestClient.Json(new { refreshToken = pair.RefreshToken }));
         Assert.Equal(HttpStatusCode.OK, replay2.StatusCode);
