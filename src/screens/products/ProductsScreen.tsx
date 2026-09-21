@@ -11,6 +11,7 @@ import Screen from '../../components/Screen';
 import type { Product } from '../../models/product';
 import type { RootStackParamList } from '../../navigation/types';
 import { productRepository } from '../../repositories/productRepository';
+import { adjustStockWithMovement } from '../../services/stockService';
 import { useTheme } from '../../theme';
 import { formatMoney, parseMoney } from '../../utils/money';
 
@@ -52,7 +53,7 @@ export default function ProductsScreen() {
       await productRepository.update({ ...product, priceCents: cents });
     } else {
       const delta = parseInt(value.trim(), 10);
-      await productRepository.adjustStock(product.id, direction === 'add' ? delta : -delta);
+      await adjustStockWithMovement(product.id, direction === 'add' ? delta : -delta, 'ADJUSTMENT');
     }
     setQuick(null);
     await load();

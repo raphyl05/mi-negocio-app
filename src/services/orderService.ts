@@ -7,6 +7,8 @@ import type { OrderRepository } from '../repositories/orderRepository';
 import type { ProductRepository } from '../repositories/productRepository';
 import { orderRepository } from '../repositories/orderRepository';
 import { productRepository } from '../repositories/productRepository';
+import { stockMovementRepository } from '../repositories/stockMovementRepository';
+import type { StockMovementRepository } from '../repositories/stockMovementRepository';
 import { withTransaction } from '../repositories/transaction';
 import { reserveOrderStock, releaseOrderStock } from './stockService';
 
@@ -35,10 +37,11 @@ export type OrderService = {
 type OrderServiceDeps = {
   orderRepo: OrderRepository;
   productRepo: ProductRepository;
+  movementRepo?: StockMovementRepository;
   withTransaction?: <T>(fn: () => Promise<T>) => Promise<T>;
 };
 
-export function createOrderService({ orderRepo, productRepo, withTransaction: txn = withTransaction }: OrderServiceDeps): OrderService {
+export function createOrderService({ orderRepo, productRepo, movementRepo, withTransaction: txn = withTransaction }: OrderServiceDeps): OrderService {
   const stockProblem = async (items: CartItem[]): Promise<string | null> => {
     const live = await productRepo.list();
     const issue = findStockIssue(items, live);
@@ -71,7 +74,7 @@ export function createOrderService({ orderRepo, productRepo, withTransaction: tx
           if (problem) throw new Error(problem);
           const order = buildOrder({ items: input.items, customer: input.customer, status: 'pending' });
           const created = await orderRepo.save(order);
-          await reserveOrderStock(created.items, productRepo);
+          await reserveOrderStock(created.items, productRepo, { movementRepo, referenceId: created.id });
           return created;
         });
         return { ok: true, order: saved };
@@ -93,7 +96,7 @@ export function createOrderService({ orderRepo, productRepo, withTransaction: tx
             receivedCents: input.receivedCents,
           });
           const created = await orderRepo.save(order);
-          await reserveOrderStock(created.items, productRepo);
+          await reserveOrderStock(created.items, productRepo, { movementRepo, referenceId: created.id });
           return created;
         });
         return { ok: true, order: saved };
@@ -140,7 +143,7 @@ export function createOrderService({ orderRepo, productRepo, withTransaction: tx
           }
 
           await orderRepo.remove(found.id);
-          await releaseOrderStock(found.items, productRepo);
+          await releaseOrderStock(found.items, productRepo, { movementRepo, referenceId: found.id });
           return found;
         });
         return { ok: true, order: existing };
@@ -158,7 +161,7 @@ export function createOrderService({ orderRepo, productRepo, withTransaction: tx
 
           const marked = markVoided(existing, reason);
           await orderRepo.update(marked);
-          await releaseOrderStock(existing.items, productRepo);
+          await releaseOrderStock(existing.items, productRepo, { movementRepo, referenceId: existing.id });
           return marked;
         });
         return { ok: true, order: voided };
@@ -172,4 +175,5 @@ export function createOrderService({ orderRepo, productRepo, withTransaction: tx
 export const orderService: OrderService = createOrderService({
   orderRepo: orderRepository,
   productRepo: productRepository,
+  movementRepo: stockMovementRepository,
 });

@@ -16,6 +16,8 @@ import { productRepository, resetProductRepository } from '../repositories/produ
 import { orderRepository, resetOrderRepository } from '../repositories/orderRepository';
 import { customerRepository, resetCustomerRepository } from '../repositories/customerRepository';
 import { providerRepository, resetProviderRepository } from '../repositories/providerRepository';
+import { resetStockMovementRepository } from '../repositories/stockMovementRepository';
+import { resetSyncStateRepository } from '../repositories/syncStateRepository';
 import { parseBackup, sanitizeUserForBackup, serializeBackup, validateBackupData, type BackupBundle } from '../utils/backup';
 
 const KEYS = ['@micaja/business', '@micaja/cashRegister', '@micaja/cashClosures', '@micaja/printer'];
@@ -40,6 +42,8 @@ function resetAllRepositories(): void {
   resetOrderRepository();
   resetCustomerRepository();
   resetProviderRepository();
+  resetStockMovementRepository();
+  resetSyncStateRepository();
 }
 
 export async function buildBackupBundle(): Promise<BackupBundle> {
@@ -151,15 +155,15 @@ export async function applyRestoredBundle(bundle: BackupBundle): Promise<void> {
   }
 }
 
-async function restoreRepo<T>(repo: { list(): Promise<T[]>; create(item: T): Promise<T>; remove(id: string): Promise<void> }, items: T[]): Promise<void> {
+async function restoreRepo<T>(repo: { list(): Promise<T[]>; create(item: T): Promise<T>; hardRemove(id: string): Promise<void> }, items: T[]): Promise<void> {
   const existing = await repo.list();
-  for (const item of existing) await repo.remove((item as { id: string }).id);
+  for (const item of existing) await repo.hardRemove((item as { id: string }).id);
   for (const item of items) await repo.create(item);
 }
 
-async function restoreOrders(repo: { listAll(): Promise<Order[]>; remove(id: string): Promise<void>; save(order: Order): Promise<Order> }, orders: Order[]): Promise<void> {
+async function restoreOrders(repo: { listAll(): Promise<Order[]>; hardRemove(id: string): Promise<void>; save(order: Order): Promise<Order> }, orders: Order[]): Promise<void> {
   const existing = await repo.listAll();
-  for (const o of existing) await repo.remove(o.id);
+  for (const o of existing) await repo.hardRemove(o.id);
   for (const o of [...orders].sort((a, b) => a.number - b.number)) await repo.save(o);
 }
 

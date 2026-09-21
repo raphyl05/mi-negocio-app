@@ -91,6 +91,8 @@ function productIssue(item: unknown, index: number): string | null {
   if (!PRODUCT_IMAGE_TYPES.has(item.imageType as string)) return `${n}: "imageType" no es válido.`;
   if (typeof item.active !== 'boolean') return `${n}: "active" no es booleano.`;
   if (!isIsoDate(item.createdAt)) return `${n}: "createdAt" no es una fecha válida.`;
+  if (item.updatedAt !== undefined && !isIsoDate(item.updatedAt)) return `${n}: "updatedAt" no es una fecha válida.`;
+  if (item.deletedAt !== undefined && !isIsoDate(item.deletedAt)) return `${n}: "deletedAt" no es una fecha válida.`;
   return null;
 }
 
@@ -123,6 +125,8 @@ function orderIssue(item: unknown, index: number): string | null {
     }
   }
   if (!isIsoDate(item.createdAt)) return `${n}: "createdAt" no es una fecha válida.`;
+  if (item.updatedAt !== undefined && !isIsoDate(item.updatedAt)) return `${n}: "updatedAt" no es una fecha válida.`;
+  if (item.deletedAt !== undefined && !isIsoDate(item.deletedAt)) return `${n}: "deletedAt" no es una fecha válida.`;
   if (item.paidAt !== undefined && !isIsoDate(item.paidAt)) return `${n}: "paidAt" no es una fecha válida.`;
   if (item.voidedAt !== undefined && !isIsoDate(item.voidedAt)) return `${n}: "voidedAt" no es una fecha válida.`;
   return null;
@@ -134,6 +138,8 @@ function customerProviderIssue(item: unknown, index: number, label: string): str
   if (!isStr(item.id) || !item.id) return `${n}: falta "id".`;
   if (!isStr(item.name) || !item.name) return `${n}: falta "name".`;
   if (!isIsoDate(item.createdAt)) return `${n}: "createdAt" no es una fecha válida.`;
+  if (item.updatedAt !== undefined && !isIsoDate(item.updatedAt)) return `${n}: "updatedAt" no es una fecha válida.`;
+  if (item.deletedAt !== undefined && !isIsoDate(item.deletedAt)) return `${n}: "deletedAt" no es una fecha válida.`;
   return null;
 }
 

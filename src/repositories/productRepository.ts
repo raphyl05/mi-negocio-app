@@ -7,10 +7,12 @@ import { createSqliteProductRepository } from './sqliteProductRepository';
 export interface ProductRepository {
   list(): Promise<Product[]>;
   listByCategory(category: string): Promise<Product[]>;
+  listIncludingDeleted(): Promise<Product[]>;
   getById(id: string): Promise<Product | null>;
   create(product: Product): Promise<Product>;
   update(product: Product): Promise<Product>;
   remove(id: string): Promise<void>;
+  hardRemove(id: string): Promise<void>;
   removeByCategory(category: string): Promise<number>;
   decreaseStock(id: string, quantity: number): Promise<void>;
   adjustStock(id: string, delta: number): Promise<Product | null>;
@@ -20,38 +22,67 @@ export interface ProductRepository {
 export function createInMemoryProductRepository(): ProductRepository {
   let products: Product[] = SEED_PRODUCTS;
 
+  const now = (): string => new Date().toISOString();
+
   return {
     async list() {
-      return [...products];
+      return products.filter((product) => !product.deletedAt);
     },
 
     async listByCategory(category) {
-      return products.filter((product) => product.category === category);
+      return products.filter((product) => product.category === category && !product.deletedAt);
+    },
+
+    async listIncludingDeleted() {
+      return [...products];
     },
 
     async getById(id) {
-      return products.find((product) => product.id === id) ?? null;
+      const product = products.find((p) => p.id === id && !p.deletedAt);
+      return product ?? null;
     },
 
     async create(product) {
-      const created: Product = { ...product, id: product.id || generateId() };
+      const created: Product = {
+        ...product,
+        id: product.id || generateId(),
+        updatedAt: product.updatedAt ?? product.createdAt ?? now(),
+      };
       products = [...products, created];
       return created;
     },
 
     async update(product) {
-      products = products.map((existing) => (existing.id === product.id ? product : existing));
-      return product;
+      const updated: Product = { ...product, updatedAt: now() };
+      products = products.map((existing) =>
+        existing.id === product.id && !existing.deletedAt ? updated : existing,
+      );
+      return updated;
     },
 
     async remove(id) {
+      const stamped = now();
+      products = products.map((product) =>
+        product.id === id && !product.deletedAt
+          ? { ...product, deletedAt: stamped, updatedAt: stamped }
+          : product,
+      );
+    },
+
+    async hardRemove(id) {
       products = products.filter((product) => product.id !== id);
     },
 
     async removeByCategory(category) {
-      const before = products.length;
-      products = products.filter((product) => product.category !== category);
-      return before - products.length;
+      const stamped = now();
+      const before = products.filter((product) => product.category === category && !product.deletedAt)
+        .length;
+      products = products.map((product) =>
+        product.category === category && !product.deletedAt
+          ? { ...product, deletedAt: stamped, updatedAt: stamped }
+          : product,
+      );
+      return before;
     },
 
     async decreaseStock(id, quantity) {
@@ -73,11 +104,12 @@ export function createInMemoryProductRepository(): ProductRepository {
     },
 
     async renameCategory(oldName, newName) {
+      const stamped = now();
       let renamed = 0;
       products = products.map((product) => {
-        if (product.category !== oldName) return product;
+        if (product.category !== oldName || product.deletedAt) return product;
         renamed += 1;
-        return { ...product, category: newName };
+        return { ...product, category: newName, updatedAt: stamped };
       });
       return renamed;
     },
@@ -109,6 +141,10 @@ class LazyProductRepository implements ProductRepository {
     return (await this.ready()).listByCategory(category);
   }
 
+  async listIncludingDeleted() {
+    return (await this.ready()).listIncludingDeleted();
+  }
+
   async getById(id: string) {
     return (await this.ready()).getById(id);
   }
@@ -123,6 +159,10 @@ class LazyProductRepository implements ProductRepository {
 
   async remove(id: string) {
     return (await this.ready()).remove(id);
+  }
+
+  async hardRemove(id: string) {
+    return (await this.ready()).hardRemove(id);
   }
 
   async removeByCategory(category: string) {

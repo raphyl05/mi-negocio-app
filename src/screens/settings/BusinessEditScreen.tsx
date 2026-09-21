@@ -69,6 +69,7 @@ export default function BusinessEditScreen() {
     try {
       const existing = await getBusiness();
       await saveBusiness({
+        id: existing?.id,
         name: name.trim(),
         ownerName: ownerName.trim() || undefined,
         phone: phone.trim() || undefined,
@@ -76,6 +77,7 @@ export default function BusinessEditScreen() {
         logoBase64,
         invoiceMessage: invoiceMessage.trim() || 'Gracias por su compra!',
         createdAt: existing?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       navigation.goBack();
     } finally {

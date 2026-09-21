@@ -14,4 +14,6 @@ export type Product = {
   provider?: string;
   providerPhone?: string;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
 };

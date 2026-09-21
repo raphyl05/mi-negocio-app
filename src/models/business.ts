@@ -1,4 +1,5 @@
 export type Business = {
+  id?: string;
   name: string;
   ownerName?: string;
   phone?: string;
@@ -6,4 +7,5 @@ export type Business = {
   logoBase64?: string;
   invoiceMessage?: string;
   createdAt: string;
+  updatedAt?: string;
 };

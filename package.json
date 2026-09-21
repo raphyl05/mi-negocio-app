@@ -52,9 +52,10 @@
     "preset": "jest-expo",
     "moduleNameMapper": {
       "^(\\.\\.?/.*)\\.native$": "$1.ts",
-      "^(\\.\\.?/.*Sqlite(?:Product|Order|Customer|Provider)Repository)$": "$1.ts",
-      "^(\\.\\.?/.*bleBridge)$": "$1.ts",
-      "^(\\.\\.?/.*sqlite(?:Product|Order|Customer|Provider)Repository)$": "$1.ts"
+      "^(\\.\\.?/.*Sqlite(?:Product|Order|Customer|Provider|StockMovement|SyncState)Repository)$": "$1.ts",
+      "^(\\.\\.?/.*sqlite(?:Product|Order|Customer|Provider|StockMovement|SyncState)Repository)$": "$1.ts",
+      "^(\\.\\.?/.*/transaction)$": "$1.ts",
+      "^(\\.\\.?/.*bleBridge)$": "$1.ts"
     }
   }
 }

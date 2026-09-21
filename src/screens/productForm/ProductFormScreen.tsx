@@ -15,6 +15,8 @@ import type { ProductImageType } from '../../models/product';
 import type { Provider } from '../../models/provider';
 import type { RootStackParamList } from '../../navigation/types';
 import { productRepository } from '../../repositories/productRepository';
+import { stockMovementRepository } from '../../repositories/stockMovementRepository';
+import { withTransaction } from '../../repositories/transaction';
 import { deleteCachedPhoto } from '../../utils/productImages';
 import { providerRepository } from '../../repositories/providerRepository';
 import { useTheme } from '../../theme';
@@ -126,32 +128,51 @@ export default function ProductFormScreen() {
           navigation.goBack();
           return;
         }
-        await productRepository.update({
-          ...existing,
-          ...image,
-          name: cleanName,
-          priceCents,
-          category: cleanCategory,
-          stockQuantity,
-          active,
-          provider: provider.trim() || undefined,
-          providerPhone: providerPhone.trim() || undefined,
+        await withTransaction(async () => {
+          await productRepository.update({
+            ...existing,
+            ...image,
+            name: cleanName,
+            priceCents,
+            category: cleanCategory,
+            stockQuantity,
+            active,
+            provider: provider.trim() || undefined,
+            providerPhone: providerPhone.trim() || undefined,
+          });
+          if (stockQuantity !== existing.stockQuantity) {
+            await stockMovementRepository.recordMovement({
+              productId: existing.id,
+              quantity: stockQuantity - existing.stockQuantity,
+              movementType: 'ADJUSTMENT',
+            });
+          }
         });
         if (existing.imageUri && existing.imageUri !== image.imageUri) {
           await deleteCachedPhoto(existing.imageUri);
         }
       } else {
-        await productRepository.create({
-          id: '',
-          name: cleanName,
-          priceCents,
-          category: cleanCategory,
-          stockQuantity,
-          active: true,
-          createdAt: new Date().toISOString(),
-          ...image,
-          provider: provider.trim() || undefined,
-          providerPhone: providerPhone.trim() || undefined,
+        const created = await withTransaction(async () => {
+          const created = await productRepository.create({
+            id: '',
+            name: cleanName,
+            priceCents,
+            category: cleanCategory,
+            stockQuantity,
+            active: true,
+            createdAt: new Date().toISOString(),
+            ...image,
+            provider: provider.trim() || undefined,
+            providerPhone: providerPhone.trim() || undefined,
+          });
+          if (created.stockQuantity > 0) {
+            await stockMovementRepository.recordMovement({
+              productId: created.id,
+              quantity: created.stockQuantity,
+              movementType: 'INITIAL_STOCK',
+            });
+          }
+          return created;
         });
       }
       navigation.goBack();

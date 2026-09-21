@@ -84,12 +84,47 @@ CREATE TABLE IF NOT EXISTS providers (
   createdAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_providers_name ON providers (name);
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id TEXT PRIMARY KEY NOT NULL,
+  productId TEXT NOT NULL,
+  quantity INTEGER NOT NULL,
+  movementType TEXT NOT NULL,
+  referenceId TEXT,
+  deviceId TEXT,
+  synced INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_productId ON stock_movements (productId);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_createdAt ON stock_movements (createdAt);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_synced ON stock_movements (synced);
+CREATE TABLE IF NOT EXISTS sync_state (
+  id TEXT PRIMARY KEY NOT NULL,
+  deviceId TEXT NOT NULL,
+  businessId TEXT NOT NULL,
+  lastSyncAt TEXT,
+  lastServerCursor TEXT,
+  status TEXT NOT NULL DEFAULT 'idle',
+  updatedAt TEXT NOT NULL
+);
 `);
 
   await ensureColumn(db, 'products', 'provider', 'TEXT');
   await ensureColumn(db, 'products', 'providerPhone', 'TEXT');
   await ensureColumn(db, 'orders', 'voidedAt', 'TEXT');
   await ensureColumn(db, 'orders', 'voidReason', 'TEXT');
+  await ensureColumn(db, 'products', 'updatedAt', 'TEXT');
+  await ensureColumn(db, 'products', 'deletedAt', 'TEXT');
+  await ensureColumn(db, 'customers', 'updatedAt', 'TEXT');
+  await ensureColumn(db, 'customers', 'deletedAt', 'TEXT');
+  await ensureColumn(db, 'providers', 'updatedAt', 'TEXT');
+  await ensureColumn(db, 'providers', 'deletedAt', 'TEXT');
+  await ensureColumn(db, 'orders', 'updatedAt', 'TEXT');
+  await ensureColumn(db, 'orders', 'deletedAt', 'TEXT');
+
+  await db.runAsync("UPDATE products SET updatedAt = createdAt WHERE updatedAt IS NULL OR updatedAt = ''");
+  await db.runAsync("UPDATE customers SET updatedAt = createdAt WHERE updatedAt IS NULL OR updatedAt = ''");
+  await db.runAsync("UPDATE providers SET updatedAt = createdAt WHERE updatedAt IS NULL OR updatedAt = ''");
+  await db.runAsync("UPDATE orders SET updatedAt = createdAt WHERE updatedAt IS NULL OR updatedAt = ''");
 
   try {
     await db.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_number_unique ON orders (number)');
@@ -102,8 +137,8 @@ CREATE INDEX IF NOT EXISTS idx_providers_name ON providers (name);
   if (!productCount || productCount.count === 0) {
     for (const product of SEED_PRODUCTS) {
       await db.runAsync(
-        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, stockQuantity, active, provider, providerPhone, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, stockQuantity, active, provider, providerPhone, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           product.id,
           product.name,
@@ -117,6 +152,7 @@ CREATE INDEX IF NOT EXISTS idx_providers_name ON providers (name);
           product.active ? 1 : 0,
           product.provider ?? null,
           product.providerPhone ?? null,
+          product.createdAt,
           product.createdAt,
         ],
       );

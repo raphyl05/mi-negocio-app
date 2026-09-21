@@ -5,4 +5,6 @@ export type Provider = {
   address: string;
   note: string;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
 };

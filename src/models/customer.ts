@@ -5,4 +5,6 @@ export type Customer = {
   address: string;
   note: string;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
 };

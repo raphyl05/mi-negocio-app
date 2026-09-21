@@ -27,7 +27,8 @@ export async function getBusiness(): Promise<Business | null> {
 }
 
 export async function saveBusiness(business: Business): Promise<void> {
-  await AsyncStorage.setItem(BUSINESS_KEY, JSON.stringify(business));
+  const withIdentity: Business = business.id ? business : { ...business, id: generateId() };
+  await AsyncStorage.setItem(BUSINESS_KEY, JSON.stringify(withIdentity));
 }
 
 export async function clearSession(): Promise<void> {
@@ -119,11 +120,13 @@ export async function saveSetup({ name, ownerName, phone, address, username, pas
   const passwordHash = await hashPassword(password, salt);
 
   const business: Business = {
+    id: generateId(),
     name: name.trim(),
     ownerName: ownerName?.trim() || undefined,
     phone: phone?.trim() || undefined,
     address: address?.trim() || undefined,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   const user: User = {

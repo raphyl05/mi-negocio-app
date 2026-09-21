@@ -32,6 +32,7 @@ export function buildOrder(input: BuildOrderInput): Order {
     receivedCents: input.receivedCents,
     changeCents,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     paidAt: input.status === 'paid' ? new Date().toISOString() : undefined,
   };
 }

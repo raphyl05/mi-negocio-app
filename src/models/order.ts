@@ -22,6 +22,7 @@ export type Order = {
   receivedCents?: number;
   changeCents?: number;
   createdAt: string;
+  updatedAt?: string;
   paidAt?: string;
   voidedAt?: string;
   voidReason?: string;

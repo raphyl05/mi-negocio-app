@@ -17,6 +17,8 @@ type ProductRow = {
   provider: string | null;
   providerPhone: string | null;
   createdAt: string;
+  updatedAt: string | null;
+  deletedAt: string | null;
 };
 
 function rowToProduct(row: ProductRow): Product {
@@ -34,6 +36,8 @@ function rowToProduct(row: ProductRow): Product {
     provider: row.provider ?? undefined,
     providerPhone: row.providerPhone ?? undefined,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt ?? undefined,
+    deletedAt: row.deletedAt ?? undefined,
   };
 }
 
@@ -42,25 +46,42 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
 
   return {
     async list() {
-      const rows = await db.getAllAsync<ProductRow>('SELECT * FROM products ORDER BY createdAt ASC');
+      const rows = await db.getAllAsync<ProductRow>(
+        'SELECT * FROM products WHERE deletedAt IS NULL ORDER BY createdAt ASC',
+      );
       return rows.map(rowToProduct);
     },
 
     async listByCategory(category) {
-      const rows = await db.getAllAsync<ProductRow>('SELECT * FROM products WHERE category = ? ORDER BY createdAt ASC', category);
+      const rows = await db.getAllAsync<ProductRow>(
+        'SELECT * FROM products WHERE category = ? AND deletedAt IS NULL ORDER BY createdAt ASC',
+        category,
+      );
+      return rows.map(rowToProduct);
+    },
+
+    async listIncludingDeleted() {
+      const rows = await db.getAllAsync<ProductRow>('SELECT * FROM products ORDER BY createdAt ASC');
       return rows.map(rowToProduct);
     },
 
     async getById(id) {
-      const row = await db.getFirstAsync<ProductRow>('SELECT * FROM products WHERE id = ?', id);
+      const row = await db.getFirstAsync<ProductRow>(
+        'SELECT * FROM products WHERE id = ? AND deletedAt IS NULL',
+        id,
+      );
       return row ? rowToProduct(row) : null;
     },
 
     async create(product) {
-      const created: Product = { ...product, id: product.id || generateId() };
+      const created: Product = {
+        ...product,
+        id: product.id || generateId(),
+        updatedAt: product.updatedAt ?? product.createdAt,
+      };
       await db.runAsync(
-        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, stockQuantity, active, provider, providerPhone, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (id, name, priceCents, category, imageType, emoji, icon, imageUri, stockQuantity, active, provider, providerPhone, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           created.id,
           created.name,
@@ -75,15 +96,17 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
           created.provider ?? null,
           created.providerPhone ?? null,
           created.createdAt,
+          created.updatedAt ?? created.createdAt,
         ],
       );
       return created;
     },
 
     async update(product) {
+      const updatedAt = new Date().toISOString();
       await db.runAsync(
-        `UPDATE products SET name = ?, priceCents = ?, category = ?, imageType = ?, emoji = ?, icon = ?, imageUri = ?, stockQuantity = ?, active = ?, provider = ?, providerPhone = ?
-         WHERE id = ?`,
+        `UPDATE products SET name = ?, priceCents = ?, category = ?, imageType = ?, emoji = ?, icon = ?, imageUri = ?, stockQuantity = ?, active = ?, provider = ?, providerPhone = ?, updatedAt = ?
+         WHERE id = ? AND deletedAt IS NULL`,
         [
           product.name,
           product.priceCents,
@@ -96,22 +119,39 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
           product.active ? 1 : 0,
           product.provider ?? null,
           product.providerPhone ?? null,
+          updatedAt,
           product.id,
         ],
       );
-      return product;
+      return { ...product, updatedAt };
     },
 
     async remove(id) {
+      const stamped = new Date().toISOString();
+      await db.runAsync(
+        'UPDATE products SET deletedAt = ?, updatedAt = ? WHERE id = ? AND deletedAt IS NULL',
+        stamped,
+        stamped,
+        id,
+      );
+    },
+
+    async hardRemove(id) {
       await db.runAsync('DELETE FROM products WHERE id = ?', id);
     },
 
     async removeByCategory(category) {
       const result = await db.getFirstAsync<{ n: number }>(
-        'SELECT count(*) as n FROM products WHERE category = ?',
+        'SELECT count(*) as n FROM products WHERE category = ? AND deletedAt IS NULL',
         category,
       );
-      await db.runAsync('DELETE FROM products WHERE category = ?', category);
+      const stamped = new Date().toISOString();
+      await db.runAsync(
+        'UPDATE products SET deletedAt = ?, updatedAt = ? WHERE category = ? AND deletedAt IS NULL',
+        stamped,
+        stamped,
+        category,
+      );
       return result?.n ?? 0;
     },
 
@@ -135,10 +175,16 @@ export async function createSqliteProductRepository(): Promise<ProductRepository
 
     async renameCategory(oldName, newName) {
       const result = await db.getFirstAsync<{ n: number }>(
-        'SELECT count(*) as n FROM products WHERE category = ?',
+        'SELECT count(*) as n FROM products WHERE category = ? AND deletedAt IS NULL',
         oldName,
       );
-      await db.runAsync('UPDATE products SET category = ? WHERE category = ?', newName, oldName);
+      const stamped = new Date().toISOString();
+      await db.runAsync(
+        'UPDATE products SET category = ?, updatedAt = ? WHERE category = ? AND deletedAt IS NULL',
+        newName,
+        stamped,
+        oldName,
+      );
       return result?.n ?? 0;
     },
   };

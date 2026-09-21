@@ -10,20 +10,24 @@ export interface OrderRepository {
   listPending(): Promise<Order[]>;
   listPaid(): Promise<Order[]>;
   listAll(): Promise<Order[]>;
+  listAllIncludingDeleted(): Promise<Order[]>;
   update(order: Order): Promise<Order>;
   remove(id: string): Promise<void>;
+  hardRemove(id: string): Promise<void>;
 }
 
 export function createInMemoryOrderRepository(): OrderRepository {
-  let orders: Order[] = [];
+  type Stored = Order & { deletedAt?: string };
+  let orders: Stored[] = [];
   let nextNumber = 1;
 
   return {
     async save(order) {
-      const saved: Order = {
+      const saved: Stored = {
         ...order,
         id: order.id || generateId(),
         number: order.number > 0 ? order.number : nextNumber,
+        updatedAt: order.updatedAt ?? order.createdAt,
       };
       if (saved.number >= nextNumber) {
         nextNumber = saved.number + 1;
@@ -33,34 +37,51 @@ export function createInMemoryOrderRepository(): OrderRepository {
     },
 
     async getById(id) {
-      return orders.find((order) => order.id === id) ?? null;
+      const order = orders.find((o) => o.id === id && !o.deletedAt);
+      return order ? { ...order } : null;
     },
 
     async listPending() {
       return orders
-        .filter((order) => order.status === 'pending')
+        .filter((order) => order.status === 'pending' && !order.deletedAt)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
 
     async listPaid() {
       return orders
-        .filter((order) => order.status === 'paid')
+        .filter((order) => order.status === 'paid' && !order.deletedAt)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
 
     async listAll() {
+      return orders
+        .filter((order) => !order.deletedAt)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+
+    async listAllIncludingDeleted() {
       return [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
 
     async update(order) {
-      const existing = orders.find((found) => found.id === order.id);
+      const existing = orders.find((found) => found.id === order.id && !found.deletedAt);
       if (!existing) throw new Error('La orden ya no existe.');
       assertOrderTransition(existing.status, order.status);
-      orders = orders.map((found) => (found.id === order.id ? order : found));
-      return order;
+      const updated: Stored = { ...order, updatedAt: new Date().toISOString() };
+      orders = orders.map((found) => (found.id === order.id ? updated : found));
+      return updated;
     },
 
     async remove(id) {
+      const stamped = new Date().toISOString();
+      orders = orders.map((order) =>
+        order.id === id && !order.deletedAt
+          ? { ...order, deletedAt: stamped, updatedAt: stamped }
+          : order,
+      );
+    },
+
+    async hardRemove(id) {
       orders = orders.filter((order) => order.id !== id);
     },
   };
@@ -103,12 +124,20 @@ class LazyOrderRepository implements OrderRepository {
     return (await this.ready()).listAll();
   }
 
+  async listAllIncludingDeleted() {
+    return (await this.ready()).listAllIncludingDeleted();
+  }
+
   async update(order: Order) {
     return (await this.ready()).update(order);
   }
 
   async remove(id: string) {
     return (await this.ready()).remove(id);
+  }
+
+  async hardRemove(id: string) {
+    return (await this.ready()).hardRemove(id);
   }
 }
 

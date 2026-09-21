@@ -7,36 +7,61 @@ export type CustomerInput = Omit<Customer, 'id'> & { id?: string };
 
 export interface CustomerRepository {
   list(): Promise<Customer[]>;
+  listIncludingDeleted(): Promise<Customer[]>;
   getById(id: string): Promise<Customer | null>;
   create(customer: CustomerInput): Promise<Customer>;
   update(customer: Customer): Promise<Customer>;
   remove(id: string): Promise<void>;
+  hardRemove(id: string): Promise<void>;
 }
 
 export function createInMemoryCustomerRepository(): CustomerRepository {
   let customers: Customer[] = [];
 
+  const now = (): string => new Date().toISOString();
+
   return {
     async list() {
+      return customers.filter((customer) => !customer.deletedAt);
+    },
+
+    async listIncludingDeleted() {
       return [...customers];
     },
 
     async getById(id) {
-      return customers.find((customer) => customer.id === id) ?? null;
+      const customer = customers.find((c) => c.id === id && !c.deletedAt);
+      return customer ?? null;
     },
 
     async create(customer) {
-      const created: Customer = { ...customer, id: customer.id || generateId() };
+      const created: Customer = {
+        ...customer,
+        id: customer.id || generateId(),
+        updatedAt: customer.updatedAt ?? customer.createdAt ?? now(),
+      };
       customers = [...customers, created];
       return created;
     },
 
     async update(customer) {
-      customers = customers.map((existing) => (existing.id === customer.id ? customer : existing));
-      return customer;
+      const updated: Customer = { ...customer, updatedAt: now() };
+      customers = customers.map((existing) =>
+        existing.id === customer.id && !existing.deletedAt ? updated : existing,
+      );
+      return updated;
     },
 
     async remove(id) {
+      const stamped = now();
+      customers = customers.map((customer) =>
+        customer.id === id && !customer.deletedAt
+          ? { ...customer, deletedAt: stamped, updatedAt: stamped }
+          : customer,
+      );
+    },
+
+    async hardRemove(id) {
       customers = customers.filter((customer) => customer.id !== id);
     },
   };
@@ -63,6 +88,10 @@ class LazyCustomerRepository implements CustomerRepository {
     return (await this.ready()).list();
   }
 
+  async listIncludingDeleted() {
+    return (await this.ready()).listIncludingDeleted();
+  }
+
   async getById(id: string) {
     return (await this.ready()).getById(id);
   }
@@ -77,6 +106,10 @@ class LazyCustomerRepository implements CustomerRepository {
 
   async remove(id: string) {
     return (await this.ready()).remove(id);
+  }
+
+  async hardRemove(id: string) {
+    return (await this.ready()).hardRemove(id);
   }
 }
 
