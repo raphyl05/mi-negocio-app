@@ -268,4 +268,165 @@ describe('orderService', () => {
 
     expect((await productRepo.getById(product.id))?.stockQuantity).toBe(3);
   });
+
+  it('una venta pagada no puede modificarse directamente en el repositorio', async () => {
+    const { orderRepo, service, productRepo } = setup();
+    const product = await addProduct(productRepo);
+    const paid = await service.payNewOrder({ items: itemsWith(product, 1), customer: emptyCustomer, paymentMethod: 'cash', receivedCents: 500 });
+    if (!paid.ok) return;
+
+    const tampered: Order = { ...paid.order, items: itemsWith({ ...product, priceCents: 1 }, 9) };
+    await expect(orderRepo.update(tampered)).rejects.toThrow('no puede modificarse');
+  });
+
+  it('una venta pagada no puede volver al estado pendiente', async () => {
+    const { orderRepo, service, productRepo } = setup();
+    const product = await addProduct(productRepo);
+    const paid = await service.payNewOrder({ items: itemsWith(product, 1), customer: emptyCustomer, paymentMethod: 'cash', receivedCents: 500 });
+    if (!paid.ok) return;
+
+    await expect(orderRepo.update({ ...paid.order, status: 'pending' })).rejects.toThrow('volver al estado pendiente');
+  });
+
+  it('una venta anulada no puede modificarse ni re-anularse en el repositorio', async () => {
+    const { orderRepo, service, productRepo } = setup();
+    const product = await addProduct(productRepo);
+    const paid = await service.payNewOrder({ items: itemsWith(product, 1), customer: emptyCustomer, paymentMethod: 'cash', receivedCents: 500 });
+    if (!paid.ok) return;
+    await service.voidOrder(paid.order.id, 'Devolución');
+
+    const voided = (await orderRepo.getById(paid.order.id))!;
+    await expect(orderRepo.update({ ...voided, status: 'paid' })).rejects.toThrow('anulada');
+    await expect(orderRepo.update({ ...voided, items: [] })).rejects.toThrow('anulada');
+  });
+
+  it('una venta anulada conserva su historial y no aparece como pagada', async () => {
+    const { orderRepo, service, productRepo } = setup();
+    const product = await addProduct(productRepo);
+    const paid = await service.payNewOrder({ items: itemsWith(product, 2), customer: emptyCustomer, paymentMethod: 'transfer' });
+    if (!paid.ok) return;
+    await service.voidOrder(paid.order.id, 'Cliente no vino por el pedido');
+
+    const all = await orderRepo.listAll();
+    const kept = all.find((order) => order.id === paid.order.id);
+    expect(kept).toBeDefined();
+    expect(kept?.status).toBe('voided');
+    expect(kept?.voidedAt).toBeDefined();
+    expect(kept?.voidReason).toBe('Cliente no vino por el pedido');
+    expect((await orderRepo.listPaid()).some((order) => order.id === paid.order.id)).toBe(false);
+    expect((await orderRepo.listPending()).some((order) => order.id === paid.order.id)).toBe(false);
+  });
+
+  it('rechaza cobrar a la primera con stock insuficiente sin guardar la orden', async () => {
+    const { orderRepo, service, productRepo } = setup();
+    const product = await addProduct(productRepo);
+
+    const result = await service.payNewOrder({ items: itemsWith(product, 6), customer: emptyCustomer, paymentMethod: 'cash', receivedCents: 3000 });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toContain('Stock insuficiente');
+    expect(await orderRepo.listAll()).toHaveLength(0);
+    expect((await productRepo.getById(product.id))?.stockQuantity).toBe(5);
+  });
+
+  it('un pago por transferencia no calcula vuelto', async () => {
+    const { service, productRepo } = setup();
+    const product = await addProduct(productRepo);
+
+    const result = await service.payNewOrder({ items: itemsWith(product, 1), customer: emptyCustomer, paymentMethod: 'transfer' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.order.paymentMethod).toBe('transfer');
+    expect(result.order.receivedCents).toBeUndefined();
+    expect(result.order.changeCents).toBeUndefined();
+  });
+
+  it('un doble cobro rápido de la misma pendiente descuenta stock una sola vez', async () => {
+    const { orderRepo, service, productRepo } = setup();
+    const product = await addProduct(productRepo);
+    const saved = await service.savePendingOrder({ items: itemsWith(product, 3), customer: emptyCustomer });
+    if (!saved.ok) return;
+
+    const first = await service.payPendingOrder(saved.order.id, 'cash', 1500);
+    const second = await service.payPendingOrder(saved.order.id, 'cash', 1500);
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(false);
+    expect((await productRepo.getById(product.id))?.stockQuantity).toBe(2);
+    expect((await orderRepo.listPaid()).filter((o) => o.id === saved.order.id)).toHaveLength(1);
+  });
+});
+
+type MemOrderRepo = ReturnType<typeof createInMemoryOrderRepository>;
+type MemProductRepo = ReturnType<typeof createInMemoryProductRepository>;
+
+function makeRecoverableTxn(orderRepo: MemOrderRepo, productRepo: MemProductRepo) {
+  return async <T>(fn: () => Promise<T>): Promise<T> => {
+    const ordersSnapshot = await orderRepo.listAll();
+    const productsSnapshot = await productRepo.list();
+    try {
+      return await fn();
+    } catch (err) {
+      for (const o of await orderRepo.listAll()) await orderRepo.remove(o.id);
+      for (const o of ordersSnapshot) await orderRepo.save(o);
+      for (const p of await productRepo.list()) await productRepo.remove(p.id);
+      for (const p of productsSnapshot) await productRepo.create(p);
+      throw err;
+    }
+  };
+}
+
+describe('orderService rollback', () => {
+  it('hace rollback completo si el descuento de stock falla a mitad del pago', async () => {
+    const orderRepo = createInMemoryOrderRepository();
+    const productRepo = createInMemoryProductRepository();
+    const product = await addProduct(productRepo);
+
+    const failingStock = {
+      ...productRepo,
+      decreaseStock: async () => {
+        throw new Error('Fallo al descontar stock');
+      },
+    };
+    const service = createOrderService({
+      orderRepo,
+      productRepo: failingStock,
+      withTransaction: makeRecoverableTxn(orderRepo, productRepo),
+    });
+
+    const result = await service.payNewOrder({ items: itemsWith(product, 2), customer: emptyCustomer, paymentMethod: 'transfer' });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toContain('Fallo al descontar stock');
+    expect(await orderRepo.listAll()).toHaveLength(0);
+    expect((await productRepo.getById(product.id))?.stockQuantity).toBe(5);
+  });
+
+  it('hace rollback completo si la base de datos falla al confirmar el pago', async () => {
+    const orderRepo = createInMemoryOrderRepository();
+    const productRepo = createInMemoryProductRepository();
+    const product = await addProduct(productRepo);
+
+    const commitFailsTxn: <T>(fn: () => Promise<T>) => Promise<T> = async (fn) => {
+      const ordersSnapshot = await orderRepo.listAll();
+      const productsSnapshot = await productRepo.list();
+      try {
+        await fn();
+        throw new Error('Error al confirmar la base de datos');
+      } catch (err) {
+        for (const o of await orderRepo.listAll()) await orderRepo.remove(o.id);
+        for (const o of ordersSnapshot) await orderRepo.save(o);
+        for (const p of await productRepo.list()) await productRepo.remove(p.id);
+        for (const p of productsSnapshot) await productRepo.create(p);
+        throw err;
+      }
+    };
+
+    const service = createOrderService({ orderRepo, productRepo, withTransaction: commitFailsTxn });
+    const result = await service.payNewOrder({ items: itemsWith(product, 2), customer: emptyCustomer, paymentMethod: 'cash', receivedCents: 1000 });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toBe('Error al confirmar la base de datos');
+    expect(await orderRepo.listAll()).toHaveLength(0);
+    expect((await productRepo.getById(product.id))?.stockQuantity).toBe(5);
+  });
 });

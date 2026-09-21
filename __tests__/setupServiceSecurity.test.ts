@@ -6,15 +6,31 @@ jest.mock('../src/utils/password', () => ({
   generateId: () => `id-${Math.random().toString(36).slice(2)}`,
   generateSalt: () => 'mock-salt',
   hashPassword: (value: string, salt: string) => `${salt}:${value}`,
+  verifyPassword: async (password: string, salt: string, storedHash: string) => storedHash === `${salt}:${password}`,
+  isPbkdf2Hash: () => false,
+  isLegacySha256Hash: () => true,
 }));
+
+jest.mock('../src/utils/secureStore', () => {
+  const mockStore = jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock');
+  return {
+    SECURE_USER_KEY: 'vendelo.user',
+    LEGACY_USER_KEY: '@micaja/user',
+    readSecureUser: async () => mockStore.getItem('@micaja/user'),
+    writeSecureUser: async (value: string) => mockStore.setItem('@micaja/user', value),
+    removeSecureUser: async () => mockStore.removeItem('@micaja/user'),
+  };
+});
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  getUser,
   hasSecurityQuestion,
   normalizeSecurityAnswer,
   saveSecurityQuestion,
   saveSetup,
   setNewPassword,
+  updateUser,
   verifyLogin,
   verifySecurityAnswer,
 } from '../src/services/setupService';
@@ -68,5 +84,37 @@ describe('recuperación de contraseña por pregunta de seguridad', () => {
   it('no cambia la contraseña de un usuario inexistente', async () => {
     expect(await setNewPassword('fantasma', 'nuevaClave99')).toBe(false);
     expect(await verifyLogin('vendedor', 'clave1234')).not.toBeNull();
+  });
+});
+
+describe('usuario restaurado sin credenciales', () => {
+  it('no puede iniciar sesión si el respaldo no trajo hash ni sal', async () => {
+    const user = await getUser();
+    if (user) {
+      await updateUser({ ...user, passwordHash: '', passwordSalt: '' });
+    }
+    expect(await verifyLogin('vendedor', 'clave1234')).toBeNull();
+    expect(await verifyLogin('vendedor', '')).toBeNull();
+  });
+
+  it('puede crear una contraseña nueva aunque el respaldo no trajera hash', async () => {
+    const user = await getUser();
+    if (user) {
+      await updateUser({ ...user, passwordHash: '', passwordSalt: '' });
+    }
+    expect(await setNewPassword('vendedor', 'nueva99')).toBe(true);
+    expect(await verifyLogin('vendedor', 'nueva99')).not.toBeNull();
+  });
+});
+
+describe('sesión', () => {
+  it('la sesión devuelta por login no expone el hash ni la sal', async () => {
+    await saveSecurityQuestion('¿Nombre de tu primera mascota?', 'Luna');
+    const session = await verifyLogin('vendedor', 'clave1234');
+    expect(session).not.toBeNull();
+    if (session) {
+      expect(session).toEqual({ id: expect.any(String), username: 'vendedor', createdAt: expect.any(String) });
+      expect((session as Partial<typeof session> & Record<string, unknown>).passwordHash).toBeUndefined();
+    }
   });
 });

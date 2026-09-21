@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Business } from '../models/business';
-import type { User } from '../models/user';
-import { generateId, generateSalt, hashPassword } from '../utils/password';
+import type { SessionUser, User } from '../models/user';
+import { generateId, generateSalt, hashPassword, isLegacySha256Hash, verifyPassword } from '../utils/password';
+import { readSecureUser, removeSecureUser, writeSecureUser } from '../utils/secureStore';
 
 const BUSINESS_KEY = '@micaja/business';
-const USER_KEY = '@micaja/user';
 
 export type SetupPayload = {
   name: string;
@@ -31,7 +31,8 @@ export async function saveBusiness(business: Business): Promise<void> {
 }
 
 export async function clearSession(): Promise<void> {
-  await AsyncStorage.multiRemove([BUSINESS_KEY, USER_KEY]);
+  await AsyncStorage.multiRemove([BUSINESS_KEY]);
+  await removeSecureUser();
 }
 
 export function normalizeSecurityAnswer(answer: string): string {
@@ -53,7 +54,7 @@ export async function saveSecurityQuestion(question: string, answer: string): Pr
 }
 
 export async function updateUser(user: User): Promise<void> {
-  await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+  await writeSecureUser(JSON.stringify(user));
 }
 
 export async function hasSecurityQuestion(): Promise<boolean> {
@@ -65,8 +66,15 @@ export async function verifySecurityAnswer(username: string, answer: string): Pr
   const user = await getUser();
   if (!user || !user.securityAnswerHash || !user.securityAnswerSalt) return false;
   if (user.username.trim().toLocaleLowerCase() !== username.trim().toLocaleLowerCase()) return false;
-  const hash = await hashPassword(normalizeSecurityAnswer(answer), user.securityAnswerSalt);
-  return hash === user.securityAnswerHash;
+  const normalized = normalizeSecurityAnswer(answer);
+  const ok = await verifyPassword(normalized, user.securityAnswerSalt, user.securityAnswerHash);
+  if (!ok) return false;
+  if (isLegacySha256Hash(user.securityAnswerHash)) {
+    const securityAnswerSalt = await generateSalt();
+    const securityAnswerHash = await hashPassword(normalized, securityAnswerSalt);
+    await updateUser({ ...user, securityAnswerHash, securityAnswerSalt });
+  }
+  return true;
 }
 
 export async function setNewPassword(username: string, newPassword: string): Promise<boolean> {
@@ -80,25 +88,30 @@ export async function setNewPassword(username: string, newPassword: string): Pro
 }
 
 export async function getUser(): Promise<User | null> {
-  const raw = await AsyncStorage.getItem(USER_KEY);
+  const raw = await readSecureUser();
   if (!raw) return null;
   return JSON.parse(raw) as User;
 }
 
-export async function verifyLogin(username: string, password: string): Promise<User | null> {
+export async function verifyLogin(username: string, password: string): Promise<SessionUser | null> {
   const user = await getUser();
   if (!user) return null;
+  if (!user.passwordHash || !user.passwordSalt) return null;
 
   if (user.username.trim().toLowerCase() !== username.trim().toLowerCase()) {
     return null;
   }
 
-  const hash = await hashPassword(password, user.passwordSalt);
-  if (hash !== user.passwordHash) {
-    return null;
+  const ok = await verifyPassword(password, user.passwordSalt, user.passwordHash);
+  if (!ok) return null;
+
+  if (isLegacySha256Hash(user.passwordHash)) {
+    const salt = await generateSalt();
+    const passwordHash = await hashPassword(password, salt);
+    await updateUser({ ...user, passwordHash, passwordSalt: salt });
   }
 
-  return user;
+  return { id: user.id, username: user.username, createdAt: user.createdAt };
 }
 
 export async function saveSetup({ name, ownerName, phone, address, username, password }: SetupPayload): Promise<void> {
@@ -121,8 +134,6 @@ export async function saveSetup({ name, ownerName, phone, address, username, pas
     createdAt: new Date().toISOString(),
   };
 
-  await AsyncStorage.multiSet([
-    [BUSINESS_KEY, JSON.stringify(business)],
-    [USER_KEY, JSON.stringify(user)],
-  ]);
+  await AsyncStorage.multiSet([[BUSINESS_KEY, JSON.stringify(business)]]);
+  await writeSecureUser(JSON.stringify(user));
 }

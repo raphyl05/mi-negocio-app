@@ -128,6 +128,10 @@ export default function CashClosureScreen() {
         expectedCashCents: live.expectedCashCents,
         countedCashCents: cents,
         differenceCents: live.differenceCents,
+        orderCount: live.orderCount,
+        salesCents: live.salesCents,
+        cashSalesCents: live.cashSalesCents,
+        transferSalesCents: live.transferSalesCents,
       });
       setReceiptText(
         renderClosureReceiptText(business ?? { name: 'Mi Negocio', createdAt: record.closedAt }, live, record.closedAt),

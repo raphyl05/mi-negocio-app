@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { SEED_PRODUCTS } from '../data/seedProducts';
+import { isValidSqlIdentifier } from './sqlIdentifier';
 
 export const DATABASE_NAME = 'micaja.db';
 
@@ -14,8 +15,17 @@ export function getDatabase(): Promise<SQLiteDatabase> {
 }
 
 async function openAndMigrate(): Promise<SQLiteDatabase> {
-  const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
+  try {
+    const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
+    await migrate(db);
+    return db;
+  } catch (err) {
+    dbPromise = null;
+    throw err;
+  }
+}
 
+async function migrate(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`
 PRAGMA journal_mode = WAL;
 CREATE TABLE IF NOT EXISTS products (
@@ -36,7 +46,7 @@ CREATE TABLE IF NOT EXISTS products (
 );
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY NOT NULL,
-  number INTEGER NOT NULL,
+  number INTEGER NOT NULL UNIQUE,
   items TEXT NOT NULL,
   subtotalCents INTEGER NOT NULL,
   customerName TEXT NOT NULL DEFAULT '',
@@ -81,6 +91,11 @@ CREATE INDEX IF NOT EXISTS idx_providers_name ON providers (name);
   await ensureColumn(db, 'orders', 'voidedAt', 'TEXT');
   await ensureColumn(db, 'orders', 'voidReason', 'TEXT');
 
+  try {
+    await db.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_number_unique ON orders (number)');
+  } catch {
+  }
+
   await db.runAsync('UPDATE products SET trackStock = 1');
 
   const productCount = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM products');
@@ -107,11 +122,12 @@ CREATE INDEX IF NOT EXISTS idx_providers_name ON providers (name);
       );
     }
   }
-
-  return db;
 }
 
 async function ensureColumn(db: SQLiteDatabase, table: string, column: string, type: string): Promise<void> {
+  if (!isValidSqlIdentifier(table) || !isValidSqlIdentifier(column)) {
+    throw new Error(`Identificador SQL no válido: ${table}.${column}`);
+  }
   const rows = await db.getAllAsync<{ name: string }>(
     `PRAGMA table_info(${table})`,
   );

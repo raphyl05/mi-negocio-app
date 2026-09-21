@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { Order } from '../models/order';
+import { assertOrderTransition } from '../utils/orderState';
 import { generateId } from '../utils/password';
 import { createSqliteOrderRepository } from './sqliteOrderRepository';
 
@@ -52,7 +53,10 @@ export function createInMemoryOrderRepository(): OrderRepository {
     },
 
     async update(order) {
-      orders = orders.map((existing) => (existing.id === order.id ? order : existing));
+      const existing = orders.find((found) => found.id === order.id);
+      if (!existing) throw new Error('La orden ya no existe.');
+      assertOrderTransition(existing.status, order.status);
+      orders = orders.map((found) => (found.id === order.id ? order : found));
       return order;
     },
 

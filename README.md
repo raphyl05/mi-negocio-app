@@ -64,6 +64,103 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **Stock devuelto de forma segura al anular:** anular una venta cobrada marca `voided` y **devuelve todo el stock de sus líneas en la misma transacción** (o se anula y se devuelve, o no pasa nada; nunca a medias).
 - **Tests:** `__tests__/orderService.test.ts` (18 tests) con repositorios en memoria + `withTransaction` de identidad (SQLite jamás entra al entorno de test). Total: **203 tests, 24 suites, pasando** + `tsc --noEmit` limpio.
 
+---
+
+## Auditoría técnica (endurecimiento) — Fases 0 a 19
+
+Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLOQ-1/B-02/BLOQ-2/BLOQ-3). Objetivo: estabilizar el núcleo financiero antes de usar datos reales. Reglas vigentes: no reescribir, cambios mínimos, una fase = verificación, no avanzar con errores. Estado: **Fases 0–17 completadas**; Fase 18 = este documento; Fase 19 = validación final e informe.
+
+**Fase 0 COMPLETADA ✅** — mapa del flujo actual sin modificar nada: creación (CartContext → `orderService`), pago atómico e idempotente, stock reservado/liberado solo vía `stockService`, caja derivada en AsyncStorage (recalculada al cerrar), anulación `PAID→VOIDED`, backup/restore no transaccional (BLOQ-2 abierto), credenciales en AsyncStorage (Fases 5–7 pendientes), imágenes de caché (Fase 9 pendiente), migraciones ad-hoc y correlativo sin UNIQUE (Fases 10–11 pendientes).
+
+**Fase 1 COMPLETADA ✅** — integridad de ventas:
+- **Máquina de estados central** `src/utils/orderState.ts` (`assertOrderTransition`): flujo válido `pending→paid`, `pending→voided`, `paid→voided` (+ edición en el lugar de pendientes a nivel repo). **Una orden paid/voided no puede modificarse ni volver a el estado pendiente.**
+- **Guardas aplicadas en repositorios**: `orderRepository` (en memoria) y `sqliteOrderRepository.native`. Un `update` ilegal lanza error; el doble cobro/doble anulación ya quedaba bloqueado en `orderService`; ahora también a nivel de persistencia. Restore sigue usando `save`/`remove` (no afectado).
+- **Tests nuevos**: venta paid no modificable, paid no vuelve a pending, venta voided inmutable (no re-anular, no editar), y **historial conservado** tras anular (sigue en `listAll`, sale de paid/pending). Total: **207 tests, 24 suites, pasando** + `tsc --noEmit` limpio.
+
+**Fase 2 COMPLETADA ✅** — transacción de pago:
+- **Validación de stock DENTRO de la transacción**: `savePendingOrder` y `payNewOrder` ahora validan stock en el mismo `withTransaction` que guarda la orden y descuenta inventario (antes el chequeo era previo a la txn). Si algo falla: ROLLBACK, nunca "venta sin stock" ni "stock descontado sin venta".
+- **Política de precio (decisión para Fase 12):** el precio se **congela al cobrar** (el que lleva el carrito/la orden guardada); al cobrar una pendiente NO se revalida contra el catálogo (el stock ya quedó reservado al guardarla, Fase 26) — una venta pendiente conserva sus líneas tal cual fueron guardadas.
+- **Idempotencia verificada con tests:** doble cobro rápido de la misma pendiente → descuenta stock **una sola vez** y deja una sola venta pagada.
+- **Tests nuevos (212 en total, 24 suites):** cobro con stock insuficiente a la primera (sin orden ni descuento), transferencia sin vuelto, doble cobro con stock único, y **rollback completo** si falla el descuento de stock o si la BD falla al confirmar (usa un `withTransaction` recuperable que restaura órdenes+productos) — en producción lo garantiza `withTransactionAsync` de SQLite.
+
+**Fase 3 COMPLETADA ✅** — caja (apertura, ventas, cierre):
+- **Política de anulación post-cierre (documentada, sin ocultar el problema):** el cierre de caja es una **foto del turno en el momento de cerrar** (snapshot inmutable). Una venta anulada DESPUÉS del cierre NO reescribe ese registro: la venta sigue visible como "Anulada" en el historial y el efecto de ese dinero se manifiesta en el **turno siguiente** (el conteo de la caja nueva detectará si la diferencia no cuadra). Las anuladas DENTRO del turno ya salen de los totales antes de cerrar (test que lo fija).
+- **Registro de cierre ahora auditable y reconciliable**: cada `CashClosureRecord` guarda el **desglose completo del turno**: `orderCount`, `salesCents`, `cashSalesCents`, `transferSalesCents` además de apertura, efectivo esperado, efectivo contado y diferencia. Aunque anulen ventas del turno después, se puede reconstruir qué vendió ese cierre (fórmula lineal verificada: esperado = apertura + ventas en efectivo; las transferencias no cuentan para el efectivo).
+- **Cierre endurecido**: `closeRegister` exige una caja abierta (`No hay caja abierta para cerrar`); sin ella **no se crea ningún registro** (imposible "cierres fantasma") y no se puede cerrar dos veces seguidas (doble tap). Al cerrar se guarda el desglose y se elimina la caja abierta. El recibo impreso (esperado / falta / sobra) no cambió.
+- **Tests nuevos (218 en total, 25 suites):** apertura/lectura de caja, cierre con desglose completo + limpieza de caja abierta, rechazo de cierre sin caja abierta (cero registros), doble cierre bloqueado, y venta anulada fuera de `computeCashTotals` y de `isOrderInRegister`. `tsc --noEmit` limpio.
+
+**Fase 4 COMPLETADA ✅** — restore seguro (respaldo/restauración):
+- **Validación profunda ANTES de tocar nada**: `validateBackupData` en `backup.ts` comprueba campo por campo — productos (id, name, priceCents, stockQuantity, category, imageType, active, createdAt), órdenes (id, number entero ≥1, estado válido, items no vacíos con producto/precio/cantidad, subtotal, cliente completo, fechas, cambio ≤ recibido), clientes/proveedores (id, name, createdAt), cierres de caja (montos y fecha) y caja abierta. El error dice exactamente qué elemento falla (`Producto #3: falta "priceCents"`). Un archivo corrupto **no vuelve seguro a ser aceptado**: antes bastaba `app/version` y ahora se rechaza en la puerta de entrada.
+- **Retrocompatible**: respaldos de versiones anteriores se aceptan — cierres antiguos sin el desglose nuevo, pueden faltar arrays (se tratan como vacíos), y no se exigen `paidAt`/`paymentMethod` en órdenes históricas (solo se valida su forma cuando existen).
+- **Cuarentena pre-restauración**: antes de borrar nada, `applyRestoredBundle` escribe un respaldo de los datos ACTUALES en la caché (`vendelo-pre-restore-<timestamp>.json`). Así, si la restauración falla a mitad, los datos previos siguen existiendo y se recuperan con el mismo botón Restaurar. La guarda de validación corre también dentro de `applyRestoredBundle` (aunque alguien llamara a la función sin pasar por `parseBackup`, no puede destruir datos con un bundle inválido).
+- **Tests nuevos (225 en total, 25 suites):** respaldo completo válido, producto sin precio, estado de orden inválido, items vacíos, cambio mayor que lo recibido, cliente con fecha inválida y cierre legado sin desglose. `tsc --noEmit` limpio.
+
+**Fase 5 COMPLETADA ✅** — respaldo sin secretos:
+- **El archivo de respaldo ya NO contiene credenciales**: el usuario se exporta **saneado** (`sanitizeUserForBackup`) — solo `id`, `username` y `createdAt`. Quedan FUERA `passwordHash`, `passwordSalt`, `securityQuestion`, `securityAnswerHash` y `securityAnswerSalt`. Si alguien obtiene el archivo no puede descifrar la contraseña ni usar la respuesta de seguridad.
+- **Restaurar no trae contraseña**: tras restaurar, el usuario existe (mismo nombre de usuario) pero sin credenciales. `verifyLogin` ahora devuelve `null` si falta hash o sal (nadie entra con la contraseña vieja). En "¿Olvidaste tu contraseña?" se detecta la cuenta restaurada y se muestra **"Tu cuenta fue restaurada desde un respaldo y no tiene contraseña. Crea una nueva para ingresar"** → el dueño crea una contraseña nueva en el momento (flujo de `setNewPassword`, sin tocar el historial ni el negocio).
+- **Tests nuevos (229 en total, 25 suites):** saneado del usuario (no exporta hash/sal/pregunta), el JSON exportado no contiene credenciales, no se puede iniciar sesión con cuenta sin credenciales y se puede crear una contraseña tras restaurar. `tsc --noEmit` limpio.
+
+**Fase 6 COMPLETADA ✅** — contraseñas con derivación de claves (PBKDF2-HMAC-SHA256):
+- **Adiós al SHA-256 de una pasada**: las contraseñas ya no se guardan con `SHA256(sal+contraseña)` (brute-forceable en segundos). Ahora se derivan con **PBKDF2-HMAC-SHA256, 100.000 iteraciones, sal aleatoria por usuario (16 bytes)** y se guardan como `pbkdf2$100000$<hex>` — mismo formato para la **pregunta de seguridad**. Todo **puro JS** (SHA-256/HMAC/PBKDF2 implementados y verificados contra vectores NIST/RFC), **sin añadir dependencias nativas**, offline-first.
+- **Migración automática sin romper cuentas**: `verifyLogin` y `verifySecurityAnswer` detectan hashes antiguos (formato legado sin prefijo `pbkdf2$`), los verifican con el algoritmo viejo y, al tener éxito, **re-hashean al vuelo con PBKDF2 y sal nueva** (upgrade-on-login). Nadie queda fuera; las cuentas existentes se enduran en su primer acceso.
+- **Comparación en tiempo constante** (`constantTimeEqual`) y rechazo de hashes corruptos (formato/iteraciones inválidas).
+- **Limpieza en memoria/sesiones**: la sesión (`AuthContext`) guarda solo un booleano (`authed`) — el hash no se conserva en sesión; las pantallas piden el usuario por `getUser()` solo para mostrar el nombre. Y desde Fase 5 los hashes tampoco salen en los respaldos.
+- **Tests nuevos (238 en total, 26 suites):** vectores oficiales de SHA-256 ("abc", cadena vacía), vector 1 iteración y vector 4096 iteraciones de PBKDF2-HMAC-SHA256, formato del hash, determinismo con la misma sal, verificación correcta/incorrecta y rechazo de hashes corruptos (la suite tarda ~35s porque ejecuta el KDF real de 100k iteraciones). `tsc --noEmit` limpio.
+
+**Fase 7 COMPLETADA ✅** — credenciales en SecureStore (Keychain/Keystore):
+- **Dependencia añadida**: `expo-secure-store` `~57.0.4` (la versión exacta de SDK 57, instalada con `npm install`; `npx expo install` falló por el reporte de `npm audit`, la versión correcta se comprobó contra `expo/bundledNativeModules.json`).
+- **El usuario (hash, sal y pregunta de seguridad) ya NO vive en AsyncStorage en texto plano**: nuevo `src/utils/secureStore.ts` (llave segura `vendelo.user`). `setupService` guarda/lee/borra el usuario a través de esta capa → iOS Keychain / Android Keystore, protegido por el hardware del dispositivo.
+- **Migración automática sin fricción**: la primera vez que se lee el usuario (login, boot, seguridad), si todavía hay un usuario legado en `@micaja/user` se **migra a SecureStore y se borra del lugar anterior**. Si SecureStore no está disponible (raro en Expo Go/dispositivos modernos), degrada a AsyncStorage con el comportamiento previo (no peor que antes). En **web** (sin keychain) sigue usando AsyncStorage, documentado.
+- **Restaurar/borrar cuenta coherentes**: `applyRestoredBundle` escribe el usuario restaurado vía SecureStore y `deleteAccountAndData`/`clearSession` lo eliminan también del almacén seguro.
+- **Tests nuevos (244 en total, 27 suites):** escribir/leer/borrar en SecureStore, migración del legado (se mueve y se limpia), prioridad del dato seguro sobre el legado, y que el hash de contraseña viaja por el almacén seguro (no por AsyncStorage). `tsc --noEmit` limpio.
+
+**Fase 8 COMPLETADA ✅** — sesión sin exponer secretos:
+- `verifyLogin` ya no devuelve el `User` completo (que contenía hash/sal/pregunta de seguridad). Ahora devuelve `SessionUser` (`{ id, username, createdAt }`), definido en `src/models/user.ts`. El hash solo se lee desde SecureStore dentro de la verificación y nunca se entrega a los callers (Login/Seguridad lo usan como booleano o lo ignoran).
+- La sesión se mantiene únicamente como booleano `authed` en `AuthContext` (nada persistido, nada removible): `logout` la invalida y el BootGate vuelve a la pantalla de Login. No hay token que limpiar.
+- **Tests (245 en total, 27 suites):** la sesión devuelta por login no expone `passwordHash` ni `passwordSalt`. `tsc --noEmit` limpio.
+
+**Fase 9 COMPLETADA ✅** — ciclo de vida de fotos de producto:
+- Nuevas utilidades en `src/utils/productImages.ts`: `isCachedPhotoUri` (solo considera fotos dentro del directorio de caché de la app) y `deleteCachedPhoto` (borrado en caché vía `expo-file-system/legacy`, best-effort, nunca toca `content://` ni URLs remotas).
+- `ProductFormScreen`: al **guardar una edición** con foto cambiada o quitada (o imagen tipo cambiada a emoji/icono), se elimina la foto anterior de la caché; al **eliminar el producto**, se elimina su foto en caché. Se evitan archivos huérfanos que crecían sin límite en caché.
+- **Tests (249 en total, 28 suites):** el filtro solo marca URIs dentro de la caché y rechaza archivos externos/`content://`/remotas. `tsc --noEmit` limpio.
+
+**Fase 10 COMPLETADA ✅** — migraciones SQLite endurecidas:
+- `openAndMigrate` resetea la promesa de la BD y reintenta si la apertura/migración falla (antes una falla dejaba la app rota para siempre).
+- `ensureColumn` valida tabla y columna contra allowlist (`isValidSqlIdentifier`, nuevo `src/repositories/sqlIdentifier.ts`) antes de interpolar en el SQL.
+- **Tests (251 en total, 29 suites):** allowlist de identificadores (acepta `products`/`order_meta`, rechaza `orders; DROP TABLE products`, comillas, espacios, números iniciales). `tsc --noEmit` limpio.
+
+**Fase 11 COMPLETADA ✅** — correlativo de orden únicamente único:
+- La tabla `orders` de las BD nuevas declara `number INTEGER NOT NULL UNIQUE`.
+- Para las BD existentes (el UNIQUE no se puede añadir con ALTER TABLE) se intenta `CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_number_unique ON orders (number)`; si el historial heredado tuviera duplicados, el índice se omite sin romper ni modificar datos y el correlativo se sigue reservando de forma atómica vía `order_meta.nextNumber`.
+- **Tests (251, 29 suites)**: sin cambios. `tsc --noEmit` limpio.
+
+**Fase 12 COMPLETADA ✅** — política de precios congelados (documental):
+- El precio de venta se **congela al crear la orden**: cada ítem guarda `unitPriceCents` copiado del precio del producto en ese momento (`src/utils/order.ts`, `src/utils/cart.ts`). Cobrar una orden pendiente **no recalcula** contra el precio actual del catálogo, de modo que subir/bajar un precio después nunca altera ventas ya registradas. (Implementado desde el diseño de la transacción y documentado aquí para la auditoría.) Sin cambios de código en esta fase.
+
+**Fase 13 COMPLETADA ✅** — cierre de huecos de prueba:
+- Nueva suite `__tests__/orderState.test.ts` con la **matriz completa de transiciones** del estado de orden (`assertOrderTransition`): pending→paid/voided permitidas, paid→voided permitida, paid→paid (re-edición) bloqueada, voided→cualquiera bloqueada, vuelta a pending bloqueada. Garantiza el pilar de "no reescribir ventas pagadas/anuladas".
+- **Tests (255 en total, 30 suites).** `tsc --noEmit` limpio.
+
+**Fase 14 COMPLETADA ✅** — dependencias saludables:
+- `npx expo-doctor`: pasó de 19/21 a **21/21 checks**.
+- **Añadida** `expo-font@~57.0.4` (peer dependency de `@expo/vector-icons`; faltaba para builds nativos fuera de Expo Go; versión oficial SDK 57 tomada de `expo/bundledNativeModules.json`).
+- **Deduplicada** `expo-constants@57.0.19` (existían 3 copias anidadas de la misma versión; `npm dedupe` las colapsó). 
+- `npm audit`: quedan **11 moderadas transitivas del tooling de Expo** (`@expo/config`, `@expo/config-plugins`, `prebuild-config`, `metro-config`) — son de build, no del código de la app. `audit fix --force` rompería SDK 57; decisión: **no tocar**, documentado.
+- Tests y typecheck siguen en verde (255/30).
+
+**Fase 15 COMPLETADA ✅** — documentación del backend previsto:
+- Nuevo `docs/BACKEND.md` con la arquitectura recomendada (**TypeScript + Fastify + PostgreSQL**), cómo consumirá la app el servidor (sincronización batch `POST /sync`, respaldo `PUT /backups`, autenticación **PBKDF2 100k it en el cliente**, sin credenciales del usuario fuera del dispositivo), los límites para no contaminar el offline-first (no reescribir ventas pagadas/anuladas, caja = snapshot local) y las pruebas obligatorias del backend. Alinea la recomendación previa de la Fase 32 (ASP.NET Core) con la decisión de auditoría. No hay servidor en este repo; MVP 100% offline.
+
+**Fase 16 COMPLETADA ✅** — respaldo automático local:
+- Nuevo `src/services/autoBackupService.ts`: tras **cada cierre de caja** se escribe un respaldo completo (mismo bundle sanitizado y sin credenciales) en `documentDirectory/vendelo/respaldo-auto-*.json`, reteniendo **los últimos 5** (poda automática, best-effort, nunca interrumpe el cierre).
+- Restaurar ese archivo es exactamente igual que el respaldo manual (Más → Datos y respaldo → Restaurar); no se restaura solo al arrancar para no pisar datos sin confirmación.
+- Bug de pruebas corregido de paso: el `moduleNameMapper` de jest usaba `Sqlite` (mayúscula) pero los imports son `sqlite` (minúscula) → el repositorio lazy nunca se stubeaba en tests y resolvía la implementación nativa; corregido con el patrón `sqlite...`.
+- **Tests (258 en total, 31 suites):** escritura del snapshot, poda a 5, y que el cierre de caja genera su snapshot sin fallar. `tsc --noEmit` limpio.
+
+**Fase 17 COMPLETADA ✅** — Google Drive (decisión del usuario: **conservar documentado**):
+- `driveService.ts` queda **dormido e intacto**: código completo (OAuth con PKCE, subida automática post-cierre, listar, descargar, revocar) pero con `GOOGLE_CLIENT_ID = ''` y sin acceso en la UI (Fase 31/32). `signInDrive` devuelve error si el ID está vacío → imposible subir datos sin configuración explícita.
+- Para reactivarlo: configurar `GOOGLE_CLIENT_ID` en `src/services/driveService.ts` (OAuth 2.0 Client ID en Google Cloud Console) y volver a exponer las acciones en Más → Datos y respaldo. No se eliminó ninguna dependencia (`expo-auth-session`, `expo-web-browser`).
+
 > **IMPORTANTE:** este README es la guía de retorno. Si retomas el proyecto después de tiempo, lee esto antes de escribir código.
 > Además, existe `AGENTS.md` en la raíz que indica revisar la documentación de Expo SDK 57:
 > https://docs.expo.dev/versions/v57.0.0/

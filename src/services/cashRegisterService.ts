@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CashRegister } from '../models/cashRegister';
 import { generateId } from '../utils/password';
+import { createLocalAutoBackup } from './autoBackupService';
 
 const REGISTER_KEY = '@micaja/cashRegister';
 const CLOSURES_KEY = '@micaja/cashClosures';
@@ -12,6 +13,10 @@ export type CashClosureRecord = {
   expectedCashCents: number;
   countedCashCents: number;
   differenceCents: number;
+  orderCount: number;
+  salesCents: number;
+  cashSalesCents: number;
+  transferSalesCents: number;
 };
 
 export async function getOpenRegister(): Promise<CashRegister | null> {
@@ -36,6 +41,8 @@ export async function listCashClosures(): Promise<CashClosureRecord[]> {
 }
 
 export async function closeRegister(closure: Omit<CashClosureRecord, 'id' | 'closedAt'>): Promise<CashClosureRecord> {
+  const register = await getOpenRegister();
+  if (!register) throw new Error('No hay caja abierta para cerrar.');
   const record: CashClosureRecord = {
     ...closure,
     id: generateId(),
@@ -44,5 +51,6 @@ export async function closeRegister(closure: Omit<CashClosureRecord, 'id' | 'clo
   const closures = await listCashClosures();
   await AsyncStorage.setItem(CLOSURES_KEY, JSON.stringify([...closures, record]));
   await AsyncStorage.removeItem(REGISTER_KEY);
+  await createLocalAutoBackup();
   return record;
 }

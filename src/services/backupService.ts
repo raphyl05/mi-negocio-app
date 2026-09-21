@@ -9,15 +9,16 @@ import type { Product } from '../models/product';
 import type { Provider } from '../models/provider';
 import type { User } from '../models/user';
 import type { PrinterConfig } from './printer/types';
-import { getBusiness, getUser, saveBusiness, updateUser } from './setupService';
+import { getBusiness, getUser, saveBusiness } from './setupService';
+import { removeSecureUser, writeSecureUser } from '../utils/secureStore';
 import { savePrinterConfig, loadPrinterConfig } from './printer/printerConfigStore';
 import { productRepository, resetProductRepository } from '../repositories/productRepository';
 import { orderRepository, resetOrderRepository } from '../repositories/orderRepository';
 import { customerRepository, resetCustomerRepository } from '../repositories/customerRepository';
 import { providerRepository, resetProviderRepository } from '../repositories/providerRepository';
-import { parseBackup, serializeBackup, type BackupBundle } from '../utils/backup';
+import { parseBackup, sanitizeUserForBackup, serializeBackup, validateBackupData, type BackupBundle } from '../utils/backup';
 
-const KEYS = ['@micaja/business', '@micaja/user', '@micaja/cashRegister', '@micaja/cashClosures', '@micaja/printer'];
+const KEYS = ['@micaja/business', '@micaja/cashRegister', '@micaja/cashClosures', '@micaja/printer'];
 
 async function clearAppStorage(): Promise<void> {
   await AsyncStorage.multiRemove(KEYS);
@@ -54,7 +55,7 @@ export async function buildBackupBundle(): Promise<BackupBundle> {
     version: 1,
     exportedAt: new Date().toISOString(),
     business,
-    user,
+    user: sanitizeUserForBackup(user),
     cashRegister: register ? (JSON.parse(register) as CashRegister) : null,
     cashClosures: closures ? (JSON.parse(closures) as CashClosureRecord[]) : null,
     printer,
@@ -119,13 +120,16 @@ export async function restoreBackupFromFile(): Promise<void> {
 
 export async function applyRestoredBundle(bundle: BackupBundle): Promise<void> {
   try {
+    const invalid = validateBackupData(bundle as unknown);
+    if (invalid) throw new Error(invalid);
+    await quarantineCurrentData();
+
     await clearAppStorage();
     await deleteDatabaseFileNative();
     resetAllRepositories();
 
     const pairs: [string, string][] = [
       ['@micaja/business', JSON.stringify(bundle.business ?? {})],
-      ['@micaja/user', JSON.stringify(bundle.user ?? {})],
       ['@micaja/cashRegister', JSON.stringify(bundle.cashRegister ?? {})],
       ['@micaja/cashClosures', JSON.stringify(bundle.cashClosures ?? [])],
       ['@micaja/printer', JSON.stringify(bundle.printer ?? {})],
@@ -134,7 +138,7 @@ export async function applyRestoredBundle(bundle: BackupBundle): Promise<void> {
     await AsyncStorage.multiSet(toSave);
     await savePrinterConfig(bundle.printer ?? { enabled: false });
     if (bundle.business) await saveBusiness(bundle.business);
-    if (bundle.user) await updateUser(bundle.user);
+    if (bundle.user) await writeSecureUser(JSON.stringify(bundle.user));
 
     await restoreRepo(productRepository, bundle.products);
     await restoreRepo(customerRepository, bundle.customers);
@@ -159,8 +163,23 @@ async function restoreOrders(repo: { listAll(): Promise<Order[]>; remove(id: str
   for (const o of [...orders].sort((a, b) => a.number - b.number)) await repo.save(o);
 }
 
+async function quarantineCurrentData(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    const bundle = await buildBackupBundle();
+    const json = serializeBackup(bundle);
+    const { writeAsStringAsync, cacheDirectory } = require('expo-file-system/legacy');
+    if (!cacheDirectory) return;
+    const fileName = `${cacheDirectory}vendelo-pre-restore-${Date.now()}.json`;
+    await writeAsStringAsync(fileName, json, { encoding: 'utf8' });
+  } catch {
+    // Mejor esfuerzo: si falla, la restauración continúa; se avisa después.
+  }
+}
+
 export async function deleteAccountAndData(): Promise<void> {
   await clearAppStorage();
   await deleteDatabaseFileNative();
   resetAllRepositories();
+  await removeSecureUser();
 }

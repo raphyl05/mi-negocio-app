@@ -15,6 +15,7 @@ import type { ProductImageType } from '../../models/product';
 import type { Provider } from '../../models/provider';
 import type { RootStackParamList } from '../../navigation/types';
 import { productRepository } from '../../repositories/productRepository';
+import { deleteCachedPhoto } from '../../utils/productImages';
 import { providerRepository } from '../../repositories/providerRepository';
 import { useTheme } from '../../theme';
 import { parseMoney, formatMoneyBlur } from '../../utils/money';
@@ -136,6 +137,9 @@ export default function ProductFormScreen() {
           provider: provider.trim() || undefined,
           providerPhone: providerPhone.trim() || undefined,
         });
+        if (existing.imageUri && existing.imageUri !== image.imageUri) {
+          await deleteCachedPhoto(existing.imageUri);
+        }
       } else {
         await productRepository.create({
           id: '',
@@ -164,7 +168,9 @@ export default function ProductFormScreen() {
         text: 'Eliminar',
         style: 'destructive',
         onPress: async () => {
+          const existing = await productRepository.getById(productId);
           await productRepository.remove(productId);
+          if (existing?.imageUri) await deleteCachedPhoto(existing.imageUri);
           navigation.goBack();
         },
       },

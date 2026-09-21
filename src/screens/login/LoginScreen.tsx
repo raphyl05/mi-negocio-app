@@ -144,6 +144,7 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [verified, setVerified] = useState(false);
+  const [firstPassword, setFirstPassword] = useState(false);
   const [newPassword, setNewPasswordValue] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<SecurityErrors>({});
@@ -154,6 +155,7 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
     setErrors((prev) => ({ ...prev, username: undefined }));
     setGeneralError(null);
     setVerified(false);
+    setFirstPassword(false);
     if (!username.trim()) {
       setErrors((prev) => ({ ...prev, username: 'Escribe tu usuario.' }));
       return;
@@ -164,6 +166,11 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
       if (!user || user.username.trim().toLocaleLowerCase() !== username.trim().toLocaleLowerCase()) {
         setGeneralError('Ese usuario no existe.');
         setHasQuestion(null);
+        return;
+      }
+      if (!user.passwordHash || !user.passwordSalt) {
+        setHasQuestion(null);
+        setFirstPassword(true);
         return;
       }
       if (!user.securityQuestion) {
@@ -251,7 +258,7 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
             </View>
           ) : null}
 
-          {hasQuestion === null ? (
+          {hasQuestion === null && !firstPassword ? (
             <View style={styles.form}>
               <TextField
                 label="Usuario"
@@ -265,6 +272,32 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
                 autoCapitalize="none"
               />
               <PrimaryButton label="Continuar" onPress={checkUser} loading={loading} />
+            </View>
+          ) : null}
+
+          {firstPassword ? (
+            <View style={styles.form}>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
+                Tu cuenta fue restaurada desde un respaldo y no tiene contraseña. Crea una nueva para ingresar.
+              </Text>
+              <TextField
+                label="Nueva contraseña"
+                value={newPassword}
+                onChangeText={setNewPasswordValue}
+                secureTextEntry
+                error={errors.newPassword}
+                placeholder="Mínimo 6 caracteres"
+                autoCapitalize="none"
+              />
+              <TextField
+                label="Confirmar contraseña"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                error={errors.confirmPassword}
+                autoCapitalize="none"
+              />
+              <PrimaryButton label="Crear contraseña" onPress={handleNewPassword} loading={loading} />
             </View>
           ) : null}
 

@@ -63,6 +63,15 @@ describe('isOrderInRegister', () => {
     const order = makePaid(1000, 'cash', undefined, 0, '2026-09-18T08:30:00.000Z');
     expect(isOrderInRegister(order, OPENED_AT)).toBe(false);
   });
+
+  it('excluye una venta anulada aunque fuera pagada dentro del turno', () => {
+    const voided: Order = {
+      ...makePaid(60000, 'cash', 60000),
+      status: 'voided',
+      voidedAt: '2026-09-18T12:00:00.000Z',
+    };
+    expect(isOrderInRegister(voided, OPENED_AT)).toBe(false);
+  });
 });
 
 describe('computeCashTotals', () => {
@@ -83,6 +92,20 @@ describe('computeCashTotals', () => {
     const pending: Order = { ...makePaid(60000, 'cash', 60000), status: 'pending', paidAt: undefined };
     expect(computeCashTotals([pending]).salesCents).toBe(0);
     expect(computeCashTotals([pending]).orderCount).toBe(0);
+  });
+
+  it('ignora una venta anulada dentro del turno', () => {
+    const voided: Order = {
+      ...makePaid(60000, 'cash', 60000),
+      status: 'voided',
+      voidedAt: '2026-09-18T12:00:00.000Z',
+    };
+    expect(computeCashTotals([voided])).toEqual({
+      orderCount: 0,
+      salesCents: 0,
+      cashSalesCents: 0,
+      transferSalesCents: 0,
+    });
   });
 
   it('devuelve ceros con lista vacía', () => {

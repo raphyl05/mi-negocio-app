@@ -65,11 +65,10 @@ export function createOrderService({ orderRepo, productRepo, withTransaction: tx
 
   return {
     async savePendingOrder(input) {
-      const problem = await stockProblem(input.items);
-      if (problem) return { ok: false, message: problem };
-
       try {
         const saved = await txn(async () => {
+          const problem = await stockProblem(input.items);
+          if (problem) throw new Error(problem);
           const order = buildOrder({ items: input.items, customer: input.customer, status: 'pending' });
           const created = await orderRepo.save(order);
           await reserveOrderStock(created.items, productRepo);
@@ -82,11 +81,10 @@ export function createOrderService({ orderRepo, productRepo, withTransaction: tx
     },
 
     async payNewOrder(input) {
-      const problem = await stockProblem(input.items);
-      if (problem) return { ok: false, message: problem };
-
       try {
         const saved = await txn(async () => {
+          const problem = await stockProblem(input.items);
+          if (problem) throw new Error(problem);
           const order = buildOrder({
             items: input.items,
             customer: input.customer,

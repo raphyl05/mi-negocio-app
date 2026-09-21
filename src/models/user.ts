@@ -8,3 +8,5 @@ export type User = {
   securityAnswerSalt?: string;
   createdAt: string;
 };
+
+export type SessionUser = Pick<User, 'id' | 'username' | 'createdAt'>;

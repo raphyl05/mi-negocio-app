@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Order } from '../models/order';
 import type { CartItem } from '../utils/cart';
+import { assertOrderTransition } from '../utils/orderState';
 import { generateId } from '../utils/password';
 import { getDatabase, getNextOrderNumber, setNextOrderNumber } from './database.native';
 import type { OrderRepository } from './orderRepository';
@@ -115,6 +116,12 @@ export async function createSqliteOrderRepository(): Promise<OrderRepository> {
     },
 
     async update(order) {
+      const row = await db.getFirstAsync<{ status: OrderRow['status'] }>(
+        'SELECT status FROM orders WHERE id = ?',
+        order.id,
+      );
+      if (!row) throw new Error('La orden ya no existe.');
+      assertOrderTransition(row.status, order.status);
       await db.runAsync(
         `UPDATE orders SET items = ?, subtotalCents = ?, customerName = ?, phone = ?, address = ?, description = ?, status = ?, paymentMethod = ?, receivedCents = ?, changeCents = ?, paidAt = ?, voidedAt = ?, voidReason = ?
          WHERE id = ?`,
