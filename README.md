@@ -64,6 +64,19 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **Stock devuelto de forma segura al anular:** anular una venta cobrada marca `voided` y **devuelve todo el stock de sus líneas en la misma transacción** (o se anula y se devuelve, o no pasa nada; nunca a medias).
 - **Tests:** `__tests__/orderService.test.ts` (18 tests) con repositorios en memoria + `withTransaction` de identidad (SQLite jamás entra al entorno de test). Total: **203 tests, 24 suites, pasando** + `tsc --noEmit` limpio.
 
+**Fase F3 COMPLETADA ✅ — backend Source of Truth (ASP.NET Core + EF Core 10 + PostgreSQL):**
+
+- **Nuevo `backend/`** con API **ASP.NET Core Minimal API (net10.0)** + **EF Core 10** + **PostgreSQL 17** (en tests, SQLite por `Database:Provider`): se implementa el contrato `docs/API-CONTRACT.md` según `docs/BACKEND-F3-CONTRACT.md` (decisiones D1–D17).
+- **Módulos:** auth (register/login/refresh/session, JWT 15 min + refresh rotativo 48 h/30 días, Argon2id server-side, recuperación placeholder), negocios (`businesses`) con `capabilities`/`settings`/`capabilityVersion` y `FEATURE_DISABLED`, dispositivos con rol propio (rol efectivo = membresía ∩ dispositivo), catálogo (productos/clientes/proveedores con tombstones), órdenes (create/pay/void, `invoiceNumber` secuencial del servidor, sobreventa flaggeada, anti-anónima), stock por ledger append-only (`stock_movements`), caja/cierres append-only, **sync pull/push** (cursor `seq:N`, dedupe por `requestId`, bootstrap único `initial`, tombstones) y **backups** snapshot/restore.
+- **Adopción del historial local:** el nuevo dispositivo de un negocio sube el snapshot inicial vía `opType='initial'` (Modo B); el servidor valida, aplica y responde el delta.
+- **Tests de integración:** `dotnet test` → **27/27 pass** (auth, permisos/roles, VERSION_MISMATCH, dedupe sync, sobreventa, restore). Build limpio. App cliente intacta (298 tests + `tsc --noEmit` + `expo-doctor` 21/21).
+- Informe de cierre: `docs/INFORME-F3.md`.
+
+**Fase F3.1 COMPLETADA ✅ — auditoría del backend:**
+
+- Auditoría 7/7 dimensiones (estructura, PostgreSQL, migraciones, índices, transacciones, errores, CORS) sobre `backend/`; veredicto **APROBADO CON ANOTACIONES** y anotaciones diferidas a F5/F4.1. Informe: `docs/INFORME-F3-1.md`.
+- Sin commits ni push fuera de este registro; `src/` del cliente intacto.
+
 ---
 
 ## Auditoría técnica (endurecimiento) — Fases 0 a 19
@@ -168,7 +181,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 ### Hecho (Fase 1)
 
 - [x] Proyecto **Expo SDK 57** + **React Native 0.86** + **TypeScript 6** creado con plantilla `blank-typescript`.
-- [x] Nombre de la app: **"Vendelo App"** con logo `logo-vendelo-app.png` (`app.json`). Slug: `mi-negocio-app`.
+- [x] Nombre de la app: **"Vendelo App"** con logo `logo-vendelo-app.png` (`app.json`). Slug: `vendelo-app`.
 - [x] Soporte web para previsualizar en navegador (`react-dom` + `react-native-web`). **Verificado:** bundle web compila (`npx expo export --platform web`).
 - [x] Verificación: `npx tsc --noEmit` pasa sin errores.
 - [x] Git: rama `main`, remoto `https://github.com/raphyl05/mi-negocio-app`. Subido y actualizado.
@@ -368,7 +381,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 - [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
 
 ## Lo que falta
-**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: códigos de barras, facturación electrónica (DGII/NCF), inventario real, backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales y el respaldo en la nube.
+**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Con **F3/F3.1** quedó implementado y auditado el **backend ASP.NET Core + PostgreSQL** (Source of Truth) — ver la sección **Backend** más abajo. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: sincronización cliente↔servidor (F5.1), sincronización multi-dispositivo (F6), múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF) y el respaldo en la nube.
 
 ## Cómo correr la app
 
@@ -382,6 +395,21 @@ npm run android       # intenta abrir en Android (si hay emulador/dispositivo co
 - En el **navegador**: expone la app a tamaño móvil.
 - En el **teléfono**: instalar **Expo Go** (Google Play) y escanear el QR de `npm start`.
 
+## Backend (F3 / F3.1)
+
+Servidor API **Source of Truth** del historial: ASP.NET Core Minimal API (net10.0) + EF Core 10 + PostgreSQL 17 (SQLite en tests).
+
+```bash
+cd backend
+dotnet restore
+dotnet run --project src/Vendelo.Api      # Development → http://localhost:5243 (OpenAPI en /openapi/v1.json)
+dotnet test Vendelo.slnx                  # 27/27 tests de integración
+```
+
+- Proveedor/config por env: `Database:Provider` (Npgsql | Sqlite), `ConnectionStrings:Vendelo`, `Jwt__Key`. En Development hay clave JWT local de respaldo (SIN uso en producción).
+- Estructura: `backend/src/Vendelo.Api/{Endpoints, Data, Auth, Common}` + `backend/tests/Vendelo.Api.Tests`.
+- Contratos y decisiones: `docs/API-CONTRACT.md`, `docs/BACKEND-F3-CONTRACT.md`; cierres de fase: `docs/INFORME-F3.md`, `docs/INFORME-F3-1.md`.
+
 ## Decisiones técnicas ya acordadas (no cambiar sin discusión)
 
 1. **Dinero = entero en centavos** (`number`). Nunca flotantes para montos. Formateo centralizado en `money.ts`.
@@ -393,10 +421,11 @@ npm run android       # intenta abrir en Android (si hay emulador/dispositivo co
 7. **Cada fase = un commit descriptivo.** No mezclar fases. Verificar con `tsc` + `jest` antes de commit.
 8. **Regla de no inventar:** si se encuentra una mejora, se propone y se espera autorización. No implementar por cuenta propia.
 9. **Stock según estado de la orden:** guardar una orden pendiente descuenta stock; cobrarla no descuenta de nuevo; cancelarla/eliminarla/volverla a editar lo devuelve.
+10. **Backend = Source of Truth (F3):** ASP.NET Core Minimal API + EF Core 10 + PostgreSQL (SQLite en tests), contrato en `docs/API-CONTRACT.md`; el cliente sigue siendo offline-first (SQLite local primario) y el backend arbitra roles, capacidades (`FEATURE_DISABLED`), secuencia y dedupe de sync.
 
 ## Posteriores (fuera de alcance del MVP)
 
-Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF), inventario real, exportación/backup en nube.
+Conectar la app al backend (F5.1), despliegue y migraciones PostgreSQL (F5), sincronización multi-dispositivo (F6), múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF), inventario real, exportación/backup en nube.
 
 ## Notas de entorno / problemas conocidos
 
@@ -411,6 +440,8 @@ Backend (ASP.NET Core + PostgreSQL), sincronización multi-dispositivo, múltipl
 - Estructura del proyecto (Fases 2+):
 
 ```
+backend/          # F3: API ASP.NET Core (Endpoints/, Data/, Auth/, Common/) + tests
+docs/             # API-CONTRACT, BACKEND-F3-CONTRACT, INFORME-F3, INFORME-F3-1, auditorías F2
 src/
   models/          # business, user, product, order, cashRegister, customer, provider
   screens/         # setup, login, cashRegister(cash), invoicing, cart, payment, orderDetail, sales, products, settings, customers, providers

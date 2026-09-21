@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Vendelo App",
-    "slug": "mi-negocio-app",
+    "slug": "vendelo-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo-vendelo-app.png",

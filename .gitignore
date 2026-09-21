@@ -43,3 +43,11 @@ _check.js
 # generated native folders
 /ios
 /android
+
+# .NET (backend)
+**/bin/
+**/obj/
+*.db
+*.user
+.vs/
+TestResults/
