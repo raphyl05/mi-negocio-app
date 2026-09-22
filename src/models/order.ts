@@ -40,6 +40,7 @@ export type Order = {
   tableName?: string;
   prepStatus?: OrderPrepStatus;
   events?: OrderEvent[];
+  kitchenTicketId?: string;
   createdAt: string;
   updatedAt?: string;
   paidAt?: string;

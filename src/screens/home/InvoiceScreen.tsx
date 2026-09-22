@@ -88,6 +88,7 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
 
   const businessId = session?.businesses[0]?.id ?? '';
   const waitersEnabled = hasCapability(businessId, 'waiters');
+  const kitchenEnabled = hasCapability(businessId, 'kitchen');
 
   const handleToggleWaiter = () => {
     if (isWaiterOrder) {
@@ -122,6 +123,13 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
               </Text>
             ) : null}
           </View>
+        ) : null}
+        {kitchenEnabled ? (
+          <Pressable onPress={() => navigation.navigate('Kitchen')} style={{ marginVertical: 8 }}>
+            <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+              Ir a Cocina
+            </Text>
+          </Pressable>
         ) : null}
         <FlatList
           data={filtered}

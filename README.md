@@ -136,6 +136,16 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - Tests actualizados (5 archivos) con `orderType` y `events`.
 - Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F8.md`.
 
+**Fase F8.1 COMPLETADA ✅ — Cocina:**
+
+- **`src/models/kitchenTicket.ts`**: modelo KitchenTicket con id, orderId, orderNumber, prepStatus, waiterName, tableName, customerName, subtotalCents, itemCount, createdAt.
+- **`src/services/kitchenApi.ts`**: `apiCreateKitchenTicket`, `apiUpdateKitchenStatus`, `apiCancelKitchenTicket`.
+- **`src/screens/kitchen/KitchenScreen.tsx`**: pantalla de cocina con listado de comandas, badge de prepStatus, botones de avance de estado (sent→preparing→ready→served), cancelar comanda, y enviar a cocina. Visible solo con `kitchen` capability activa.
+- **`src/models/order.ts`**: nuevo campo `kitchenTicketId` en Order.
+- **Navegación**: KitchenScreen registrado en RootNavigator; botón "Ir a Cocina" en InvoiceScreen cuando kitchen capability ON.
+- Backend: `KitchenEndpoints.cs` con 3 endpoints (crear/actualizar-status/cancelar), todos con `RequireCapability("kitchen")`.
+- Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F8.1.md`.
+
 ---
 
 ## Auditoría técnica (endurecimiento) — Fases 0 a 19

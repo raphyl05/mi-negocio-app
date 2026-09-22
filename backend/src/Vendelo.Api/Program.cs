@@ -87,6 +87,7 @@ app.MapAuthEndpoints();
 app.MapBusinessEndpoints();
 app.MapCatalogEndpoints();
 app.MapOrderEndpoints();
+app.MapKitchenEndpoints();
 app.MapSyncEndpoints();
 
 using (var scope = app.Services.CreateScope())
