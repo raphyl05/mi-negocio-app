@@ -146,6 +146,21 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - Backend: `KitchenEndpoints.cs` con 3 endpoints (crear/actualizar-status/cancelar), todos con `RequireCapability("kitchen")`.
 - Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F8.1.md`.
 
+**Fase F9 COMPLETADA ✅ — Impresión (vía F28/F29):**
+
+- Impresión funcional desde OrderComplete, OrderDetail y VentasScreen (botón imprimir).
+- `PrinterService` con transportes: Bluetooth, sistema, demo. Configuración en Más → Impresora.
+- Reprint disponible: ordenes cobradas imprimibles desde VentasScreen.
+- `PrintJob` model (`src/models/printJob.ts`) para trazabilidad de trabajos de impresión.
+
+**Fase F10 COMPLETADA ✅ — Tiempo real:**
+
+- **`src/contexts/NotificationContext.tsx`**: sistema de notificaciones toast (success/error/info/warning) con auto-dismiss a 3.5s.
+- **`src/components/ToastHost.tsx`**: componente visual de notificaciones apiladas en pantalla.
+- **`src/hooks/useAutoSync.ts`**: sync recovery con estado (idle/syncing/error), notificaciones al sync, reintento automático al reconectarse.
+- **`src/screens/kitchen/KitchenScreen.tsx`**: polling cada 10s para actualizar estado de comandas + notificaciones de cambios.
+- Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F10.md`.
+
 ---
 
 ## Auditoría técnica (endurecimiento) — Fases 0 a 19
