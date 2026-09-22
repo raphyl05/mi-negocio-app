@@ -3,6 +3,8 @@ export type SetupInput = {
   username: string;
   password: string;
   confirmPassword: string;
+  email?: string;
+  phone?: string;
 };
 
 export type SetupErrors = {
@@ -10,6 +12,8 @@ export type SetupErrors = {
   username?: string;
   password?: string;
   confirmPassword?: string;
+  email?: string;
+  phone?: string;
 };
 
 export const MIN_PASSWORD_LENGTH = 4;
@@ -23,6 +27,16 @@ export function validateSetup(input: SetupInput): SetupErrors {
 
   if (!input.username.trim()) {
     errors.username = 'El usuario es obligatorio';
+  }
+
+  const email = (input.email ?? '').trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.email = 'Correo electrónico inválido';
+  }
+
+  const phone = (input.phone ?? '').trim();
+  if (phone && phone.replace(/\D/g, '').length < 8) {
+    errors.phone = 'Teléfono inválido';
   }
 
   if (!input.password) {

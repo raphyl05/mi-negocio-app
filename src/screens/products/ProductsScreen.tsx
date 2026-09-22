@@ -97,6 +97,9 @@ export default function ProductsScreen() {
           data={sorted}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          initialNumToRender={20}
+          maxToRenderPerBatch={12}
+          windowSize={7}
           renderItem={({ item }) => <ProductRow product={item} onEdit={() => navigation.navigate('ProductForm', { productId: item.id })} onLongPress={() => openQuickActions(item)} />}
         />
       )}

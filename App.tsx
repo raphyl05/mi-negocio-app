@@ -12,6 +12,7 @@ import SetupScreen from './src/screens/setup/SetupScreen';
 import ToastHost from './src/components/ToastHost';
 import { printerService } from './src/services/printerService';
 import { isSetupDone } from './src/services/setupService';
+import { initStorageMaintenance, runStartupStorageMaintenance } from './src/services/storageMaintenance';
 import { ThemeProvider, useTheme } from './src/theme';
 
 type BootStatus = 'loading' | 'setup' | 'ready';
@@ -24,6 +25,8 @@ function BootGate() {
 
   useEffect(() => {
     printerService.init();
+    initStorageMaintenance();
+    runStartupStorageMaintenance();
   }, []);
 
   useEffect(() => {

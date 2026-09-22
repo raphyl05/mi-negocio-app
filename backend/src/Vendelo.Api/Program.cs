@@ -70,10 +70,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddControllers();
 
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddScoped<AccessService>();
 builder.Services.AddSingleton<RateLimiter>();
+builder.Services.AddSingleton<RecoveryCodeStore>();
+builder.Services.AddSingleton<IRecoveryCodeSender, RecoveryCodeSender>();
 
 var app = builder.Build();
 

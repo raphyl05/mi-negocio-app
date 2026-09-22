@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Column from '../../components/Column';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import { getUser, setNewPassword, verifyLogin, verifySecurityAnswer } from '../../services/setupService';
-import { apiLogin } from '../../services/authApi';
+import { apiLogin, apiRecoveryRequest, apiRecoveryResetPassword, apiRecoveryVerify } from '../../services/authApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme';
+import { getDeviceId } from '../../utils/syncIdentity';
 import { validateAnswer, validateNewPassword } from '../../utils/securityValidation';
 import { validateLogin } from '../../utils/loginValidation';
 import type { LoginErrors } from '../../utils/loginValidation';
@@ -27,17 +28,30 @@ type SecurityErrors = {
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const { colors, spacing, typography } = useTheme();
   const { login: authLogin } = useAuth();
-  const [mode, setMode] = useState<'login' | 'recover'>('login');
+  const [mode, setMode] = useState<'login' | 'recover' | 'cloud'>('login');
   const [netError, setNetError] = useState<string | null>(null);
 
   if (mode === 'recover') {
     return <RecoveryForm onBack={() => setMode('login')} onLogin={onLogin} />;
   }
 
-  return <LoginForm onLogin={onLogin} onAuthLogin={authLogin} netError={netError} setNetError={setNetError} />;
+  if (mode === 'cloud') {
+    return <CloudRecoveryForm onBack={() => setMode('login')} onLogin={onLogin} />;
+  }
+
+  return (
+    <LoginForm
+      onLogin={onLogin}
+      onAuthLogin={authLogin}
+      netError={netError}
+      setNetError={setNetError}
+      onForgot={() => setMode('recover')}
+      onCloudForgot={() => setMode('cloud')}
+    />
+  );
 }
 
-function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot }: { onLogin: () => void; onAuthLogin: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>; netError: string | null; setNetError: (e: string | null) => void; onForgot?: () => void }) {
+function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCloudForgot }: { onLogin: () => void; onAuthLogin: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>; netError: string | null; setNetError: (e: string | null) => void; onForgot?: () => void; onCloudForgot?: () => void }) {
   const { colors, spacing, typography } = useTheme();
 
   const [username, setUsername] = useState('');
@@ -55,7 +69,7 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot }: { 
 
     setLoading(true);
     try {
-      const deviceId = 'dev-' + Date.now();
+      const deviceId = await getDeviceId();
       const res = await onAuthLogin(username, password, deviceId);
       if (res.ok) {
         onLogin();
@@ -136,6 +150,14 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot }: { 
               <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotLink}>
                 <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '600' }}>
                   ¿Olvidaste tu contraseña?
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {onCloudForgot ? (
+              <Pressable onPress={onCloudForgot} hitSlop={8} style={styles.cloudLink}>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '500' }}>
+                  ¿Perdiste tu teléfono? Recupera tu cuenta con tu correo o teléfono.
                 </Text>
               </Pressable>
             ) : null}
@@ -378,6 +400,191 @@ function RecoveryForm({ onBack, onLogin }: { onBack: () => void; onLogin: () => 
   );
 }
 
+function CloudRecoveryForm({ onBack }: { onBack: () => void; onLogin: () => void }) {
+  const { colors, typography } = useTheme();
+  const [step, setStep] = useState<'identifier' | 'code' | 'password'>('identifier');
+  const [identifier, setIdentifier] = useState('');
+  const [code, setCode] = useState('');
+  const [debugCode, setDebugCode] = useState<string | null>(null);
+  const [recoveryToken, setRecoveryToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const requestCode = async () => {
+    const id = identifier.trim();
+    setGeneralError(null);
+    if (id.length < 3) {
+      setGeneralError('Escribe tu correo o tu teléfono.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiRecoveryRequest(id);
+      if (!res.ok || !res.data) {
+        setGeneralError(res.error?.message || 'No se pudo pedir el código.');
+        return;
+      }
+      setDebugCode(res.data.debugCode ?? null);
+      setStep('code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    setGeneralError(null);
+    if (!code.trim()) {
+      setGeneralError('Escribe el código que recibiste.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiRecoveryVerify(identifier.trim(), code.trim());
+      if (!res.ok || !res.data) {
+        setGeneralError(res.error?.message || 'El código no es correcto.');
+        return;
+      }
+      setRecoveryToken(res.data.recoveryToken);
+      setStep('password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async () => {
+    setGeneralError(null);
+    if (newPassword.length < 6) {
+      setGeneralError('La contraseña debe tener mínimo 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setGeneralError('Las contraseñas no coinciden.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiRecoveryResetPassword(recoveryToken, newPassword);
+      if (!res.ok) {
+        setGeneralError(res.error?.message || 'No se pudo cambiar la contraseña.');
+        return;
+      }
+      Alert.alert('Contraseña restablecida', '¿Volvemos a la pantalla de inicio de sesión para entrar con tu nueva contraseña?');
+      onBack();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Screen>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Column>
+            <View style={styles.header}>
+              <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
+                <Ionicons name="cloud-upload-outline" size={36} color={colors.primary} />
+              </View>
+              <Text
+                style={[
+                  styles.title,
+                  { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+                ]}
+              >
+                Recuperar cuenta
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
+                Te enviaremos un código al correo o teléfono de tu cuenta para crear una nueva contraseña.
+              </Text>
+            </View>
+
+            {generalError ? (
+              <View style={[styles.banner, { backgroundColor: colors.danger }]}>
+                <Text style={[styles.bannerText, { color: colors.white }]}>{generalError}</Text>
+              </View>
+            ) : null}
+
+            {step === 'identifier' ? (
+              <View style={styles.form}>
+                <TextField
+                  label="Correo o teléfono"
+                  value={identifier}
+                  onChangeText={(text) => {
+                    setIdentifier(text);
+                    setGeneralError(null);
+                  }}
+                  placeholder="tucorreo@ejemplo.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <PrimaryButton label="Enviar código" onPress={requestCode} loading={loading} />
+                <PrimaryButton label="Volver" variant="outline" onPress={onBack} />
+              </View>
+            ) : null}
+
+            {step === 'code' ? (
+              <View style={styles.form}>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
+                  Ingresa el código de 6 dígitos que enviamos.
+                </Text>
+                {debugCode ? (
+                  <View style={[styles.questionBox, { backgroundColor: colors.surfaceMuted, borderRadius: 14 }]}>
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '700', marginBottom: 4 }}>
+                      MODO DESARROLLO
+                    </Text>
+                    <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '700' }}>{debugCode}</Text>
+                  </View>
+                ) : null}
+                <TextField
+                  label="Código"
+                  value={code}
+                  onChangeText={(text) => {
+                    setCode(text);
+                    setGeneralError(null);
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="000000"
+                />
+                <PrimaryButton label="Verificar código" onPress={verifyCode} loading={loading} />
+                <PrimaryButton label="Volver" variant="outline" onPress={() => { setStep('identifier'); setGeneralError(null); }} />
+              </View>
+            ) : null}
+
+            {step === 'password' ? (
+              <View style={styles.form}>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
+                  Crea tu nueva contraseña. Las demás sesiones se cerrarán.
+                </Text>
+                <TextField
+                  label="Nueva contraseña"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry
+                  placeholder="Mínimo 6 caracteres"
+                  autoCapitalize="none"
+                />
+                <TextField
+                  label="Confirmar contraseña"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+                <PrimaryButton label="Guardar nueva contraseña" onPress={resetPassword} loading={loading} />
+              </View>
+            ) : null}
+          </Column>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
@@ -433,5 +640,9 @@ const styles = StyleSheet.create({
   forgotLink: {
     alignSelf: 'center',
     marginTop: 18,
+  },
+  cloudLink: {
+    alignSelf: 'center',
+    marginTop: 10,
   },
 });

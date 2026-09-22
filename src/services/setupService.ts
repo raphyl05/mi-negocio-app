@@ -9,6 +9,7 @@ const BUSINESS_KEY = '@micaja/business';
 export type SetupPayload = {
   name: string;
   ownerName?: string;
+  email?: string;
   phone?: string;
   address?: string;
   username: string;
@@ -99,7 +100,12 @@ export async function verifyLogin(username: string, password: string): Promise<S
   if (!user) return null;
   if (!user.passwordHash || !user.passwordSalt) return null;
 
-  if (user.username.trim().toLowerCase() !== username.trim().toLowerCase()) {
+  const idMatch =
+    user.username.trim().toLowerCase() === username.trim().toLowerCase() ||
+    (user.email != null && user.email.trim().toLowerCase() === username.trim().toLowerCase()) ||
+    (user.phone != null && user.phone.trim() === username.trim());
+
+  if (!idMatch) {
     return null;
   }
 
@@ -115,7 +121,7 @@ export async function verifyLogin(username: string, password: string): Promise<S
   return { id: user.id, username: user.username, createdAt: user.createdAt };
 }
 
-export async function saveSetup({ name, ownerName, phone, address, username, password }: SetupPayload): Promise<void> {
+export async function saveSetup({ name, ownerName, email, phone, address, username, password }: SetupPayload): Promise<void> {
   const salt = await generateSalt();
   const passwordHash = await hashPassword(password, salt);
 
@@ -132,6 +138,8 @@ export async function saveSetup({ name, ownerName, phone, address, username, pas
   const user: User = {
     id: generateId(),
     username: username.trim(),
+    email: email?.trim() || undefined,
+    phone: phone?.trim() || undefined,
     passwordHash,
     passwordSalt: salt,
     createdAt: new Date().toISOString(),

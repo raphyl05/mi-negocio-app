@@ -9,7 +9,7 @@ import { saveSetup } from '../../services/setupService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme';
 import { formatPhoneBlur, unformatPhoneFocus, sanitizePhoneInput } from '../../utils/inputFormat';
-import { isOnline } from '../../utils/network';
+import { isApiReachable } from '../../services/authApi';
 import { getDeviceId } from '../../utils/syncIdentity';
 import { validateSetup } from '../../utils/setupValidation';
 import type { SetupErrors } from '../../utils/setupValidation';
@@ -24,6 +24,7 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
 
   const [name, setName] = useState('');
   const [ownerName, setOwnerName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [username, setUsername] = useState('');
@@ -35,17 +36,18 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    const nextErrors = validateSetup({ name, username, password, confirmPassword });
+    const nextErrors = validateSetup({ name, username, password, confirmPassword, email, phone });
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     setSaving(true);
     setGeneralError(null);
+    let savedLocally = false;
     try {
-      const online = await isOnline();
-      if (online) {
+      const reachable = await isApiReachable();
+      if (reachable) {
         const deviceId = await getDeviceId();
-        const res = await register(name, username, password, deviceId);
+        const res = await register(name, username, password, deviceId, { email, phone });
         if (res.ok) {
           setSaved(true);
           return;
@@ -53,17 +55,18 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
         if (res.error?.code === 'NETWORK') {
           setGeneralError('Sin conexion. Guardando localmente.');
         } else {
-          setGeneralError(res.error?.message || 'No se pudo registrar.');
-          setSaving(false);
-          return;
+          setGeneralError('No se pudo contactar el servidor. Guardando localmente.');
         }
       } else {
         setGeneralError('Sin conexion. Guardando localmente.');
       }
-      await saveSetup({ name, ownerName, phone, address, username, password });
+      await saveSetup({ name, ownerName, email, phone, address, username, password });
+      savedLocally = true;
       setSaved(true);
     } catch {
-      setErrors({ username: 'No se pudo guardar la configuración. Inténtalo de nuevo.' });
+      if (!savedLocally) {
+        setErrors({ username: 'No se pudo guardar la configuración. Inténtalo de nuevo.' });
+      }
     } finally {
       setSaving(false);
     }
@@ -148,6 +151,7 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
               placeholder="Repite la contraseña"
             />
             <TextField label="Teléfono (opcional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="809-000-0000" formatOnFocus={unformatPhoneFocus} formatOnBlur={formatPhoneBlur} sanitize={sanitizePhoneInput} />
+            <TextField label="Correo electrónico (opcional)" value={email} onChangeText={setEmail} error={errors.email} keyboardType="email-address" autoCapitalize="none" placeholder="tucorreo@ejemplo.com" />
             <TextField label="Dirección (opcional)" value={address} onChangeText={setAddress} placeholder="Dirección del negocio" />
           </View>
 

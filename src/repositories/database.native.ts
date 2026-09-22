@@ -196,3 +196,31 @@ export async function deleteDatabaseFile(): Promise<void> {
     dbPromise = null;
   }
 }
+
+// Compacta el WAL en segundo plano: libera el espacio que el journal acumuló
+// sin tocar la BD principal. Barato, seguro de llamar seguido.
+export async function checkpointDatabase(): Promise<void> {
+  const db = await getDatabase();
+  await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE);');
+}
+
+// Reclama las páginas libres que quedaron al borrar productos/órdenes (freespace
+// interno de la BD). Costoso: se ejecuta con moderación (ver storageMaintenance).
+export async function vacuumDatabase(): Promise<void> {
+  const db = await getDatabase();
+  await db.execAsync('VACUUM;');
+  await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE);');
+}
+
+// Poda el ledger append-only: una vez que un movimiento de stock fue entregado
+// al servidor (synced = 1) y pasa la ventana de retención, no aporta nada local.
+// Devuelve cuántas filas se borraron.
+export async function pruneSyncedStockMovements(olderThanDays: number): Promise<number> {
+  const db = await getDatabase();
+  const cutoff = new Date(Date.now() - olderThanDays * 86400000).toISOString();
+  const result = await db.runAsync(
+    'DELETE FROM stock_movements WHERE synced = 1 AND createdAt < ?',
+    cutoff,
+  );
+  return result.changes ?? 0;
+}

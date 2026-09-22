@@ -23,6 +23,8 @@ public static class BusinessEndpoints
         g.MapPost("/businesses/{id}/backups", CreateBackupAsync).RequireAuthorization();
         g.MapDelete("/businesses/{id}/backups/{backupId}", DeleteBackupAsync).RequireAuthorization();
         g.MapPost("/businesses/{id}/backups/{backupId}/restore", RestoreBackupAsync).RequireAuthorization();
+        g.MapPut("/businesses/{id}/backups/self", UploadSelfBackupAsync).RequireAuthorization();
+        g.MapGet("/businesses/{id}/backups/self/latest", DownloadSelfBackupAsync).RequireAuthorization();
 
         g.MapGet("/health", HealthAsync);
     }
@@ -211,7 +213,7 @@ public static class BusinessEndpoints
         return Results.Ok(list.Select(x => new { x.Id, x.BusinessId, CreatedAt = x.CreatedAt.ToString("O") }));
     }
 
-    private static async Task<IResult> CreateBackupAsync(string id, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, CancellationToken ct)
+    private static async Task<IResult> CreateBackupAsync(string id, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, IConfiguration cfg, CancellationToken ct)
     {
         var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
         if (a.Business.Id != id) throw AppException.NotFound("negocio");
@@ -235,7 +237,7 @@ public static class BusinessEndpoints
         {
             Id = GenId.New("backup"),
             BusinessId = id,
-            PayloadJson = Json.Ser(payload),
+            PayloadJson = Cipher.Encrypt(cfg, Json.Ser(payload)),
             CreatedAt = DateTimeOffset.UtcNow
         };
         db.Backups.Add(backup);
@@ -257,7 +259,7 @@ public static class BusinessEndpoints
         return Results.Ok(new { deleted = true });
     }
 
-    private static async Task<IResult> RestoreBackupAsync(string id, string backupId, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, CancellationToken ct)
+    private static async Task<IResult> RestoreBackupAsync(string id, string backupId, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, IConfiguration cfg, CancellationToken ct)
     {
         var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
         if (a.Business.Id != id) throw AppException.NotFound("negocio");
@@ -265,9 +267,79 @@ public static class BusinessEndpoints
         RateLimiter.Enforce(rl, $"bk:restore:b:{id}", 5, RlWindow);
         var b = await db.Backups.AsNoTracking().FirstOrDefaultAsync(x => x.Id == backupId && x.BusinessId == id, ct)
             ?? throw AppException.NotFound("backup");
-        var payload = Json.Des<BackupPayload>(b.PayloadJson) ?? throw new AppException("INTERNAL_ERROR", "Backup corrupto.", 500);
+        var plain = Cipher.TryDecrypt(cfg, b.PayloadJson);
+        var json = plain ?? (b.PayloadJson.TrimStart().StartsWith("{") ? b.PayloadJson : null)
+            ?? throw new AppException("INTERNAL_ERROR", "Backup corrupto.", 500);
+        var payload = Json.Des<BackupPayload>(json) ?? throw new AppException("INTERNAL_ERROR", "Backup corrupto.", 500);
         await DbBackup.RestoreAsync(db, id, payload, ct);
         return Results.Ok(new { restored = true, businessId = id });
+    }
+
+    private static async Task<IResult> UploadSelfBackupAsync(
+        string id, SelfBackupRequestDto req, HttpContext http, VendeloDbContext db, AccessService access,
+        RateLimiter rl, IConfiguration cfg, CancellationToken ct)
+    {
+        var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
+        if (a.Business.Id != id) throw AppException.NotFound("negocio");
+        AccessService.Require(a, "backups");
+        RateLimiter.Enforce(rl, $"bk:self:b:{id}", 24, RlWindow);
+        RateLimiter.Enforce(rl, $"bk:self:ip:{http.Connection.RemoteIpAddress}", 120, RlWindow);
+
+        var payload = (req.Payload ?? "").Trim();
+        if (payload.Length is < 3 or > 4_000_000)
+            throw new AppException("VALIDATION_ERROR", "payload inválido (1–4 MB).", 400);
+        try
+        {
+            System.Text.Json.Nodes.JsonNode.Parse(payload);
+        }
+        catch
+        {
+            throw new AppException("VALIDATION_ERROR", "payload no es JSON válido.", 400);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var backup = new Backup
+        {
+            Id = "self-" + Guid.NewGuid().ToString("N"),
+            BusinessId = id,
+            PayloadJson = Cipher.Encrypt(cfg, payload),
+            CreatedAt = now
+        };
+        db.Backups.Add(backup);
+
+        var self = await db.Backups.AsTracking()
+            .Where(x => x.BusinessId == id && x.Id.StartsWith("self-"))
+            .OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
+        foreach (var old in self.Skip(5)) db.Backups.Remove(old);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Created($"/api/v1/businesses/{id}/backups/self", new
+        {
+            backup.Id, backup.BusinessId, CreatedAt = backup.CreatedAt.ToString("O")
+        });
+    }
+
+    private static async Task<IResult> DownloadSelfBackupAsync(
+        string id, HttpContext http, VendeloDbContext db, AccessService access,
+        RateLimiter rl, IConfiguration cfg, CancellationToken ct)
+    {
+        var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
+        if (a.Business.Id != id) throw AppException.NotFound("negocio");
+        AccessService.Require(a, "backups");
+        RateLimiter.Enforce(rl, $"bk:latest:b:{id}", 30, RlWindow);
+
+        var latest = await db.Backups.AsNoTracking()
+            .Where(x => x.BusinessId == id && x.Id.StartsWith("self-"))
+            .OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync(ct)
+            ?? throw AppException.NotFound("respaldo en la nube");
+        var plain = Cipher.TryDecrypt(cfg, latest.PayloadJson)
+            ?? throw new AppException("INTERNAL_ERROR", "Respaldo corrupto.", 500);
+        return Results.Ok(new
+        {
+            latest.Id,
+            CreatedAt = latest.CreatedAt.ToString("O"),
+            Payload = System.Text.Json.Nodes.JsonNode.Parse(plain)
+        });
     }
 
     private static async Task<IResult> HealthAsync(VendeloDbContext db, CancellationToken ct)
@@ -315,6 +387,11 @@ public sealed class RegisterDeviceRequestDto
     [System.Text.Json.Serialization.JsonPropertyName("deviceId")] public string? DeviceId { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("deviceName")] public string? DeviceName { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("role")] public string? Role { get; set; }
+}
+
+public sealed class SelfBackupRequestDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("payload")] public string? Payload { get; set; }
 }
 
 public sealed class BackupPayload

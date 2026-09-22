@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import MoneyDisplay from '../../components/MoneyDisplay';
 import ProductImage from '../../components/ProductImage';
@@ -54,37 +54,54 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
     return () => clearTimeout(timer);
   }, [stockError]);
 
-  const categories = ['Todos', ...Array.from(new Set(products.map((p) => p.category)))];
+  const quantitiesRef = useRef(quantities);
+  useEffect(() => {
+    quantitiesRef.current = quantities;
+  }, [quantities]);
 
-  const filtered = products
-    .filter((product) => product.active)
-    .filter((product) => {
-      const matchesCategory = category === 'Todos' || product.category === category;
-      const matchesQuery = product.name.toLowerCase().includes(query.trim().toLowerCase());
-      return matchesCategory && matchesQuery;
-    });
+  const categories = useMemo(
+    () => ['Todos', ...Array.from(new Set(products.map((p) => p.category)))],
+    [products],
+  );
 
-  const handleAdd = (product: Product) => {
-    if (adding) return;
-    const quantity = parseCartQuantity(quantities[product.id] ?? '1');
-    setAdding(true);
-    const inCart = inCartQuantity(items, product.id);
-    if (inCart + quantity > product.stockQuantity) {
-      setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
+  const filtered = useMemo(
+    () =>
+      products
+        .filter((product) => product.active)
+        .filter((product) => {
+          const matchesCategory = category === 'Todos' || product.category === category;
+          const matchesQuery = product.name.toLowerCase().includes(query.trim().toLowerCase());
+          return matchesCategory && matchesQuery;
+        }),
+    [products, category, query],
+  );
+
+  const handleAddById = useCallback(
+    (productId: string) => {
+      if (adding) return;
+      const product = products.find((p) => p.id === productId);
+      if (!product) return;
+      const quantity = parseCartQuantity(quantitiesRef.current[product.id] ?? '1');
+      setAdding(true);
+      const inCart = inCartQuantity(items, product.id);
+      if (inCart + quantity > product.stockQuantity) {
+        setStockError(`Stock insuficiente para ${product.name}: quedan ${product.stockQuantity}.`);
+        setAdding(false);
+        return;
+      }
+      setStockError(null);
+      addQuantity(product, quantity);
+      setQuantities((current) => ({ ...current, [product.id]: '1' }));
       setAdding(false);
-      return;
-    }
-    setStockError(null);
-    addQuantity(product, quantity);
-    setQuantities((current) => ({ ...current, [product.id]: '1' }));
-    setAdding(false);
-    Keyboard.dismiss();
-  };
+      Keyboard.dismiss();
+    },
+    [adding, addQuantity, items, products],
+  );
 
-  const setQuantity = (id: string, text: string) => {
+  const handleChangeQuantity = useCallback((id: string, text: string) => {
     setQuantities((current) => ({ ...current, [id]: text }));
     setStockError(null);
-  };
+  }, []);
 
   const businessId = session?.businesses[0]?.id ?? '';
   const waitersEnabled = hasCapability(businessId, 'waiters');
@@ -147,8 +164,8 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
             <ProductCard
               product={item}
               quantity={quantities[item.id] ?? '1'}
-              onChangeQuantity={(text) => setQuantity(item.id, text)}
-              onAdd={() => handleAdd(item)}
+              onChangeQuantity={handleChangeQuantity}
+              onAdd={handleAddById}
             />
           )}
           ListHeaderComponent={
@@ -262,7 +279,7 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   );
 }
 
-function ProductCard({
+const ProductCard = memo(function ProductCard({
   product,
   quantity,
   onChangeQuantity,
@@ -270,8 +287,8 @@ function ProductCard({
 }: {
   product: Product;
   quantity: string;
-  onChangeQuantity: (text: string) => void;
-  onAdd: () => void;
+  onChangeQuantity: (id: string, text: string) => void;
+  onAdd: (productId: string) => void;
 }) {
   const { colors, spacing, typography, shadows } = useTheme();
   const outOfStock = product.stockQuantity <= 0;
@@ -302,7 +319,7 @@ function ProductCard({
       <View style={styles.addRow}>
         <TextInput
           value={quantity}
-          onChangeText={onChangeQuantity}
+          onChangeText={(text) => onChangeQuantity(product.id, text)}
           keyboardType="number-pad"
           placeholder="1"
           placeholderTextColor={colors.textSecondary}
@@ -312,7 +329,7 @@ function ProductCard({
           ]}
         />
         <Pressable
-          onPress={onAdd}
+          onPress={() => onAdd(product.id)}
           disabled={outOfStock}
           style={({ pressed }) => [
             styles.addButton,
@@ -324,7 +341,7 @@ function ProductCard({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   screenSurround: {

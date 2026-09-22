@@ -161,6 +161,46 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **`src/screens/kitchen/KitchenScreen.tsx`**: polling cada 10s para actualizar estado de comandas + notificaciones de cambios.
 - Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F10.md`.
 
+**Fase A (distribución) COMPLETADA ✅ — configuración de publicación con EAS:**
+
+- **`eas.json` creado** con perfiles `development` (dev client, APK), `preview` (internal, APK) y `production` (`autoIncrement: true`) + `appVersionSource: "remote"`; `submit.production` listo para Play/App Store.
+- **`app.json` completado**: `android.package` y `ios.bundleIdentifier` = `com.vendelo.app`, `android.versionCode: 1`, `ios.buildNumber: 1`; icono de app apuntando a `assets/icon.png` (1024×1024); `adaptiveIcon.foregroundImage` corregido a `android-icon-foreground.png` (antes apuntaba al logo de 1254px); favicon web a `assets/favicon.png`; splash vía plugin `expo-splash-screen` (imagen `splash-icon.png`, fondo blanco).
+- **`expo-updates` ~57.0.23 instalado** (versión exacta del bundle SDK 57) + `runtimeVersion` con policy `fingerprint` para OTA fixes sin reinstalar. Nota: hay que ejecutar `eas init` + `eas update:configure` para fijar el `projectId`/URL de EAS Update antes del primer build de OTA.
+- `expo-doctor`: **21/21**; `tsc --noEmit` limpio; tests sin cambios.
+- Próximo paso (bloqueado por credenciales/EAS login): `eas build` del perfil `preview` para validar el APK en dispositivo físico.
+
+**Fase B (control de almacenamiento) COMPLETADA ✅ — el espacio que usa la app ya está acotado:**
+
+- **Mantenimiento de BD (`database.native.ts`)**: nuevas funciones `checkpointDatabase()` (`PRAGMA wal_checkpoint(TRUNCATE)`, barato), `vacuumDatabase()` (`VACUUM`, reclama páginas de filas borradas) y `pruneSyncedStockMovements(180d)` (poda del ledger `stock_movements` que ya fue entregado al servidor; solo toca filas `synced = 1`).
+- **`src/services/storageMaintenance.ts`**: al arrancar, sin bloquear la UI, poda archivos sobrantes de caché (cuarentenas `vendelo-pre-restore-*` viejas y exportes `vendelo-backup-*` compartidos), borra fotos huérfanas de `ImagePicker/` no referenciadas por ningún producto, poda movimientos síncronos antiguos, hace checkpoint del WAL y ejecuta `VACUUM` como máximo 1 vez cada 24 h (marcador en AsyncStorage). Conectado desde `App.tsx`; un listener de `AppState` hace checkpoint al pasar la app a segundo plano.
+- **Respaldos automáticos** (`autoBackupService.ts`): además del tope de 5 archivos, ahora hay **tope por peso (25 MB total)** vía `planBackupPrune` (lógica pura en `src/utils/backupPrune.ts`); se descartan los más antiguos hasta caber.
+- **Métricas visibles** en Más → Datos y respaldo: nueva tarjeta **ALMACENAMIENTO** con Base de datos, Caché de imágenes y Respaldos automáticos (tamaño y número) + botón "Actualizar tamaños" (`reportStorage()`).
+- Tests: **309 en total, 36 suites, pasando** (11 nuevos: `planBackupPrune` y `planCacheCleanup` en `__tests__/backupPrune.test.ts`) + `tsc --noEmit` limpio.
+
+**Fase C (fluidez) COMPLETADA ✅:**
+
+- **Grid de facturación memoizado** (`InvoiceScreen.tsx`): `ProductCard` envuelto en `React.memo`; al tipear la cantidad ya no se re-renderiza toda la cuadrícula (solo la tarjeta editada gana foco). Handlers estables vía `useCallback` (con `quantitiesRef` para no tener que depender del estado en cada pulsación), y `filtered`/`categories` memorizados con `useMemo`.
+- **Login/registro instantáneos en locales sin servidor**: nueva sonda `isApiReachable()` en `authApi.ts` que sondea `/api/v1/health` con timeout de **2.5 s**; si el backend no responde, `AuthContext.login` y `SetupScreen` pasan directamente a la validación/guardado local (antes había que esperar los 8 s del timeout del login). Cualquier respuesta HTTP (incluida 404/401) = servidor alcanzable.
+- **Listas grandes virtualizadas**: `FlatList` de Ventas y Productos con `initialNumToRender`/`maxToRenderPerBatch`/`windowSize` acotados; el render inicial y el scroll con catálogos/órdenes extensos son más livianos.
+- **Polling de cocina pausado en segundo plano** (`KitchenScreen.tsx`): el intervalo salta si `AppState` no está activo.
+- **Contador de pendientes sin solapamientos** (`PendingOrdersContext`): guardia `inFlight` evita consultas duplicadas al cambiar de pestaña rápido.
+
+**Fase D (sesión offline persistente) COMPLETADA ✅ — ya no se pide login de nuevo al reabrir/refrescar:**
+
+- **Nuevo `src/utils/sessionStore.ts`**: persiste un snapshot de la sesión (usuario + marca offline) en AsyncStorage (`micaja.offlineSession`); `sessionFromSnapshot()` lo convierte en la sesión sin tokens lista para reabrir. Puro y testeado (7 tests).
+- **`AuthContext` atado al arranque**: `restoreSession()` ahora, sin tokens, restaura la sesión guardada (offline o no) → el usuario vuelve a entrar sin tocar login. Con tokens pero servidor caído, **no borra nada**: conserva los tokens para reconectar y abre en modo offline con el snapshot. Solo desloguea ante rechazo de auth explícito o logout.
+- **El snapshot se actualiza en cada sesión** (`storeSession`): al hacer login online se guarda `offline:false`, al entrar offline `offline:true`; `logout` lo elimina. Así un usuario que estuvo bien online ayer, hoy sin red, abre la app y sigue trabajando.
+- Tests: **316 en total, 37 suites, pasando** + `tsc --noEmit` limpio.
+
+**Fase E (recuperación de cuenta + respaldo en la nube + capabilities) COMPLETADA ✅ — se acabó el "no puedo entrar" y el "perdí todo":**
+
+- **Recuperar cuenta por identificador real** (`LoginScreen` → "¿Olvidaste tu contraseña?"): ya no es un placeholder. Flujo completo en 3 pasos — ① ingresar email **o** telefone/marca (`identifier`) → `POST /auth/recovery/request` responde `requestId` + `expiresAt`; ② el **código OTP de 6 dígitos** recibido por SMS/email (`recovery/verify`); ③ nueva contraseña (`recovery/reset`) → se firma y guarda con el hash de seguridad nuevo. También accesible como `RecoverAccountScreen` con manejo de estado, contador y validación.
+- **Backend de recuperación completo** (`backend/.../Auth/Recovery.cs`): tablas `otp_codes` y `recovery_sessions` (hash del código OTP con Argon2id, expiración 10 min, 3 intentos, reuso único), `POST /auth/recovery/request`, `POST /auth/recovery/verify`, `POST /auth/recovery/reset` (genera token JWT + rotación de refresh y sube `changeEpoch` para revocar sesiones viejas). Rate-limit en request/verify.
+- **`register` con email + teléfono** ya no es optativo: el Setup y el login piden y validan ambos (`setupValidation.ts`), se firman y se guardan en el perfil del negocio.
+- **RESPALDO EN LA NUBE funcional** (`Más → Datos y respaldo → RESPALDO EN LA NUEVA NUBE`): respaldo **self-servido** cifrado con **AES-GCM** (`Cipher.cs` + `StorageCipher`) — el servidor solo guarda/entrega el blob, no puede leer los datos; subida automática tras cierre de caja, lista de respaldos con fecha y botón "Descargar respaldo" para restaurar. La sección se activa/desactiva según la `capability` `cloudBackups` de la cuenta (`FEATURE_DISABLED` si no está contratada).
+- **Capabilities del negocio visibles y operables** (`Más → Configuración → Tu negocio/Perfil`): UI de `capabilities` (cloudBackups, imprenta térmica, gestión de dispositivos...) cacheadas en `AuthContext`, editables con **versionado optimista** (`capabilityVersion` / `@version` ETag); el servidor rechaza escrituras obsoletas con **409 VERSION_MISMATCH** y la UI lo informa para reintentar. `GET /businesses/{id}/capabilities` + `PUT /businesses/{id}/capabilities`.
+- Verificación: `dotnet build` **0 errores**, `dotnet test` **40/40 (backend)**, `tsc --noEmit` limpio, **316 tests de app pasando** + `expo-doctor` **21/21**.
+
 ---
 
 ## Auditoría técnica (endurecimiento) — Fases 0 a 19

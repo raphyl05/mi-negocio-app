@@ -4,29 +4,48 @@
     "slug": "vendelo-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo-vendelo-app.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "plugins": [
       [
         "react-native-ble-plx",
         {
           "bluetoothAlwaysPermission": "Usa Bluetooth para conectar la impresora térmica."
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain"
+        }
       ]
     ],
+    "updates": {
+      "enabled": true
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vendelo.app",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.vendelo.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/logo-vendelo-app.png",
+        "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/logo-vendelo-app.png"
+      "favicon": "./assets/favicon.png"
     }
   }
 }

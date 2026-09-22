@@ -61,4 +61,8 @@ public static class PasswordHasher
         var h = SHA256.HashData(Encoding.UTF8.GetBytes(value));
         return Convert.ToHexString(h);
     }
+
+    public static bool VerifyConstantTime(string a, string b) =>
+        CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(a), Encoding.UTF8.GetBytes(b));
 }

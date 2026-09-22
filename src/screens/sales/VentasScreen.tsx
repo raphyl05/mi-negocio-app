@@ -363,6 +363,10 @@ export default function VentasScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
+          initialNumToRender={20}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          updateCellsBatchingPeriod={40}
           renderItem={({ item }) =>
             showPending ? (
               <PendingRow

@@ -2,30 +2,107 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ComponentProps } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import Card from '../../components/Card';
+import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import { usePrinter } from '../../hooks/usePrinter';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiGetCapabilities, apiUpdateCapabilities, type BusinessCapabilities } from '../../services/authApi';
 import type { RootStackParamList } from '../../navigation/types';
 import { useTheme } from '../../theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
+const FEATURES = [
+  { key: 'restaurant', icon: 'restaurant', title: 'Modo restaurante', desc: 'Comandas, mesas y cocina' },
+  { key: 'waiters', icon: 'person', title: 'Meseros', desc: 'Asignar meseros a órdenes' },
+  { key: 'tables', icon: 'list', title: 'Mesas', desc: 'Gestionar mesas y ocupación' },
+  { key: 'kitchen', icon: 'walk', title: 'Cocina', desc: 'Comanda de cocina y estado' },
+  { key: 'kitchenPrinting', icon: 'print', title: 'Impresión cocina', desc: 'Tickets de cocina automáticos' },
+] as const;
+
 export default function ConfigurationScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { statusLabel, available } = usePrinter();
-  const { session, hasCapability } = useAuth();
+  const { session, hasCapability, fetchCapabilities, setCapabilitiesCache } = useAuth();
   const businessId = session?.businesses[0]?.id ?? '';
 
-  const features = [
-    { key: 'restaurant', icon: 'restaurant', title: 'Modo restaurante', desc: 'Comandas, mesas y cocina' },
-    { key: 'waiters', icon: 'person', title: 'Meseros', desc: 'Asignar meseros a órdenes' },
-    { key: 'tables', icon: 'list', title: 'Mesas', desc: 'Gestionar mesas y ocupación' },
-    { key: 'kitchen', icon: 'walk', title: 'Cocina', desc: 'Comanda de cocina y estado' },
-    { key: 'kitchenPrinting', icon: 'print', title: 'Impresión cocina', desc: 'Tickets de cocina automáticos' },
-  ] as const;
+  const [localCaps, setLocalCaps] = useState<Record<string, boolean> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!businessId) {
+      setLocalCaps(null);
+      return;
+    }
+    let cancelled = false;
+    fetchCapabilities(businessId).then((caps) => {
+      if (cancelled || !caps) return;
+      setLocalCaps({ ...caps });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, fetchCapabilities]);
+
+  const toggle = (key: string, value: boolean) => {
+    setLocalCaps((prev) => (prev ? { ...prev, [key]: value } : prev));
+    setMessage(null);
+  };
+
+  const handleSave = async () => {
+    if (!businessId || !localCaps) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const current = await apiGetCapabilities(businessId);
+      if (!current.data) {
+        setMessage('No se pudo guardar: sin conexión con tu cuenta.');
+        return;
+      }
+      const caps: BusinessCapabilities = {
+        restaurant: !!localCaps.restaurant,
+        waiters: !!localCaps.waiters,
+        tables: !!localCaps.tables,
+        kitchen: !!localCaps.kitchen,
+        kitchenPrinting: !!localCaps.kitchenPrinting,
+      };
+      const res = await apiUpdateCapabilities(businessId, {
+        expectedCapabilityVersion: current.data.capabilityVersion,
+        businessType: current.data.businessType,
+        capabilities: caps,
+      });
+      if (!res.ok) {
+        if (res.error?.code === 'VERSION_MISMATCH') {
+          const fresh = await apiGetCapabilities(businessId);
+          if (fresh.data) {
+            const retry = await apiUpdateCapabilities(businessId, {
+              expectedCapabilityVersion: fresh.data.capabilityVersion,
+              businessType: fresh.data.businessType,
+              capabilities: caps,
+            });
+            if (retry.ok) {
+              setCapabilitiesCache(businessId, caps);
+              setMessage('Características guardadas.');
+              return;
+            }
+          }
+        }
+        setMessage(res.error?.message || 'No se pudo guardar.');
+        return;
+      }
+      setCapabilitiesCache(businessId, caps);
+      const fresh = await fetchCapabilities(businessId);
+      if (fresh) setLocalCaps({ ...fresh });
+      setMessage('Características guardadas.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Screen>
@@ -48,8 +125,8 @@ export default function ConfigurationScreen() {
           CARACTERÍSTICAS DEL NEGOCIO
         </Text>
         <Card style={styles.cardList}>
-          {features.map((f, i) => {
-            const enabled = hasCapability(businessId, f.key);
+          {FEATURES.map((f, i) => {
+            const enabled = localCaps ? !!localCaps[f.key] : hasCapability(businessId, f.key);
             return (
               <View key={f.key}>
                 <View style={styles.featureRow}>
@@ -60,17 +137,36 @@ export default function ConfigurationScreen() {
                     <Text style={[styles.featureTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>{f.title}</Text>
                     <Text style={[styles.featureDesc, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>{f.desc}</Text>
                   </View>
-                  <View style={[styles.featureBadge, { backgroundColor: enabled ? colors.success + '22' : colors.surfaceMuted }]}>
-                    <Text style={[styles.featureBadgeText, { color: enabled ? colors.success : colors.textSecondary }]}>
-                      {enabled ? 'ACTIVA' : 'INACTIVA'}
-                    </Text>
-                  </View>
+                  <Switch
+                    value={enabled}
+                    onValueChange={(v) => toggle(f.key, v)}
+                    disabled={!businessId || !localCaps}
+                    trackColor={{ false: colors.border, true: colors.primaryLight }}
+                    thumbColor={enabled ? colors.primary : colors.surfaceMuted}
+                  />
                 </View>
-                {i < features.length - 1 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
+                {i < FEATURES.length - 1 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
               </View>
             );
           })}
         </Card>
+
+        {!businessId ? (
+          <Text style={[styles.featureHint, { color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: 8 }]}>
+            Inicia sesión con tu cuenta para poder cambiar estas características:
+          </Text>
+        ) : null}
+
+        {businessId && localCaps ? (
+          <View style={[styles.saveRow, { gap: spacing.sm }]}>
+            <PrimaryButton label="Guardar cambios" onPress={handleSave} loading={saving} />
+            {message ? (
+              <Text style={[styles.saveMessage, { color: colors.textSecondary, fontSize: typography.sizes.caption, textAlign: 'center' }]}>
+                {message}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.gap} />
 
@@ -263,14 +359,13 @@ const styles = StyleSheet.create({
   featureDesc: {
     marginTop: 1,
   },
-  featureBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  featureHint: {
+    lineHeight: 18,
   },
-  featureBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  saveRow: {
+    marginTop: 12,
+  },
+  saveMessage: {
+    marginTop: 4,
   },
 });

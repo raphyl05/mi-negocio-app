@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native';
 import Screen from '../../components/Screen';
 import { useTheme } from '../../theme';
 import { orderRepository } from '../../repositories/orderRepository';
@@ -57,6 +57,7 @@ export default function KitchenScreen() {
     if (!kitchenEnabled) return;
     load();
     pollRef.current = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
       load().catch(() => { /* silenciar error de polling */ });
     }, POLL_INTERVAL_MS);
     return () => {

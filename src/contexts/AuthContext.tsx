@@ -8,11 +8,19 @@ import {
   apiRefresh,
   apiRegister,
   apiGetCapabilities,
+  isApiReachable,
   getTokens,
   clearTokens,
   type LoginResponse,
   type CapabilitiesResponse,
 } from '../services/authApi';
+import { verifyLogin } from '../services/setupService';
+import {
+  saveOfflineSession,
+  loadOfflineSession,
+  clearOfflineSession,
+  sessionFromSnapshot,
+} from '../utils/sessionStore';
 
 export type AuthUser = {
   id: string;
@@ -26,6 +34,7 @@ export type AuthSession = {
   refreshToken: string;
   expiresIn: number;
   businesses: Array<{ id: string; name: string; role: string }>;
+  offline?: boolean;
 };
 
 export type BusinessCapabilities = {
@@ -41,10 +50,11 @@ type AuthContextValue = {
   loading: boolean;
   capabilities: Record<string, BusinessCapabilities>;
   login: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
-  register: (name: string, username: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
+  register: (name: string, username: string, password: string, deviceId: string, opts?: { email?: string; phone?: string }) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
   fetchCapabilities: (businessId: string) => Promise<BusinessCapabilities | null>;
+  setCapabilitiesCache: (businessId: string, caps: BusinessCapabilities) => void;
   hasCapability: (businessId: string, key: keyof BusinessCapabilities) => boolean;
 };
 
@@ -61,21 +71,39 @@ const AuthContext = createContext<AuthContextValue>({
   logout: async () => {},
   refreshSession: async () => false,
   fetchCapabilities: async () => null,
+  setCapabilitiesCache: () => {},
   hasCapability: () => false,
 });
+
+function isOfflineError(error?: { code: string; message: string } | null): boolean {
+  return error?.code === 'NETWORK';
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [capabilities, setCapabilities] = useState<Record<string, BusinessCapabilities>>({});
+  const sessionRef = useRef<AuthSession | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const storeSession = useCallback((next: AuthSession | null | ((prev: AuthSession | null) => AuthSession | null)) => {
+    setSession(next);
+    const resolved =
+      typeof next === 'function' ? (next as (prev: AuthSession | null) => AuthSession | null)(sessionRef.current) : next;
+    sessionRef.current = resolved;
+    if (!resolved) {
+      void clearOfflineSession().catch(() => { /* best effort */ });
+    } else {
+      void saveOfflineSession({ user: resolved.user, offline: !!resolved.offline }).catch(() => { /* best effort */ });
+    }
+  }, []);
 
   const scheduleRefresh = useCallback((expiresIn: number) => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     const refreshIn = Math.max((expiresIn - 60) * 1000, 10000);
     refreshTimerRef.current = setTimeout(async () => {
       const ok = await refreshSession();
-      if (!ok) setSession(null);
+      if (!ok) storeSession(null);
     }, refreshIn);
   }, []);
 
@@ -83,52 +111,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { access, refresh } = await getTokens();
       if (!access || !refresh) {
+        const snapshot = await loadOfflineSession();
+        if (snapshot) {
+          storeSession(sessionFromSnapshot(snapshot));
+        }
         setLoading(false);
         return;
       }
       const res = await apiSession();
       if (res.data && res.ok) {
         const tokens = await getTokens();
-        setSession({
+        storeSession({
           user: res.data.user,
           accessToken: tokens.access!,
           refreshToken: tokens.refresh!,
           expiresIn: 900,
           businesses: res.data.businesses,
         });
+      } else if (isOfflineError(res.error)) {
+        const snapshot = await loadOfflineSession();
+        if (snapshot) {
+          storeSession(sessionFromSnapshot(snapshot));
+        } else {
+          await clearTokens();
+        }
       } else {
         await clearTokens();
+        await clearOfflineSession();
       }
     } catch {
       await clearTokens();
+      await clearOfflineSession();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeSession]);
 
   const refreshSession = useCallback(async (): Promise<boolean> => {
+    const current = sessionRef.current;
+    if (current?.offline) return true;
     try {
       const res = await apiRefresh();
       if (res.data && res.ok) {
-        setSession((prev) =>
+        storeSession((prev) =>
           prev ? { ...prev, expiresIn: res.data!.expiresIn } : null
         );
         return true;
       }
+      if (isOfflineError(res.error)) return current != null;
       await clearTokens();
-      setSession(null);
+      storeSession(null);
       return false;
     } catch {
-      return false;
+      return current != null;
     }
   }, []);
 
   const login = useCallback(
     async (identifier: string, password: string, deviceId: string) => {
+      if (!(await isApiReachable())) {
+        const local = await verifyLogin(identifier, password);
+        if (local) {
+          storeSession({
+            user: { id: local.id, username: local.username, createdAt: local.createdAt },
+            accessToken: '',
+            refreshToken: '',
+            expiresIn: 0,
+            businesses: [],
+            offline: true,
+          });
+          return { ok: true };
+        }
+        return { ok: false, error: { code: 'AUTH', message: 'Usuario o contraseña incorrectos.' } };
+      }
       const res = await apiLogin(identifier, password, deviceId);
       if (res.data) {
         const { accessToken, refreshToken, expiresIn } = res.data;
-        setSession({
+        storeSession({
           user: res.data.user,
           accessToken,
           refreshToken,
@@ -136,18 +195,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           businesses: [],
         });
         scheduleRefresh(expiresIn);
+        return { ok: true };
       }
-      return { ok: res.ok, error: res.error };
+      // Fallback offline-first: si el servidor rechaza o está caído, se cae a la
+      // cuenta guardada en este dispositivo (usuario, correo o teléfono local).
+      const local = await verifyLogin(identifier, password);
+      if (local) {
+        storeSession({
+          user: { id: local.id, username: local.username, createdAt: local.createdAt },
+          accessToken: '',
+          refreshToken: '',
+          expiresIn: 0,
+          businesses: [],
+          offline: true,
+        });
+        return { ok: true };
+      }
+      return { ok: false, error: res.error || { code: 'AUTH', message: 'Usuario o contraseña incorrectos.' } };
     },
-    [scheduleRefresh]
+    [scheduleRefresh, storeSession]
   );
 
   const register = useCallback(
-    async (name: string, username: string, password: string, deviceId: string) => {
-      const res = await apiRegister(name, username, password, deviceId);
+    async (
+      name: string,
+      username: string,
+      password: string,
+      deviceId: string,
+      opts?: { email?: string; phone?: string }
+    ) => {
+      const res = await apiRegister(name, username, password, deviceId, 'COMMERCE', undefined, {
+        email: opts?.email,
+        phone: opts?.phone,
+      });
       if (res.data) {
         const { accessToken, refreshToken, expiresIn } = res.data;
-        setSession({
+        storeSession({
           user: res.data.user,
           accessToken,
           refreshToken,
@@ -158,14 +241,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { ok: res.ok, error: res.error };
     },
-    [scheduleRefresh]
+    [scheduleRefresh, storeSession]
   );
 
   const logout = useCallback(async () => {
     try { await apiLogoutRemote(); } catch { /* ignore */ }
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     await clearTokens();
-    setSession(null);
+    storeSession(null);
   }, []);
 
   const fetchCapabilities = useCallback(async (businessId: string): Promise<BusinessCapabilities | null> => {
@@ -190,6 +273,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return capabilities[businessId]?.[key] ?? false;
   }, [capabilities]);
 
+  const setCapabilitiesCache = useCallback((businessId: string, caps: BusinessCapabilities) => {
+    setCapabilities((prev) => ({ ...prev, [businessId]: caps }));
+  }, []);
+
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
@@ -201,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, loading, capabilities, login, register, logout, refreshSession, fetchCapabilities, hasCapability }}>
+    <AuthContext.Provider value={{ session, loading, capabilities, login, register, logout, refreshSession, fetchCapabilities, setCapabilitiesCache, hasCapability }}>
       {children}
     </AuthContext.Provider>
   );

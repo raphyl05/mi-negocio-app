@@ -89,6 +89,8 @@ public sealed class LoginResponseDto
 public sealed class RegisterRequestDto
 {
     [JsonPropertyName("identifier")] public string Identifier { get; set; } = "";
+    [JsonPropertyName("email")] public string? Email { get; set; }
+    [JsonPropertyName("phone")] public string? Phone { get; set; }
     [JsonPropertyName("password")] public string Password { get; set; } = "";
     [JsonPropertyName("deviceId")] public string DeviceId { get; set; } = "";
     [JsonPropertyName("deviceName")] public string DeviceName { get; set; } = "";
@@ -124,6 +126,18 @@ public sealed class ChangePasswordRequestDto
 {
     [JsonPropertyName("currentPassword")] public string CurrentPassword { get; set; } = "";
     [JsonPropertyName("newPassword")] public string NewPassword { get; set; } = "";
+}
+
+public sealed class RecoveryVerifyRequestDto
+{
+    [JsonPropertyName("identifier")] public string? Identifier { get; set; }
+    [JsonPropertyName("code")] public string? Code { get; set; }
+}
+
+public sealed class RecoveryResetRequestDto
+{
+    [JsonPropertyName("recoveryToken")] public string? RecoveryToken { get; set; }
+    [JsonPropertyName("newPassword")] public string? NewPassword { get; set; }
 }
 
 public sealed class MembershipDto

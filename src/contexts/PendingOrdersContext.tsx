@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { orderRepository } from '../repositories/orderRepository';
 
@@ -11,10 +11,17 @@ const PendingOrdersContext = createContext<PendingOrdersContextType | null>(null
 
 export function PendingOrdersProvider({ children }: { children: ReactNode }) {
   const [pendingCount, setPendingCount] = useState(0);
+  const inFlight = useRef(false);
 
   const refreshPending = useCallback(async () => {
-    const pending = await orderRepository.listPending();
-    setPendingCount(pending.length);
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const pending = await orderRepository.listPending();
+      setPendingCount(pending.length);
+    } finally {
+      inFlight.current = false;
+    }
   }, []);
 
   useEffect(() => {

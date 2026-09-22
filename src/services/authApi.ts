@@ -118,6 +118,24 @@ export async function apiFetch<T = unknown>(
   }
 }
 
+// Sondeo rápido de conectividad con el backend. Devuelve true si el servidor
+// responde cualquier HTTP (aunque sea 404/401); false solo ante error de red o
+// timeout. Sirve para no esperar el timeout completo del login/registro cuando
+// no hay backend alcanzable.
+export async function isApiReachable(timeoutMs = 2500): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const url = apiUrl(`${API_PREFIX}/health`);
+    await fetch(url, { method: 'GET', signal: controller.signal });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function tryRefresh(): Promise<boolean> {
   const { access, refresh } = await getTokens();
   if (!refresh) return false;
@@ -148,6 +166,7 @@ export async function apiLogin(
   const res = await apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
     body: { identifier, password, deviceId },
+    timeout: 8000,
   });
   if (res.data) {
     await saveTokens(res.data.accessToken, res.data.refreshToken, res.data.expiresIn);
@@ -161,15 +180,119 @@ export async function apiRegister(
   password: string,
   deviceId: string,
   businessType = 'COMMERCE',
-  ownerName?: string
+  ownerName?: string,
+  opts: { email?: string; phone?: string } = {}
 ): Promise<{ ok: boolean; data?: RegisterResponse; error?: { code: string; message: string } }> {
   const res = await apiFetch<RegisterResponse>('/auth/register', {
     method: 'POST',
-    body: { identifier: username, password, deviceId, name, ownerName, businessType, businessId: '', capabilities: {}, deviceName: 'Device' },
+    body: {
+      identifier: username,
+      email: opts.email?.trim() || undefined,
+      phone: opts.phone?.trim() || undefined,
+      password,
+      deviceId,
+      name,
+      ownerName,
+      businessType,
+      businessId: '',
+      capabilities: {},
+      deviceName: 'Device',
+    },
+    timeout: 8000,
   });
   if (res.data) {
     await saveTokens(res.data.accessToken, res.data.refreshToken, res.data.expiresIn);
   }
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export type RecoveryRequestResponse = {
+  message: string;
+  expiresInMinutes?: number;
+  debugCode?: string | null;
+};
+
+export async function apiRecoveryRequest(
+  identifier: string
+): Promise<{ ok: boolean; data?: RecoveryRequestResponse; error?: { code: string; message: string } }> {
+  if (!(await isApiReachable())) {
+    return { ok: false, error: { code: 'NETWORK', message: 'Sin conexión con el servidor.' } };
+  }
+  const res = await apiFetch<RecoveryRequestResponse>('/auth/recovery/request', {
+    method: 'POST',
+    body: { identifier },
+    timeout: 8000,
+  });
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiRecoveryVerify(
+  identifier: string,
+  code: string
+): Promise<{ ok: boolean; data?: { recoveryToken: string; expiresInMinutes: number }; error?: { code: string; message: string } }> {
+  const res = await apiFetch<{ recoveryToken: string; expiresInMinutes: number }>('/auth/recovery/verify', {
+    method: 'POST',
+    body: { identifier, code },
+    timeout: 8000,
+  });
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiRecoveryResetPassword(
+  recoveryToken: string,
+  newPassword: string
+): Promise<{ ok: boolean; error?: { code: string; message: string } }> {
+  const res = await apiFetch('/auth/recovery/reset-password', {
+    method: 'POST',
+    body: { recoveryToken, newPassword },
+    timeout: 8000,
+  });
+  return { ok: res.status === 204 || !!res.data, error: res.error };
+}
+
+export type CloudBackupInfo = { id: string; businessId: string; createdAt: string };
+
+export async function apiListCloudBackups(
+  businessId: string
+): Promise<{ ok: boolean; data?: CloudBackupInfo[]; error?: { code: string; message: string } }> {
+  const res = await apiFetch<CloudBackupInfo[]>(`/businesses/${businessId}/backups`);
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiUploadCloudBackup(
+  businessId: string,
+  payloadJson: string
+): Promise<{ ok: boolean; data?: CloudBackupInfo; error?: { code: string; message: string } }> {
+  const res = await apiFetch<CloudBackupInfo>(`/businesses/${businessId}/backups/self`, {
+    method: 'PUT',
+    body: { payload: payloadJson },
+    timeout: 20000,
+  });
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiDownloadCloudBackup(
+  businessId: string
+): Promise<{ ok: boolean; data?: { id: string; createdAt: string; payload: unknown }; error?: { code: string; message: string } }> {
+  const res = await apiFetch<{ id: string; createdAt: string; payload: unknown }>(
+    `/businesses/${businessId}/backups/self/latest`
+  );
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiUpdateCapabilities(
+  businessId: string,
+  body: {
+    expectedCapabilityVersion?: number;
+    businessType?: string;
+    capabilities: Record<string, boolean>;
+  }
+): Promise<{ ok: boolean; data?: CapabilitiesResponse; error?: { code: string; message: string } }> {
+  const res = await apiFetch<CapabilitiesResponse>(`/businesses/${businessId}/capabilities`, {
+    method: 'PATCH',
+    body,
+    timeout: 10000,
+  });
   return { ok: !!res.data, data: res.data, error: res.error };
 }
 
