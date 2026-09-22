@@ -43,6 +43,8 @@ function makeOrder(): Order {
     paymentMethod: 'cash',
     receivedCents: 25000,
     changeCents: 0,
+    orderType: 'counter',
+    events: [],
     createdAt: '2026-09-18T08:00:00.000Z',
     paidAt: '2026-09-18T12:30:00.000Z',
   };

@@ -42,6 +42,8 @@ function makePaid(cents: number, method: 'cash' | 'transfer', received?: number,
     paymentMethod: method,
     receivedCents: received,
     changeCents: method === 'cash' ? change : undefined,
+    orderType: 'counter',
+    events: [],
     createdAt: '2026-09-18T08:00:00.000Z',
     paidAt,
   };

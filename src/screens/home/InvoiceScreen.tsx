@@ -7,6 +7,7 @@ import MoneyDisplay from '../../components/MoneyDisplay';
 import ProductImage from '../../components/ProductImage';
 import Screen from '../../components/Screen';
 import { useCart } from '../../contexts/CartContext';
+import { useAuth } from '../../contexts/AuthContext';
 import type { CashRegister } from '../../models/cashRegister';
 import type { RootStackParamList } from '../../navigation/types';
 import type { Product } from '../../models/product';
@@ -23,7 +24,8 @@ type InvoiceScreenProps = {
 export default function InvoiceScreen({ register }: InvoiceScreenProps) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { count, subtotalCents, addQuantity, items } = useCart();
+  const { count, subtotalCents, addQuantity, items, isWaiterOrder, setWaiterOrder, waiter, setWaiter, clear } = useCart();
+  const { session, hasCapability } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
@@ -84,9 +86,43 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
     setStockError(null);
   };
 
+  const businessId = session?.businesses[0]?.id ?? '';
+  const waitersEnabled = hasCapability(businessId, 'waiters');
+
+  const handleToggleWaiter = () => {
+    if (isWaiterOrder) {
+      setWaiterOrder(false);
+      clear();
+      setWaiter({ waiterId: '', waiterName: '' });
+    } else {
+      setWaiter({ waiterId: 'self', waiterName: 'Mesa' });
+      setWaiterOrder(true);
+    }
+  };
+
   return (
     <Screen>
       <View style={styles.screenSurround}>
+        {waitersEnabled ? (
+          <View style={[styles.waiterPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.waiterRow}>
+              <Ionicons name={isWaiterOrder ? 'checkmark-circle' : 'person'} size={20} color={isWaiterOrder ? colors.primary : colors.textSecondary} />
+              <Text style={[styles.waiterLabel, { color: colors.textPrimary }]}>
+                {isWaiterOrder ? 'Orden de mesero activa' : 'Modo mesero'}
+              </Text>
+              <Pressable onPress={handleToggleWaiter} style={{ marginLeft: 'auto' }}>
+                <Text style={[styles.waiterToggleText, { color: isWaiterOrder ? colors.primary : colors.textSecondary }]}>
+                  {isWaiterOrder ? 'Desactivar' : 'Activar'}
+                </Text>
+              </Pressable>
+            </View>
+            {isWaiterOrder ? (
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: 4 }}>
+                {waiter.waiterName}{waiter.tableName ? ` — Mesa ${waiter.tableName}` : ''}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
@@ -391,5 +427,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
+  },
+  waiterPanel: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  waiterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  waiterLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  waiterToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

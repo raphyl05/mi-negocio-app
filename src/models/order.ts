@@ -4,7 +4,19 @@ export type OrderStatus = 'pending' | 'paid' | 'voided';
 
 export type PaymentMethod = 'cash' | 'transfer';
 
+export type OrderType = 'counter' | 'waiter';
+
+export type OrderPrepStatus = 'new' | 'sent' | 'preparing' | 'ready' | 'served';
+
+export type OrderEvent = {
+  type: string;
+  prepStatus?: OrderPrepStatus;
+  at?: string;
+  method?: string;
+};
+
 export type CustomerData = {
+  customerId?: string;
   customerName: string;
   phone: string;
   address: string;
@@ -21,6 +33,13 @@ export type Order = {
   paymentMethod?: PaymentMethod;
   receivedCents?: number;
   changeCents?: number;
+  orderType?: OrderType;
+  waiterId?: string;
+  waiterName?: string;
+  tableId?: string;
+  tableName?: string;
+  prepStatus?: OrderPrepStatus;
+  events?: OrderEvent[];
   createdAt: string;
   updatedAt?: string;
   paidAt?: string;

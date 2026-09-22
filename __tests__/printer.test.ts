@@ -47,6 +47,8 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     paymentMethod: 'cash',
     receivedCents: 100000,
     changeCents: 50000,
+    orderType: 'counter',
+    events: [],
     createdAt: '2026-09-18T08:00:00.000Z',
     paidAt: '2026-09-18T12:30:00.000Z',
     ...overrides,

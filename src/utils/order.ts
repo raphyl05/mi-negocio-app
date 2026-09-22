@@ -1,5 +1,5 @@
 import { calcChange, calcSubtotal } from './money';
-import type { Order, OrderStatus, PaymentMethod } from '../models/order';
+import type { Order, OrderStatus, PaymentMethod, OrderType, OrderEvent } from '../models/order';
 import type { CartItem } from './cart';
 import { generateId } from './password';
 
@@ -9,6 +9,13 @@ export type BuildOrderInput = {
   status: OrderStatus;
   paymentMethod?: PaymentMethod;
   receivedCents?: number;
+  orderType?: OrderType;
+  waiterId?: string;
+  waiterName?: string;
+  tableId?: string;
+  tableName?: string;
+  prepStatus?: Order['prepStatus'];
+  events?: OrderEvent[];
 };
 
 export function buildOrder(input: BuildOrderInput): Order {
@@ -21,6 +28,12 @@ export function buildOrder(input: BuildOrderInput): Order {
       ? calcChange(subtotalCents, input.receivedCents)
       : undefined;
 
+  const now = new Date().toISOString();
+  const events: OrderEvent[] = input.events ?? [];
+  if (input.prepStatus && input.prepStatus !== 'new') {
+    events.push({ type: 'prepStatusChanged', prepStatus: input.prepStatus, at: now });
+  }
+
   return {
     id: generateId(),
     number: 0,
@@ -31,8 +44,15 @@ export function buildOrder(input: BuildOrderInput): Order {
     paymentMethod: input.paymentMethod,
     receivedCents: input.receivedCents,
     changeCents,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    paidAt: input.status === 'paid' ? new Date().toISOString() : undefined,
+    orderType: input.orderType ?? 'counter',
+    waiterId: input.waiterId,
+    waiterName: input.waiterName,
+    tableId: input.tableId,
+    tableName: input.tableName,
+    prepStatus: input.prepStatus,
+    events,
+    createdAt: now,
+    updatedAt: now,
+    paidAt: input.status === 'paid' ? now : undefined,
   };
 }

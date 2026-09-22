@@ -43,6 +43,7 @@ function rowToOrder(row: OrderRow): Order {
     paymentMethod: row.paymentMethod ?? undefined,
     receivedCents: row.receivedCents ?? undefined,
     changeCents: row.changeCents ?? undefined,
+    orderType: 'counter',
     createdAt: row.createdAt,
     updatedAt: row.updatedAt ?? undefined,
     paidAt: row.paidAt ?? undefined,

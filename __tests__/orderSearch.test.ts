@@ -25,6 +25,8 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     subtotalCents: 50000,
     customer: { customerName: 'Juan Pérez', phone: '809-555-1234', address: 'Santo Domingo Este', description: 'Sin cebolla' },
     status: 'pending',
+    orderType: 'counter',
+    events: [],
     createdAt: new Date(2026, 3, 12, 15, 45).toISOString(),
     ...overrides,
   };

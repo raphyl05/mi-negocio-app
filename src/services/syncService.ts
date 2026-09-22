@@ -118,7 +118,12 @@ function toOrderBatch(o: Order) {
     entity: {
       id: o.id,
       status: o.status,
-      orderType: o.status === 'paid' ? 'in_store' : 'in_store',
+      orderType: o.orderType ?? 'counter',
+      waiterId: o.waiterId,
+      waiterName: o.waiterName,
+      tableId: o.tableId,
+      tableName: o.tableName,
+      prepStatus: o.prepStatus,
       items: o.items.map((i) => ({
         productId: i.product.id,
         name: i.product.name,
@@ -128,10 +133,12 @@ function toOrderBatch(o: Order) {
       })),
       totalCents: o.subtotalCents,
       paymentMethod: o.paymentMethod,
-      customerId: o.customer.customerName,
+      customerId: o.customer.customerId ?? o.customer.customerName,
       customerName: o.customer.customerName,
       customerPhone: o.customer.phone,
       customerAddress: o.customer.address,
+      customerDescription: o.customer.description,
+      events: o.events,
     },
   };
 }

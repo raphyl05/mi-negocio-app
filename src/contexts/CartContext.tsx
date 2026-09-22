@@ -21,13 +21,23 @@ export type CustomerInfo = {
   description: string;
 };
 
+export type WaiterInfo = {
+  waiterId: string;
+  waiterName: string;
+  tableId?: string;
+  tableName?: string;
+};
+
 const EMPTY_CUSTOMER: CustomerInfo = { customerName: '', phone: '', address: '', description: '' };
+const EMPTY_WAITER: WaiterInfo = { waiterId: '', waiterName: '' };
 
 type CartContextType = {
   items: CartItem[];
   count: number;
   subtotalCents: number;
   customer: CustomerInfo;
+  waiter: WaiterInfo;
+  isWaiterOrder: boolean;
   add: (product: Product) => void;
   addQuantity: (product: Product, quantity: number) => void;
   increase: (productId: string) => void;
@@ -37,6 +47,8 @@ type CartContextType = {
   restore: (items: CartItem[], customer: CustomerInfo) => void;
   updateQuantity: (productId: string, quantityText: string) => void;
   setCustomerField: <K extends keyof CustomerInfo>(field: K, value: string) => void;
+  setWaiterOrder: (isWaiter: boolean) => void;
+  setWaiter: (waiter: WaiterInfo) => void;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -44,6 +56,8 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState<CustomerInfo>(EMPTY_CUSTOMER);
+  const [waiter, setWaiterState] = useState<WaiterInfo>(EMPTY_WAITER);
+  const [isWaiterOrder, setIsWaiterOrder] = useState(false);
 
   const add = useCallback((product: Product) => setItems((current) => addProductToCart(current, product)), []);
   const addQuantity = useCallback(
@@ -64,6 +78,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clear = useCallback(() => {
     setItems(clearCart());
     setCustomer(EMPTY_CUSTOMER);
+    setWaiterState(EMPTY_WAITER);
+    setIsWaiterOrder(false);
   }, []);
 
   const updateQuantity = useCallback(
@@ -86,12 +102,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const setWaiterOrder = useCallback((isWaiter: boolean) => {
+    setIsWaiterOrder(isWaiter);
+    if (!isWaiter) {
+      setWaiterState(EMPTY_WAITER);
+    }
+  }, []);
+
+  const setWaiter = useCallback((w: WaiterInfo) => {
+    setWaiterState(w);
+  }, []);
+
   const value = useMemo(
     () => ({
       items,
       count: cartCount(items),
       subtotalCents: cartSubtotal(items),
       customer,
+      waiter,
+      isWaiterOrder,
       add,
       addQuantity,
       increase,
@@ -101,8 +130,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       restore,
       updateQuantity,
       setCustomerField,
+      setWaiterOrder,
+      setWaiter,
     }),
-    [items, customer, add, addQuantity, increase, decrease, remove, clear, restore, updateQuantity, setCustomerField],
+    [items, customer, waiter, isWaiterOrder, add, addQuantity, increase, decrease, remove, clear, restore, updateQuantity, setCustomerField, setWaiterOrder, setWaiter],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

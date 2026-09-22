@@ -19,6 +19,12 @@ export type OrderActionResult =
 export type SavePendingInput = {
   items: CartItem[];
   customer: Order['customer'];
+  orderType?: Order['orderType'];
+  waiterId?: string;
+  waiterName?: string;
+  tableId?: string;
+  tableName?: string;
+  prepStatus?: Order['prepStatus'];
 };
 
 export type PayNewInput = SavePendingInput & {
@@ -72,7 +78,17 @@ export function createOrderService({ orderRepo, productRepo, movementRepo, withT
         const saved = await txn(async () => {
           const problem = await stockProblem(input.items);
           if (problem) throw new Error(problem);
-          const order = buildOrder({ items: input.items, customer: input.customer, status: 'pending' });
+          const order = buildOrder({
+            items: input.items,
+            customer: input.customer,
+            status: 'pending',
+            orderType: input.orderType,
+            waiterId: input.waiterId,
+            waiterName: input.waiterName,
+            tableId: input.tableId,
+            tableName: input.tableName,
+            prepStatus: input.prepStatus,
+          });
           const created = await orderRepo.save(order);
           await reserveOrderStock(created.items, productRepo, { movementRepo, referenceId: created.id });
           return created;
@@ -94,6 +110,12 @@ export function createOrderService({ orderRepo, productRepo, movementRepo, withT
             status: 'paid',
             paymentMethod: input.paymentMethod,
             receivedCents: input.receivedCents,
+            orderType: input.orderType,
+            waiterId: input.waiterId,
+            waiterName: input.waiterName,
+            tableId: input.tableId,
+            tableName: input.tableName,
+            prepStatus: input.prepStatus,
           });
           const created = await orderRepo.save(order);
           await reserveOrderStock(created.items, productRepo, { movementRepo, referenceId: created.id });

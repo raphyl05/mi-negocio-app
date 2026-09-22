@@ -16,14 +16,22 @@ import { invoiceCodeFor } from '../../utils/invoice';
 export default function PaymentScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { items, subtotalCents, customer, clear } = useCart();
+  const { items, subtotalCents, customer, waiter, isWaiterOrder, clear } = useCart();
   const [saving, setSaving] = useState(false);
   const [savedOrder, setSavedOrder] = useState<Order | null>(null);
 
   const handleSaveOrder = async () => {
     setSaving(true);
     try {
-      const result = await orderService.savePendingOrder({ items, customer });
+      const result = await orderService.savePendingOrder({
+        items,
+        customer,
+        orderType: isWaiterOrder ? 'waiter' : 'counter',
+        waiterId: waiter.waiterId || undefined,
+        waiterName: waiter.waiterName || undefined,
+        tableId: waiter.tableId || undefined,
+        tableName: waiter.tableName || undefined,
+      });
       if (!result.ok) {
         Alert.alert('No se pudo guardar la orden', result.message);
         return;
@@ -105,6 +113,12 @@ export default function PaymentScreen() {
           {customer.customerName ? (
             <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: 8 }}>
               {customer.customerName}
+            </Text>
+          ) : null}
+          {isWaiterOrder ? (
+            <Text style={{ color: colors.primary, fontSize: typography.sizes.caption, marginTop: 4, fontWeight: '600' }}>
+              Orden de mesero {waiter.waiterName ? `— ${waiter.waiterName}` : ''}
+              {waiter.tableId ? ` — Mesa ${waiter.tableName || waiter.tableId}` : ''}
             </Text>
           ) : null}
         </View>

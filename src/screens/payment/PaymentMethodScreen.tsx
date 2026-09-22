@@ -28,7 +28,7 @@ type Props = {
 export default function PaymentMethodScreen({ route }: Props) {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { items: cartItems, subtotalCents: cartSubtotal, customer: cartCustomer, clear } = useCart();
+  const { items: cartItems, subtotalCents: cartSubtotal, customer: cartCustomer, waiter, isWaiterOrder, clear } = useCart();
 
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [receivedText, setReceivedText] = useState('');
@@ -74,6 +74,11 @@ export default function PaymentMethodScreen({ route }: Props) {
             customer,
             paymentMethod: payMethod,
             receivedCents: received,
+            orderType: isWaiterOrder ? 'waiter' : 'counter',
+            waiterId: waiter.waiterId || undefined,
+            waiterName: waiter.waiterName || undefined,
+            tableId: waiter.tableId || undefined,
+            tableName: waiter.tableName || undefined,
           });
       if (!result.ok) {
         setError(result.message);
