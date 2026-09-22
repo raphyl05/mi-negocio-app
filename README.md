@@ -123,6 +123,19 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - Backend: `AccessService.RequireCapability()` y endpoints de capacidades operativos; `RequireCapability` listo para consumir en módulos restaurant (F8+).
 - Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F7.md`.
 
+**Fase F8 COMPLETADA ✅ — Comandas/Meseros:**
+
+- **Modelo `src/models/order.ts`**: ampliado con `OrderType` ('counter'|'waiter'), `OrderPrepStatus`, `OrderEvent`, `CustomerData` con `customerId`, y campos `waiterId`, `waiterName`, `tableId`, `tableName`, `prepStatus`, `events` en `Order`.
+- **`src/utils/order.ts`**: `buildOrder` acepta y propaga campos de mesero/mesa con defaults (`orderType='counter'`, `events=[]`).
+- **`src/services/orderService.ts`**: `savePendingOrder` y `payNewOrder` aceptan `orderType`, `waiterId`, `waiterName`, `tableId`, `tableName`.
+- **`src/services/syncService.ts`**: `toOrderBatch` incluye todos los campos de restaurante (`orderType`, `waiterId`, `waiterName`, `tableId`, `tableName`, `prepStatus`, `events`, `customerDescription`).
+- **`src/contexts/CartContext.tsx`**: nuevo estado `waiter` (`WaiterInfo`), `isWaiterOrder`, `setWaiterOrder`, `setWaiter`.
+- **`src/screens/home/InvoiceScreen.tsx`**: toggle "Modo mesero" visible cuando `waiters` capability está ON.
+- **`src/screens/payment/PaymentScreen.tsx`**: pasa datos de mesero a `savePendingOrder`; muestra info de mesero en resumen.
+- **`src/screens/payment/PaymentMethodScreen.tsx`**: propaga campos de mesero a `payNewOrder`.
+- Tests actualizados (5 archivos) con `orderType` y `events`.
+- Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F8.md`.
+
 ---
 
 ## Auditoría técnica (endurecimiento) — Fases 0 a 19
