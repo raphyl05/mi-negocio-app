@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Screen from '../../components/Screen';
 import { useTheme } from '../../theme';
@@ -7,6 +7,7 @@ import type { Order } from '../../models/order';
 import { apiCreateKitchenTicket, apiCancelKitchenTicket, apiUpdateKitchenStatus } from '../../services/kitchenApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import PrimaryButton from '../../components/PrimaryButton';
 import { formatMoney } from '../../utils/money';
 
@@ -27,17 +28,20 @@ const PREP_STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_ORDER = ['sent', 'preparing', 'ready', 'served'];
+const POLL_INTERVAL_MS = 10000;
 
 export default function KitchenScreen() {
   const { colors, spacing, typography } = useTheme();
   const { hasCapability, session } = useAuth();
   const { clear } = useCart();
+  const { notify } = useNotifications();
   const businessId = session?.businesses[0]?.id ?? '';
   const kitchenEnabled = hasCapability(businessId, 'kitchen');
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -50,15 +54,25 @@ export default function KitchenScreen() {
   }, []);
 
   useEffect(() => {
+    if (!kitchenEnabled) return;
     load();
-  }, [load]);
+    pollRef.current = setInterval(() => {
+      load().catch(() => { /* silenciar error de polling */ });
+    }, POLL_INTERVAL_MS);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [load, kitchenEnabled]);
 
   const handleCreateTicket = async (orderId: string) => {
     setProcessing(orderId);
     try {
       const res = await apiCreateKitchenTicket(orderId);
       if (res.ok) {
+        notify('Comanda enviada a cocina', 'success');
         await load();
+      } else {
+        notify(res.error?.message ?? 'Error al enviar a cocina', 'error');
       }
     } finally {
       setProcessing(null);
@@ -70,7 +84,10 @@ export default function KitchenScreen() {
     try {
       const res = await apiUpdateKitchenStatus(orderId, prepStatus);
       if (res.ok) {
+        notify(`Estado actualizado a ${PREP_STATUS_LABEL[prepStatus]}`, 'success');
         await load();
+      } else {
+        notify(res.error?.message ?? 'Error al actualizar estado', 'error');
       }
     } finally {
       setProcessing(null);
@@ -82,7 +99,10 @@ export default function KitchenScreen() {
     try {
       const res = await apiCancelKitchenTicket(orderId);
       if (res.ok) {
+        notify('Comanda cancelada', 'warning');
         await load();
+      } else {
+        notify(res.error?.message ?? 'Error al cancelar', 'error');
       }
     } finally {
       setProcessing(null);

@@ -4,10 +4,12 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { CartProvider } from './src/contexts/CartContext';
+import { NotificationProvider } from './src/contexts/NotificationContext';
 import { PendingOrdersProvider } from './src/contexts/PendingOrdersContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import LoginScreen from './src/screens/login/LoginScreen';
 import SetupScreen from './src/screens/setup/SetupScreen';
+import ToastHost from './src/components/ToastHost';
 import { printerService } from './src/services/printerService';
 import { isSetupDone } from './src/services/setupService';
 import { ThemeProvider, useTheme } from './src/theme';
@@ -65,11 +67,14 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <CartProvider>
-            <PendingOrdersProvider>
-              <ThemedApp />
-            </PendingOrdersProvider>
-          </CartProvider>
+          <NotificationProvider>
+            <CartProvider>
+              <PendingOrdersProvider>
+                <ThemedApp />
+                <ToastHost />
+              </PendingOrdersProvider>
+            </CartProvider>
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
