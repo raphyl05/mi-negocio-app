@@ -12,6 +12,7 @@ using Vendelo.Api.Endpoints;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddCors(o => o.AddPolicy("dev", c => c.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
 var dbProvider = builder.Configuration["Database:Provider"] ?? "Npgsql";
 builder.Services.AddDbContext<VendeloDbContext>(o =>
@@ -79,6 +80,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseCors("dev");
 app.UseMiddleware<ApiErrorHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
