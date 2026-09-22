@@ -28,6 +28,21 @@ export type SessionResponse = {
   businesses: Array<{ id: string; name: string; role: string }>;
 };
 
+export type BusinessCapabilities = {
+  restaurant: boolean;
+  waiters: boolean;
+  tables: boolean;
+  kitchen: boolean;
+  kitchenPrinting: boolean;
+};
+
+export type CapabilitiesResponse = {
+  businessType: string;
+  capabilities: BusinessCapabilities;
+  settings: Record<string, unknown>;
+  capabilityVersion: number;
+};
+
 async function getTokens(): Promise<{ access: string | null; refresh: string | null }> {
   const [access, refresh] = await Promise.all([
     SecureStore.getItemAsync(TOKEN_KEY_ACCESS),
@@ -170,6 +185,11 @@ export async function apiRefresh(): Promise<{ ok: boolean; data?: RefreshRespons
 
 export async function apiSession(): Promise<{ ok: boolean; data?: SessionResponse; error?: { code: string; message: string } }> {
   const res = await apiFetch<SessionResponse>('/auth/session');
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiGetCapabilities(businessId: string): Promise<{ ok: boolean; data?: CapabilitiesResponse; error?: { code: string; message: string } }> {
+  const res = await apiFetch<CapabilitiesResponse>(`/businesses/${businessId}/capabilities`);
   return { ok: !!res.data, data: res.data, error: res.error };
 }
 

@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Card from '../../components/Card';
 import Screen from '../../components/Screen';
 import { usePrinter } from '../../hooks/usePrinter';
+import { useAuth } from '../../contexts/AuthContext';
 import type { RootStackParamList } from '../../navigation/types';
 import { useTheme } from '../../theme';
 
@@ -15,6 +16,16 @@ export default function ConfigurationScreen() {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { statusLabel, available } = usePrinter();
+  const { session, hasCapability } = useAuth();
+  const businessId = session?.businesses[0]?.id ?? '';
+
+  const features = [
+    { key: 'restaurant', icon: 'restaurant', title: 'Modo restaurante', desc: 'Comandas, mesas y cocina' },
+    { key: 'waiters', icon: 'person', title: 'Meseros', desc: 'Asignar meseros a órdenes' },
+    { key: 'tables', icon: 'list', title: 'Mesas', desc: 'Gestionar mesas y ocupación' },
+    { key: 'kitchen', icon: 'walk', title: 'Cocina', desc: 'Comanda de cocina y estado' },
+    { key: 'kitchenPrinting', icon: 'print', title: 'Impresión cocina', desc: 'Tickets de cocina automáticos' },
+  ] as const;
 
   return (
     <Screen>
@@ -32,6 +43,36 @@ export default function ConfigurationScreen() {
             Configuración
           </Text>
         </View>
+
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
+          CARACTERÍSTICAS DEL NEGOCIO
+        </Text>
+        <Card style={styles.cardList}>
+          {features.map((f, i) => {
+            const enabled = hasCapability(businessId, f.key);
+            return (
+              <View key={f.key}>
+                <View style={styles.featureRow}>
+                  <View style={[styles.featureIconCircle, { backgroundColor: colors.surfaceMuted }]}>
+                    <Ionicons name={f.icon as any} size={20} color={enabled ? colors.primary : colors.textSecondary} />
+                  </View>
+                  <View style={styles.featureText}>
+                    <Text style={[styles.featureTitle, { color: colors.textPrimary, fontSize: typography.sizes.body }]}>{f.title}</Text>
+                    <Text style={[styles.featureDesc, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>{f.desc}</Text>
+                  </View>
+                  <View style={[styles.featureBadge, { backgroundColor: enabled ? colors.success + '22' : colors.surfaceMuted }]}>
+                    <Text style={[styles.featureBadgeText, { color: enabled ? colors.success : colors.textSecondary }]}>
+                      {enabled ? 'ACTIVA' : 'INACTIVA'}
+                    </Text>
+                  </View>
+                </View>
+                {i < features.length - 1 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
+              </View>
+            );
+          })}
+        </Card>
+
+        <View style={styles.gap} />
 
         <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
           VENTAS Y PAGOS
@@ -199,5 +240,37 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: 'center',
     marginTop: 16,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  featureIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureText: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontWeight: '600',
+  },
+  featureDesc: {
+    marginTop: 1,
+  },
+  featureBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  featureBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

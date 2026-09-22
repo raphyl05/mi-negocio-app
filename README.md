@@ -115,6 +115,14 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - Device auto-registration on login/register.
 - Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F6.md`.
 
+**Fase F7 COMPLETADA ✅ — Capacidades visibles:**
+
+- **`src/services/authApi.ts`**: nuevos tipos `BusinessCapabilities` y `CapabilitiesResponse`; función `apiGetCapabilities(businessId)` que consulta `GET /businesses/{id}/capabilities`.
+- **`src/contexts/AuthContext.tsx`**: estado `capabilities` cacheado por `businessId`; métodos `fetchCapabilities(businessId)` y `hasCapability(businessId, key)` disponibles vía `useAuth()`.
+- **`src/screens/settings/ConfigurationScreen.tsx`**: nueva sección "CARACTERÍSTICAS DEL NEGOCIO" que muestra restaurant, meseros, mesas, cocina e impresión cocina con estado ACTIVA/INACTIVA según capacidades reales del negocio.
+- Backend: `AccessService.RequireCapability()` y endpoints de capacidades operativos; `RequireCapability` listo para consumir en módulos restaurant (F8+).
+- Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F7.md`.
+
 ---
 
 ## Auditoría técnica (endurecimiento) — Fases 0 a 19

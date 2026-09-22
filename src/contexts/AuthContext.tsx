@@ -7,9 +7,11 @@ import {
   apiSession,
   apiRefresh,
   apiRegister,
+  apiGetCapabilities,
   getTokens,
   clearTokens,
   type LoginResponse,
+  type CapabilitiesResponse,
 } from '../services/authApi';
 
 export type AuthUser = {
@@ -26,13 +28,24 @@ export type AuthSession = {
   businesses: Array<{ id: string; name: string; role: string }>;
 };
 
+export type BusinessCapabilities = {
+  restaurant: boolean;
+  waiters: boolean;
+  tables: boolean;
+  kitchen: boolean;
+  kitchenPrinting: boolean;
+};
+
 type AuthContextValue = {
   session: AuthSession | null;
   loading: boolean;
+  capabilities: Record<string, BusinessCapabilities>;
   login: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
   register: (name: string, username: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
+  fetchCapabilities: (businessId: string) => Promise<BusinessCapabilities | null>;
+  hasCapability: (businessId: string, key: keyof BusinessCapabilities) => boolean;
 };
 
 const TOKEN_KEY_ACCESS = '@micaja/accessToken';
@@ -42,15 +55,19 @@ const TOKEN_KEY_EXP = '@micaja/accessExp';
 const AuthContext = createContext<AuthContextValue>({
   session: null,
   loading: true,
+  capabilities: {},
   login: async () => ({ ok: false }),
   register: async () => ({ ok: false }),
   logout: async () => {},
   refreshSession: async () => false,
+  fetchCapabilities: async () => null,
+  hasCapability: () => false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [capabilities, setCapabilities] = useState<Record<string, BusinessCapabilities>>({});
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleRefresh = useCallback((expiresIn: number) => {
@@ -151,6 +168,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
+  const fetchCapabilities = useCallback(async (businessId: string): Promise<BusinessCapabilities | null> => {
+    try {
+      const res = await apiGetCapabilities(businessId);
+      if (res.data) {
+        const caps: BusinessCapabilities = {
+          restaurant: !!res.data.capabilities.restaurant,
+          waiters: !!res.data.capabilities.waiters,
+          tables: !!res.data.capabilities.tables,
+          kitchen: !!res.data.capabilities.kitchen,
+          kitchenPrinting: !!res.data.capabilities.kitchenPrinting,
+        };
+        setCapabilities((prev) => ({ ...prev, [businessId]: caps }));
+        return caps;
+      }
+    } catch { /* ignore */ }
+    return null;
+  }, []);
+
+  const hasCapability = useCallback((businessId: string, key: keyof BusinessCapabilities): boolean => {
+    return capabilities[businessId]?.[key] ?? false;
+  }, [capabilities]);
+
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
@@ -162,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, loading, login, register, logout, refreshSession }}>
+    <AuthContext.Provider value={{ session, loading, capabilities, login, register, logout, refreshSession, fetchCapabilities, hasCapability }}>
       {children}
     </AuthContext.Provider>
   );
