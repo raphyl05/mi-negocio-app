@@ -6,8 +6,11 @@ import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import { saveSetup } from '../../services/setupService';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme';
 import { formatPhoneBlur, unformatPhoneFocus, sanitizePhoneInput } from '../../utils/inputFormat';
+import { isOnline } from '../../utils/network';
+import { getDeviceId } from '../../utils/syncIdentity';
 import { validateSetup } from '../../utils/setupValidation';
 import type { SetupErrors } from '../../utils/setupValidation';
 
@@ -17,6 +20,7 @@ type SetupScreenProps = {
 
 export default function SetupScreen({ onCompleted }: SetupScreenProps) {
   const { colors, spacing, typography } = useTheme();
+  const { register } = useAuth();
 
   const [name, setName] = useState('');
   const [ownerName, setOwnerName] = useState('');
@@ -28,6 +32,7 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
   const [errors, setErrors] = useState<SetupErrors>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [generalError, setGeneralError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     const nextErrors = validateSetup({ name, username, password, confirmPassword });
@@ -35,7 +40,26 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
     if (Object.keys(nextErrors).length > 0) return;
 
     setSaving(true);
+    setGeneralError(null);
     try {
+      const online = await isOnline();
+      if (online) {
+        const deviceId = await getDeviceId();
+        const res = await register(name, username, password, deviceId);
+        if (res.ok) {
+          setSaved(true);
+          return;
+        }
+        if (res.error?.code === 'NETWORK') {
+          setGeneralError('Sin conexion. Guardando localmente.');
+        } else {
+          setGeneralError(res.error?.message || 'No se pudo registrar.');
+          setSaving(false);
+          return;
+        }
+      } else {
+        setGeneralError('Sin conexion. Guardando localmente.');
+      }
       await saveSetup({ name, ownerName, phone, address, username, password });
       setSaved(true);
     } catch {
@@ -96,6 +120,12 @@ export default function SetupScreen({ onCompleted }: SetupScreenProps) {
               Solo necesitas hacerlo una vez
             </Text>
           </View>
+
+          {generalError ? (
+            <View style={[styles.banner, { backgroundColor: colors.danger }]}>
+              <Text style={{ color: colors.white, fontSize: typography.sizes.body, textAlign: 'center' }}>{generalError}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.form}>
             <TextField label="Nombre del negocio *" value={name} onChangeText={setName} error={errors.name} placeholder="Ej. Hamburguesas El Rápido" />
@@ -161,6 +191,11 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 16,
+  },
+  banner: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
   },
   action: {
     marginTop: 24,

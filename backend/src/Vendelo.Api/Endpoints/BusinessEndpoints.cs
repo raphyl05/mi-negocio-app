@@ -200,20 +200,24 @@ public static class BusinessEndpoints
         return Results.Ok(new { revoked = true, deviceId });
     }
 
-    private static async Task<IResult> ListBackupsAsync(string id, HttpContext http, VendeloDbContext db, AccessService access, CancellationToken ct)
+    private static async Task<IResult> ListBackupsAsync(string id, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, CancellationToken ct)
     {
         var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
         if (a.Business.Id != id) throw AppException.NotFound("negocio");
         AccessService.Require(a, "backups");
+        RateLimiter.Enforce(rl, $"bk:list:b:{id}", 120, RlWindow);
+        RateLimiter.Enforce(rl, $"bk:list:ip:{http.Connection.RemoteIpAddress}", 480, RlWindow);
         var list = await db.Backups.AsNoTracking().Where(x => x.BusinessId == id).OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
         return Results.Ok(list.Select(x => new { x.Id, x.BusinessId, CreatedAt = x.CreatedAt.ToString("O") }));
     }
 
-    private static async Task<IResult> CreateBackupAsync(string id, HttpContext http, VendeloDbContext db, AccessService access, CancellationToken ct)
+    private static async Task<IResult> CreateBackupAsync(string id, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, CancellationToken ct)
     {
         var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
         if (a.Business.Id != id) throw AppException.NotFound("negocio");
         AccessService.Require(a, "backups");
+        RateLimiter.Enforce(rl, $"bk:create:b:{id}", 12, RlWindow);
+        RateLimiter.Enforce(rl, $"bk:create:ip:{http.Connection.RemoteIpAddress}", 60, RlWindow);
 
         var products = (await db.Products.AsNoTracking().Where(x => x.BusinessId == id).ToListAsync(ct)).Select(ProductDto.From);
         var customers = (await db.Customers.AsNoTracking().Where(x => x.BusinessId == id).ToListAsync(ct)).Select(NamedEntityDto.From);
@@ -240,11 +244,12 @@ public static class BusinessEndpoints
             new { backup.Id, backup.BusinessId, CreatedAt = backup.CreatedAt.ToString("O") });
     }
 
-    private static async Task<IResult> DeleteBackupAsync(string id, string backupId, HttpContext http, VendeloDbContext db, AccessService access, CancellationToken ct)
+    private static async Task<IResult> DeleteBackupAsync(string id, string backupId, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, CancellationToken ct)
     {
         var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
         if (a.Business.Id != id) throw AppException.NotFound("negocio");
         AccessService.Require(a, "backups");
+        RateLimiter.Enforce(rl, $"bk:del:b:{id}", 30, RlWindow);
         var b = await db.Backups.FirstOrDefaultAsync(x => x.Id == backupId && x.BusinessId == id, ct)
             ?? throw AppException.NotFound("backup");
         db.Backups.Remove(b);
@@ -252,11 +257,12 @@ public static class BusinessEndpoints
         return Results.Ok(new { deleted = true });
     }
 
-    private static async Task<IResult> RestoreBackupAsync(string id, string backupId, HttpContext http, VendeloDbContext db, AccessService access, CancellationToken ct)
+    private static async Task<IResult> RestoreBackupAsync(string id, string backupId, HttpContext http, VendeloDbContext db, AccessService access, RateLimiter rl, CancellationToken ct)
     {
         var a = await access.ResolveAsync(http.User, http.User.DeviceIdOf(), ct);
         if (a.Business.Id != id) throw AppException.NotFound("negocio");
         AccessService.Require(a, "backups");
+        RateLimiter.Enforce(rl, $"bk:restore:b:{id}", 5, RlWindow);
         var b = await db.Backups.AsNoTracking().FirstOrDefaultAsync(x => x.Id == backupId && x.BusinessId == id, ct)
             ?? throw AppException.NotFound("backup");
         var payload = Json.Des<BackupPayload>(b.PayloadJson) ?? throw new AppException("INTERNAL_ERROR", "Backup corrupto.", 500);
@@ -279,6 +285,8 @@ public static class BusinessEndpoints
 
     private static readonly HashSet<string> ValidBusinessTypes =
         ["COMMERCE", "RESTAURANT", "FOOD_TRUCK", "MOBILE_VENDOR", "SERVICE", "OTHER"];
+
+    private static readonly TimeSpan RlWindow = TimeSpan.FromMinutes(1);
 
     private static readonly string[] CapKeys = ["restaurant", "waiters", "tables", "kitchen", "kitchenPrinting"];
 

@@ -16,7 +16,8 @@ type BootStatus = 'loading' | 'setup' | 'ready';
 
 function BootGate() {
   const { colors, typography } = useTheme();
-  const { authed, login } = useAuth();
+  const { session } = useAuth();
+  const { login } = useAuth();
   const [status, setStatus] = useState<BootStatus>('loading');
 
   useEffect(() => {
@@ -25,7 +26,7 @@ function BootGate() {
 
   useEffect(() => {
     isSetupDone().then((done) => setStatus(done ? 'ready' : 'setup'));
-  }, [authed]);
+  }, [session]);
 
   if (status === 'loading') {
     return (
@@ -42,8 +43,8 @@ function BootGate() {
     return <SetupScreen onCompleted={() => setStatus('ready')} />;
   }
 
-  if (!authed) {
-    return <LoginScreen onLogin={login} />;
+  if (!session) {
+    return <LoginScreen onLogin={() => {}} />;
   }
 
   return <RootNavigator />;

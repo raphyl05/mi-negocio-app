@@ -79,6 +79,44 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 
 ---
 
+## Fases de integración y sincronización
+
+**Fase F5 COMPLETADA ✅ — Despliegue + PostgreSQL + Migraciones + Hardening:**
+
+- **PostgreSQL 17** conectado y funcionando (Host: 127.0.0.1, Puerto: 5432, DB: `vendelo`, User: postgres, Auth: trust IPv4 / scram-sha-256 IPv6).
+- **EF Core migration pipeline**: `dotnet ef migrations add InitialCreate` → `dotnet ef database update` → 15 tablas + audit_log aplicadas en PostgreSQL.
+- **`appsettings.json` / `appsettings.Production.json`**: ConnectionStrings (Npgsql), Database:Provider, JWT config.
+- **`Program.cs`**: `MigrateAsync` (Npgsql) / `EnsureCreatedAsync` (SQLite) conditional.
+- **Audit log** (E3): `backend/deploy/001_create_audit_log.sql` — tabla + índices.
+- **Deploy script**: `backend/deploy/deploy.ps1`.
+- **Hardening**: logging 500 errores, JWT tokens secure, no sensitive data logged.
+- Tests: 40/40 backend, 298/298 cliente, tsc limpio. INFORME: `docs/INFORME-F5.md`.
+
+**Fase F5.1 COMPLETADA ✅ — Conectar cliente RN ↔ API:**
+
+- **`src/config/api.ts`**: API base URL config (global/env/fallback), `apiUrl()` helper.
+- **`src/services/apiTypes.ts`**: ApiError, ApiResponse, RequestInitExtended types.
+- **`src/services/authApi.ts`**: apiFetch (auto-refresh on 401), apiLogin, apiRegister, apiRefresh, apiSession, apiLogout, token management.
+- **`src/services/syncApi.ts`**: syncPull, syncPush, syncPushBatch.
+- **`src/utils/network.ts`**: `isOnline()` via `@react-native-community/netinfo`.
+- **`src/contexts/AuthContext.tsx`**: Rewritten with real API auth (login, register, logout, refreshSession, token scheduler, session restore).
+- **`src/screens/login/LoginScreen.tsx`**: Uses apiLogin via useAuth; onForgot prop optional.
+- **`src/screens/setup/SetupScreen.tsx`**: Tries apiRegister when online, falls back to local saveSetup when offline.
+- **`App.tsx`**: Uses session from AuthContext.
+- **`src/services/syncQueue.ts`**: Added syncPushData + API sync in processQueue.
+- Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F5.1.md`.
+
+**Fase F6 COMPLETADA ✅ — Multi-device sync:**
+
+- **`src/services/syncService.ts`**: Core sync service — syncPushData (7 entity types with field mapping), syncPullData (cursor-based), syncFull, getLastCursor.
+- **`src/hooks/useAutoSync.ts`**: Auto-sync on network reconnect / foreground return.
+- **`src/services/syncQueue.ts`**: Updated to use syncService for real data push (was empty batches).
+- Backend device management: devices CRUD, device roles (admin/cashier/waiter/kitchen/printer), device-based access control, sync endpoints (pull/push) operational.
+- Device auto-registration on login/register.
+- Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F6.md`.
+
+---
+
 ## Auditoría técnica (endurecimiento) — Fases 0 a 19
 
 Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLOQ-1/B-02/BLOQ-2/BLOQ-3). Objetivo: estabilizar el núcleo financiero antes de usar datos reales. Reglas vigentes: no reescribir, cambios mínimos, una fase = verificación, no avanzar con errores. Estado: **Fases 0–17 completadas**; Fase 18 = este documento; Fase 19 = validación final e informe.
@@ -381,7 +419,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 - [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
 
 ## Lo que falta
-**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Con **F3/F3.1** quedó implementado y auditado el **backend ASP.NET Core + PostgreSQL** (Source of Truth) — ver la sección **Backend** más abajo. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: sincronización cliente↔servidor (F5.1), sincronización multi-dispositivo (F6), múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF) y el respaldo en la nube. Con **F4** quedó completada la **autenticación server** (logout, cambio de contraseña con revocación por `changeEpoch`, `/auth/me`, reuso de refresh = 409 y rate limiting en login/registro/refresh) — ver `docs/INFORME-F4.md`.
+**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Con **F3/F3.1** quedó implementado y auditado el **backend ASP.NET Core + PostgreSQL** (Source of Truth) — ver la sección **Backend** más abajo. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: sincronización cliente↔servidor (F5.1), sincronización multi-dispositivo (F6), múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF) y el respaldo en la nube. Con **F4** quedó completada la **autenticación server** (logout, cambio de contraseña con revocación por `changeEpoch`, `/auth/me`, reuso de refresh = 409 y rate limiting en login/registro/refresh) y con **F4.1** la **auditoría de seguridad** (IDOR, permisos, aislamiento multi-negocio, rate-limit en sync/backups, tokens y logs) — ver `docs/INFORME-F4.md` y `docs/INFORME-F4-1.md`.
 
 ## Cómo correr la app
 
@@ -395,7 +433,7 @@ npm run android       # intenta abrir en Android (si hay emulador/dispositivo co
 - En el **navegador**: expone la app a tamaño móvil.
 - En el **teléfono**: instalar **Expo Go** (Google Play) y escanear el QR de `npm start`.
 
-## Backend (F3 / F3.1 / F4)
+## Backend (F3 / F3.1 / F4 / F4.1)
 
 Servidor API **Source of Truth** del historial: ASP.NET Core Minimal API (net10.0) + EF Core 10 + PostgreSQL 17 (SQLite en tests).
 
@@ -403,12 +441,12 @@ Servidor API **Source of Truth** del historial: ASP.NET Core Minimal API (net10.
 cd backend
 dotnet restore
 dotnet run --project src/Vendelo.Api      # Development → http://localhost:5243 (OpenAPI en /openapi/v1.json)
-dotnet test Vendelo.slnx                  # 36/36 tests de integración
+dotnet test Vendelo.slnx                  # 40/40 tests de integración
 ```
 
 - Proveedor/config por env: `Database:Provider` (Npgsql | Sqlite), `ConnectionStrings:Vendelo`, `Jwt__Key`. En Development hay clave JWT local de respaldo (SIN uso en producción).
 - Estructura: `backend/src/Vendelo.Api/{Endpoints, Data, Auth, Common}` + `backend/tests/Vendelo.Api.Tests`.
-- Contratos y decisiones: `docs/API-CONTRACT.md`, `docs/BACKEND-F3-CONTRACT.md`; cierres de fase: `docs/INFORME-F3.md`, `docs/INFORME-F3-1.md`, `docs/INFORME-F4.md`.
+- Contratos y decisiones: `docs/API-CONTRACT.md`, `docs/BACKEND-F3-CONTRACT.md`; cierres de fase: `docs/INFORME-F3.md`, `docs/INFORME-F3-1.md`, `docs/INFORME-F4.md`, `docs/INFORME-F4-1.md`.
 
 ## Decisiones técnicas ya acordadas (no cambiar sin discusión)
 

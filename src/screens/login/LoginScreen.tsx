@@ -6,6 +6,8 @@ import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
 import { getUser, setNewPassword, verifyLogin, verifySecurityAnswer } from '../../services/setupService';
+import { apiLogin } from '../../services/authApi';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme';
 import { validateAnswer, validateNewPassword } from '../../utils/securityValidation';
 import { validateLogin } from '../../utils/loginValidation';
@@ -24,16 +26,18 @@ type SecurityErrors = {
 
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const { colors, spacing, typography } = useTheme();
+  const { login: authLogin } = useAuth();
   const [mode, setMode] = useState<'login' | 'recover'>('login');
+  const [netError, setNetError] = useState<string | null>(null);
 
   if (mode === 'recover') {
     return <RecoveryForm onBack={() => setMode('login')} onLogin={onLogin} />;
   }
 
-  return <LoginForm onLogin={onLogin} onForgot={() => setMode('recover')} />;
+  return <LoginForm onLogin={onLogin} onAuthLogin={authLogin} netError={netError} setNetError={setNetError} />;
 }
 
-function LoginForm({ onLogin, onForgot }: { onLogin: () => void; onForgot: () => void }) {
+function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot }: { onLogin: () => void; onAuthLogin: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>; netError: string | null; setNetError: (e: string | null) => void; onForgot?: () => void }) {
   const { colors, spacing, typography } = useTheme();
 
   const [username, setUsername] = useState('');
@@ -46,18 +50,22 @@ function LoginForm({ onLogin, onForgot }: { onLogin: () => void; onForgot: () =>
     const nextErrors = validateLogin({ username, password });
     setErrors(nextErrors);
     setGeneralError(null);
+    setNetError(null);
     if (Object.keys(nextErrors).length > 0) return;
 
     setLoading(true);
     try {
-      const user = await verifyLogin(username, password);
-      if (!user) {
-        setGeneralError('Usuario o contraseña incorrectos.');
-        return;
+      const deviceId = 'dev-' + Date.now();
+      const res = await onAuthLogin(username, password, deviceId);
+      if (res.ok) {
+        onLogin();
+      } else if (res.error?.code === 'NETWORK') {
+        setNetError('Sin conexion. Intenta de nuevo cuando tengas red.');
+      } else {
+        setGeneralError(res.error?.message || 'Usuario o contrasea incorrectos.');
       }
-      onLogin();
     } catch {
-      setGeneralError('No se pudo iniciar sesión. Inténtalo de nuevo.');
+      setGeneralError('No se pudo iniciar sesin. Intntalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -124,11 +132,13 @@ function LoginForm({ onLogin, onForgot }: { onLogin: () => void; onForgot: () =>
               <PrimaryButton label="Entrar" onPress={handleSubmit} loading={loading} />
             </View>
 
-            <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotLink}>
-              <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '600' }}>
-                ¿Olvidaste tu contraseña?
-              </Text>
-            </Pressable>
+            {onForgot ? (
+              <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotLink}>
+                <Text style={{ color: colors.primary, fontSize: typography.sizes.body, fontWeight: '600' }}>
+                  ¿Olvidaste tu contraseña?
+                </Text>
+              </Pressable>
+            ) : null}
           </Column>
         </ScrollView>
       </KeyboardAvoidingView>

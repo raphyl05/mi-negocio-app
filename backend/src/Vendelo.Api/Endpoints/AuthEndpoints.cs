@@ -27,17 +27,12 @@ public static class AuthEndpoints
         g.MapPost("/accounts/recover", RecoverAsync);
     }
 
-    private static void BumpRate(RateLimiter limiter, string key, int max)
-    {
-        var wait = limiter.Consume(key, max, RlWindow);
-        if (wait > 0)
-            throw new AppException("RATE_LIMITED", "Demasiados intentos. Inténtalo de nuevo en un momento.", 429)
-            {
-                RetryAfterSeconds = wait
-            };
-    }
+    private static void BumpRate(RateLimiter limiter, string key, int max) =>
+        RateLimiter.Enforce(limiter, key, max, RlWindow);
 
     private static readonly TimeSpan RlWindow = TimeSpan.FromMinutes(1);
+
+    private static readonly string DummyHash = PasswordHasher.Hash("dummy-timing-equalizer");
 
     private static async Task<IResult> RegisterAsync(
         RegisterRequestDto req, HttpContext http, VendeloDbContext db, TokenService tokens, RateLimiter rl,
@@ -153,7 +148,14 @@ public static class AuthEndpoints
         var user = await db.Users.AsNoTracking()
             .FirstOrDefaultAsync(x => isEmail ? x.Email == req.Identifier : x.Phone == req.Identifier, ct);
 
-        if (user is null || !PasswordHasher.Verify(req.Password ?? "", user.PasswordHash))
+        if (user is null)
+        {
+            // Iguala el tiempo de respuesta con una verificación real (anti-enumeración por timing).
+            PasswordHasher.Verify(req.Password ?? "", DummyHash);
+            throw new AppException("UNAUTHORIZED", "Credenciales inválidas.", 401);
+        }
+
+        if (!PasswordHasher.Verify(req.Password ?? "", user.PasswordHash))
             throw new AppException("UNAUTHORIZED", "Credenciales inválidas.", 401);
 
         var membership = await db.Memberships.AsNoTracking()

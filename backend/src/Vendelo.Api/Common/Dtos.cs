@@ -11,7 +11,7 @@ public static class EnvelopeHelper
     };
 }
 
-public sealed class ApiErrorHandlingMiddleware(RequestDelegate next)
+public sealed class ApiErrorHandlingMiddleware(RequestDelegate next, ILogger<ApiErrorHandlingMiddleware> log)
 {
     public async Task InvokeAsync(HttpContext ctx)
     {
@@ -28,11 +28,11 @@ public sealed class ApiErrorHandlingMiddleware(RequestDelegate next)
         }
         catch (Exception ex)
         {
-            var scope = ctx.RequestServices.CreateAsyncScope();
-            scope.Dispose();
             ctx.Response.StatusCode = 500;
             await Write(ctx, "INTERNAL_ERROR", "Ocurrió un error interno.", null);
-            Console.Error.WriteLine(ex);
+            log.LogError(ex, "INTERNAL_ERROR {method} {path} {requestId}",
+                ctx.Request.Method, ctx.Request.Path,
+                ctx.Request.Headers.TryGetValue("X-Request-Id", out var rid) ? rid.ToString() : "");
         }
     }
 

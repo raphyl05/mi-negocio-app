@@ -31,4 +31,14 @@ public sealed class RateLimiter
             if (_buckets.TryUpdate(key, next, bucket)) return 0;
         }
     }
+
+    public static void Enforce(RateLimiter limiter, string key, int max, TimeSpan window)
+    {
+        var wait = limiter.Consume(key, max, window);
+        if (wait > 0)
+            throw new AppException("RATE_LIMITED", "Demasiados intentos. Inténtalo de nuevo en un momento.", 429)
+            {
+                RetryAfterSeconds = wait
+            };
+    }
 }

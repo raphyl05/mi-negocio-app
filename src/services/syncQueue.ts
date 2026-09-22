@@ -2,8 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDriveStatus } from './driveService';
 import { buildBackupBundle } from './backupService';
 import { uploadBackup } from './driveService';
+import { syncPushData, type SyncResult } from './syncService';
+import { getBusiness } from './setupService';
 
 const PENDING_KEY = '@micaja/pendingSync';
+
+export type SyncPushResult = { ok: boolean; accepted: number; rejected: number };
+export { type SyncResult } from './syncService';
 
 async function getPending(): Promise<string[]> {
   const raw = await AsyncStorage.getItem(PENDING_KEY);
@@ -37,6 +42,13 @@ export async function processQueue(): Promise<{ synced: number; errors: string[]
       const result = await uploadBackup(bundle);
       if (result.ok) synced++;
       else { errors.push(result.message); break; }
+      try {
+        const business = await getBusiness();
+        if (business?.id) {
+          const pushRes = await syncPushData(business.id);
+          if (pushRes.errors.length > 0) errors.push(`api-sync: ${pushRes.errors.join(', ')}`);
+        }
+      } catch { /* API sync optional */ }
     } catch (err) {
       errors.push(err instanceof Error ? err.message : 'Error');
       break;

@@ -28,9 +28,12 @@ public static class SyncEndpoints
     }
 
     private static async Task<IResult> PullAsync(
-        string businessId, string? since, HttpContext http, VendeloDbContext db, AccessService access, CancellationToken ct)
+        string businessId, string? since, HttpContext http, VendeloDbContext db, AccessService access,
+        RateLimiter rl, CancellationToken ct)
     {
         await AccessAsync(businessId, http, access, ct);
+        RateLimiter.Enforce(rl, $"sync:pull:b:{businessId}", 600, RlWindow);
+        RateLimiter.Enforce(rl, $"sync:pull:ip:{http.Connection.RemoteIpAddress}", 1200, RlWindow);
         await db.EnsureSeqAsync(businessId, ct);
 
         long after = ParseSeq(since, out var isSnapshot);
@@ -80,9 +83,12 @@ public static class SyncEndpoints
     }
 
     private static async Task<IResult> PushAsync(
-        string businessId, PushRequestDto req, HttpContext http, VendeloDbContext db, AccessService access, CancellationToken ct)
+        string businessId, PushRequestDto req, HttpContext http, VendeloDbContext db, AccessService access,
+        RateLimiter rl, CancellationToken ct)
     {
         await AccessAsync(businessId, http, access, ct);
+        RateLimiter.Enforce(rl, $"sync:push:b:{businessId}", 120, RlWindow);
+        RateLimiter.Enforce(rl, $"sync:push:ip:{http.Connection.RemoteIpAddress}", 480, RlWindow);
         req.RequestId = (req.RequestId ?? "").Trim();
         if (req.RequestId.Length is < 8 or > 64)
             throw new AppException("VALIDATION_ERROR", "requestId obligatorio (8–64).", 400);
@@ -387,6 +393,7 @@ public static class SyncEndpoints
     }
 
     #region helpers
+    private static readonly TimeSpan RlWindow = TimeSpan.FromMinutes(1);
     private static bool IsJsonObject(object o) => o is JsonObject or Dictionary<string, object?>;
     private static bool IsValidType(string t) => t is "COMMERCE" or "RESTAURANT" or "FOOD_TRUCK" or "MOBILE_VENDOR" or "SERVICE" or "OTHER";
     private static Dictionary<string, object?> DeserializeDict(object o)
