@@ -26,17 +26,13 @@ type BootStatus = 'loading' | 'setup' | 'ready';
 function BootGate() {
   const { colors, typography } = useTheme();
   const { session } = useAuth();
-  const { login } = useAuth();
   const [status, setStatus] = useState<BootStatus>('loading');
 
   useEffect(() => {
     printerService.init();
     initStorageMaintenance();
     runStartupStorageMaintenance();
-  }, []);
-
-  useEffect(() => {
-    isSetupDone().then((done) => setStatus(done ? 'ready' : 'setup'));
+    isSetupDone().then(() => setStatus('ready'));
   }, [session]);
 
   if (status === 'loading') {
@@ -56,8 +52,8 @@ function BootGate() {
 
   return (
     <>
-      {session ? <SyncEngine /> : null}
-      {!session ? <LoginScreen onLogin={() => {}} /> : <RootNavigator />}
+      {session && !session.offline ? <SyncEngine /> : null}
+      {!session ? <LoginScreen onLogin={() => {}} onCreateAccount={() => setStatus('setup')} /> : <RootNavigator />}
     </>
   );
 }

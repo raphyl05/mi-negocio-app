@@ -19,7 +19,17 @@ import type {
   PrinterState,
   PrinterStatus,
   PrinterTransportInfo,
+  PrinterType,
 } from './printer/types';
+
+// Prioridad para la elección automática: prefiere nombres típicos de térmicas
+// BLE (58 mm) sobre flags genéricos del sistema.
+function printerPriority(name: string): number {
+  const normalized = name.toLowerCase();
+  if (/term|impresora|printer|58|thermal/.test(normalized)) return 2;
+  if (normalized.includes('ble')) return 1;
+  return 0;
+}
 
 export type PrintTicketLine = {
   name: string;
@@ -224,6 +234,8 @@ export class PrinterController {
     this.startWatcher();
     if (this.config.enabled) {
       await this.ensureConnected();
+    } else if (!this.config.type) {
+      await this.autoConfigure();
     }
   }
 
@@ -274,15 +286,29 @@ export class PrinterController {
     }
   }
 
-  async discover(): Promise<DiscoveredPrinter[]> {
+  async discover(kinds?: PrinterType[]): Promise<DiscoveredPrinter[]> {
+    const sources = kinds ? transports().filter((tr) => kinds.includes(tr.kind)) : transports();
     const found = await Promise.all(
-      transports().map((transport) => transport.discover().catch(() => [] as DiscoveredPrinter[])),
+      sources.map((transport) => transport.discover().catch(() => [] as DiscoveredPrinter[])),
     );
     const byId = new Map<string, DiscoveredPrinter>();
     for (const device of found.flat()) {
       if (!byId.has(device.id)) byId.set(device.id, device);
     }
     return Array.from(byId.values());
+  }
+
+  // Primera ejecución: si se detecta una térmica Bluetooth, se configura sola
+  // en el arranque (sin que el usuario entre a Configuración → Impresora).
+  async autoConfigure(): Promise<void> {
+    if (this.config.type) return;
+    const devices = await this.discover(['bluetooth']);
+    const thermal = devices
+      .slice()
+      .sort((a, b) => printerPriority(b.name) - printerPriority(a.name));
+    const target = thermal[0];
+    if (!target) return;
+    await this.connect(target);
   }
 
   transportInfo(): PrinterTransportInfo[] {

@@ -64,6 +64,15 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **Stock devuelto de forma segura al anular:** anular una venta cobrada marca `voided` y **devuelve todo el stock de sus líneas en la misma transacción** (o se anula y se devuelve, o no pasa nada; nunca a medias).
 - **Tests:** `__tests__/orderService.test.ts` (18 tests) con repositorios en memoria + `withTransaction` de identidad (SQLite jamás entra al entorno de test). Total: **203 tests, 24 suites, pasando** + `tsc --noEmit` limpio.
 
+**Fase 34 COMPLETADA ✅ — ajustes de la versión actual (1 solo panel, offline-first):**
+
+- **Login rediseñado (crear/cargar cuenta):** al abrir la app, el login **detecta automáticamente** si ya hay una cuenta configurada en ese dispositivo (`isSetupDone` + `getUser`) y ofrece "Crear mi cuenta" o "Iniciar sesión" según corresponda. Campo de acceso unificado **"Correo o usuario"**; ya no hay selector de rol de dispositivo (el único panel es admin/rol completo, validado en backend `Access.cs`).
+- **Sync corregido para uso offline:** con sesión local/offline el `SyncEngine` ya no se monta (`session && !session.offline` en `App.tsx`), por lo que **ya no aparece el error "Sincronización"** al apuntar a un servidor local. El sync real multi-dispositivo se retoma cuando se active el servidor; mientras tanto los datos viven y se restauran localmente en el dispositivo.
+- **Configuración simplificada:** se **eliminó la sección "CARACTERÍSTICAS DEL NEGOCIO"** de Más → Configuración (las capacidades se administran vía servidor cuando esté desplegado; en un solo panel no aplican).
+- **Impresora con auto-configuración:** al **primer arranque**, si se detecta una térmica Bluetooth BLE, la app **se configura sola** (sin entrar a Más → Impresora): `autoConfigure()` en `printerService.ts` descubre y conecta la mejor candidata (nombre tipo "térmica/58mm/impresora"). Los **permisos Bluetooth Android 12+** se piden también al escanear (`bleBridge.native.ts`), no solo al conectar.
+- **Botón "Buscar impresoras Bluetooth":** en Más → Impresora, la tarjeta Bluetooth ahora muestra un **botón dedicado** para buscar y conectar térmicas BLE cuando el transporte nativo está disponible (funciona en el APK compilado con `react-native-ble-plx`; en Expo Go el módulo nativo no existe y se muestra el motivo).
+- Verificación: `tsc --noEmit` limpio + jest **341/341 (39 suites)**.
+
 **Fase F3 COMPLETADA ✅ — backend Source of Truth (ASP.NET Core + EF Core 10 + PostgreSQL):**
 
 - **Nuevo `backend/`** con API **ASP.NET Core Minimal API (net10.0)** + **EF Core 10** + **PostgreSQL 17** (en tests, SQLite por `Database:Provider`): se implementa el contrato `docs/API-CONTRACT.md` según `docs/BACKEND-F3-CONTRACT.md` (decisiones D1–D17).

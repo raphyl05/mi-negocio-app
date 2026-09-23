@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Column from '../../components/Column';
 import PrimaryButton from '../../components/PrimaryButton';
 import Screen from '../../components/Screen';
 import TextField from '../../components/TextField';
-import { getUser, setNewPassword, verifyLogin, verifySecurityAnswer } from '../../services/setupService';
+import { getUser, isSetupDone, setNewPassword, verifyLogin, verifySecurityAnswer } from '../../services/setupService';
 import { apiLogin, apiRecoveryRequest, apiRecoveryResetPassword, apiRecoveryVerify } from '../../services/authApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../theme';
@@ -16,6 +16,7 @@ import type { LoginErrors } from '../../utils/loginValidation';
 
 type LoginScreenProps = {
   onLogin: () => void;
+  onCreateAccount: () => void;
 };
 
 type SecurityErrors = {
@@ -25,11 +26,27 @@ type SecurityErrors = {
   confirmPassword?: string;
 };
 
-export default function LoginScreen({ onLogin }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, onCreateAccount }: LoginScreenProps) {
   const { colors, spacing, typography } = useTheme();
   const { login: authLogin } = useAuth();
-  const [mode, setMode] = useState<'login' | 'recover' | 'cloud'>('login');
+  const [mode, setMode] = useState<'login' | 'recover' | 'cloud' | 'create'>('login');
+  const [hasAccount, setHasAccount] = useState<boolean | null>(null);
   const [netError, setNetError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const detect = async () => {
+      try {
+        const setupDone = await isSetupDone();
+        const user = await getUser();
+        setHasAccount(setupDone && !!user);
+        setMode(setupDone && !!user ? 'login' : 'create');
+      } catch {
+        setHasAccount(false);
+        setMode('create');
+      }
+    };
+    void detect();
+  }, []);
 
   if (mode === 'recover') {
     return <RecoveryForm onBack={() => setMode('login')} onLogin={onLogin} />;
@@ -39,36 +56,31 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     return <CloudRecoveryForm onBack={() => setMode('login')} onLogin={onLogin} />;
   }
 
+  if (mode === 'create') {
+    return <CreateAccountView onCreateAccount={onCreateAccount} onLoadAccount={() => setMode('login')} accountExists={hasAccount} />;
+  }
+
   return (
     <LoginForm
       onLogin={onLogin}
       onAuthLogin={authLogin}
       netError={netError}
       setNetError={setNetError}
+      onCreate={() => setMode('create')}
       onForgot={() => setMode('recover')}
       onCloudForgot={() => setMode('cloud')}
     />
   );
 }
 
-function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCloudForgot }: { onLogin: () => void; onAuthLogin: (identifier: string, password: string, deviceId: string, deviceRole?: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>; netError: string | null; setNetError: (e: string | null) => void; onForgot?: () => void; onCloudForgot?: () => void }) {
+function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onCreate, onForgot, onCloudForgot }: { onLogin: () => void; onAuthLogin: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>; netError: string | null; setNetError: (e: string | null) => void; onCreate: () => void; onForgot?: () => void; onCloudForgot?: () => void }) {
   const { colors, spacing, typography } = useTheme();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [deviceRole, setDeviceRole] = useState<string | undefined>(undefined);
-  const [roleOpen, setRoleOpen] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const roleOptions: Array<{ value: string; label: string; icon: 'shield-checkmark-outline' | 'cash-outline' | 'fast-food-outline' | 'restaurant-outline' | 'print-outline' }> = [
-    { value: 'admin', label: 'Administrador', icon: 'shield-checkmark-outline' },
-    { value: 'cashier', label: 'Cajero', icon: 'cash-outline' },
-    { value: 'waiter', label: 'Mesero', icon: 'fast-food-outline' },
-    { value: 'kitchen', label: 'Cocina', icon: 'restaurant-outline' },
-    { value: 'printer', label: 'Impresora', icon: 'print-outline' },
-  ];
 
   const handleSubmit = async () => {
     const nextErrors = validateLogin({ username, password });
@@ -80,7 +92,7 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCl
     setLoading(true);
     try {
       const deviceId = await getDeviceId();
-      const res = await onAuthLogin(username, password, deviceId, deviceRole);
+      const res = await onAuthLogin(username, password, deviceId);
       if (res.ok) {
         onLogin();
       } else if (res.error?.code === 'NETWORK') {
@@ -117,7 +129,7 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCl
                 Iniciar sesión
               </Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-                Ingresa con tu usuario y contraseña
+                Ingresa con tu correo y contraseña
               </Text>
             </View>
 
@@ -129,14 +141,14 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCl
 
             <View style={styles.form}>
               <TextField
-                label="Usuario"
+                label="Correo o usuario"
                 value={username}
                 onChangeText={(text) => {
                   setUsername(text);
                   setGeneralError(null);
                 }}
                 error={errors.username}
-                placeholder="Tu usuario"
+                placeholder="Tu correo o usuario"
                 autoCapitalize="none"
               />
               <TextField
@@ -152,74 +164,17 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCl
               />
             </View>
 
-            <View style={styles.roleBlock}>
-              <Pressable
-                onPress={() => setRoleOpen((open) => !open)}
-                style={({ pressed }) => [
-                  styles.roleToggle,
-                  { backgroundColor: colors.surfaceMuted, borderColor: roleOpen ? colors.primary : colors.border, opacity: pressed ? 0.85 : 1 },
-                ]}
-              >
-                <View style={styles.roleToggleRow}>
-                  <Ionicons name="tablet-portrait-outline" size={18} color={deviceRole ? colors.primary : colors.textSecondary} />
-                  <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600', flex: 1 }}>
-                    Rol de este dispositivo
-                  </Text>
-                  <Text style={{ color: deviceRole ? colors.primary : colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '700' }}>
-                    {deviceRole ? roleOptions.find((r) => r.value === deviceRole)?.label : 'Sin asignar'}
-                  </Text>
-                  <Ionicons name={roleOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
-                </View>
-              </Pressable>
-
-              {roleOpen ? (
-                <View style={[styles.roleList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  {roleOptions.map((role) => {
-                    const active = deviceRole === role.value;
-                    return (
-                      <Pressable
-                        key={role.value}
-                        onPress={() => {
-                          setDeviceRole(active ? undefined : role.value);
-                          setRoleOpen(false);
-                        }}
-                        style={({ pressed }) => [
-                          styles.roleOption,
-                          { borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.8 : 1 },
-                        ]}
-                      >
-                        <View style={[styles.roleIcon, { backgroundColor: active ? colors.primaryLight : colors.surfaceMuted }]}>
-                          <Ionicons name={role.icon} size={18} color={active ? colors.primary : colors.textSecondary} />
-                        </View>
-                        <Text style={{ color: active ? colors.primary : colors.textPrimary, fontSize: typography.sizes.body, fontWeight: active ? '700' : '500', flex: 1 }}>
-                          {role.label}
-                        </Text>
-                        {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
-                      </Pressable>
-                    );
-                  })}
-                  <Pressable
-                    onPress={() => {
-                      setDeviceRole(undefined);
-                      setRoleOpen(false);
-                    }}
-                    style={({ pressed }) => [styles.roleClear, { opacity: pressed ? 0.8 : 1 }]}
-                  >
-                    <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '600' }}>
-                      Quitar rol (acceso completo)
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginLeft: 4 }}>
-                Define qué puede hacer este dispositivo al entrar.
-              </Text>
-            </View>
-
             <View style={styles.action}>
               <PrimaryButton label="Entrar" onPress={handleSubmit} loading={loading} />
             </View>
+
+            {onCreate ? (
+              <Pressable onPress={onCreate} hitSlop={8} style={styles.forgotLink}>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '500' }}>
+                  ¿Es tu primera vez? Crea tu cuenta aquí.
+                </Text>
+              </Pressable>
+            ) : null}
 
             {onForgot ? (
               <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotLink}>
@@ -236,6 +191,53 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCl
                 </Text>
               </Pressable>
             ) : null}
+          </Column>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+}
+
+function CreateAccountView({ onCreateAccount, onLoadAccount, accountExists }: { onCreateAccount: () => void; onLoadAccount: () => void; accountExists: boolean | null }) {
+  const { colors, spacing, typography } = useTheme();
+
+  return (
+    <Screen>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Column>
+            <View style={styles.header}>
+              <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
+                <Image source={require('../../../assets/logo-vendelo-app.png')} style={styles.logo} resizeMode="contain" />
+              </View>
+              <Text
+                style={[
+                  styles.title,
+                  { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold },
+                ]}
+              >
+                Crea tu cuenta
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
+                {accountExists === false
+                  ? 'Este dispositivo aún no tiene cuenta. Crea la tuya para empezar.'
+                  : 'Detectamos que aún no tienes una cuenta en este dispositivo. Configúrala para empezar.'}
+              </Text>
+            </View>
+
+            <View style={styles.action}>
+              <PrimaryButton label="Crear mi cuenta" onPress={onCreateAccount} />
+            </View>
+
+            <Pressable onPress={onLoadAccount} hitSlop={8} style={styles.forgotLink}>
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '500' }}>
+                ¿Ya tienes una cuenta? Inicia sesión
+              </Text>
+            </Pressable>
           </Column>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -702,48 +704,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 16,
-  },
-  roleBlock: {
-    gap: 8,
-    marginTop: 20,
-  },
-  roleToggle: {
-    minHeight: 50,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
-  roleToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  roleList: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 8,
-    gap: 6,
-  },
-  roleOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    paddingHorizontal: 10,
-  },
-  roleIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleClear: {
-    alignItems: 'center',
-    paddingVertical: 8,
   },
   card: {
     gap: 16,

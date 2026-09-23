@@ -51,6 +51,17 @@ export default function PrinterConfigScreen() {
     }
   };
 
+  const handleBluetoothSearch = async () => {
+    setSearching(true);
+    try {
+      const found = await printerService.discover(['bluetooth']);
+      setDevices(found);
+      if (found.length === 0) Alert.alert('Buscar impresoras Bluetooth', 'No se encontraron impresoras Bluetooth activas.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const handleConnect = async (printer: DiscoveredPrinter) => {
     setConnecting(true);
     try {
@@ -99,8 +110,9 @@ export default function PrinterConfigScreen() {
           Impresora
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-          Conecta una impresora para imprimir el ticket de cada venta. Una vez configurada, la app se reconecta sola
-          cuando la impresora se enciende.
+          Conecta una impresora para imprimir el ticket de cada venta. Al abrir la app por primera vez, si se detecta
+          una térmica Bluetooth se configura automáticamente. Una vez configurada, la app se reconecta sola cuando la
+          impresora se enciende.
         </Text>
 
         <Card style={styles.card}>
@@ -234,11 +246,13 @@ export default function PrinterConfigScreen() {
               estar compilada con React Native (EAS/development build), no desde Expo Go.
             </Text>
           </View>
-          {bluetoothInfo?.reason ? (
+          {bluetoothInfo?.supported ? (
+            <PrimaryButton label="Buscar impresoras Bluetooth" variant="outline" onPress={handleBluetoothSearch} loading={searching} />
+          ) : (
             <Text style={[styles.note, { color: colors.warning, fontSize: typography.sizes.caption, lineHeight: 18 }]}>
-              {bluetoothInfo.reason}
+              {bluetoothInfo?.reason ?? 'Bluetooth no disponible en este dispositivo.'}
             </Text>
-          ) : null}
+          )}
         </Card>
 
         <View style={styles.actions}>

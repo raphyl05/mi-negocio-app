@@ -113,7 +113,8 @@ class BlePrinterBridgeImpl implements BlePrinterBridge {
     return this.manager != null;
   }
 
-  discover(): Promise<BlePrinterDevice[]> {
+  async discover(): Promise<BlePrinterDevice[]> {
+    await ensureAndroidPermissions();
     return new Promise((resolve) => {
       const manager = this.manager;
       if (!manager) {
