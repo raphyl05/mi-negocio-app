@@ -11,6 +11,11 @@ using Vendelo.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Producción: hosts tipo Railway/Render/Fly inyectan el puerto en $PORT.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 builder.Services.AddOpenApi();
 builder.Services.AddCors(o => o.AddPolicy("dev", c => c.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
@@ -98,7 +103,16 @@ app.MapSyncEndpoints();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<VendeloDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    if (dbProvider.Equals("Npgsql", StringComparison.OrdinalIgnoreCase))
+    {
+        // Producción: esquema vía migraciones EF (inicia la BD y aplica versiones futuras).
+        await db.Database.MigrateAsync();
+    }
+    else
+    {
+        // Desarrollo/tests (SQLite): esquema desde el modelo, sin historial de migraciones.
+        await db.Database.EnsureCreatedAsync();
+    }
 }
 
 app.Run();

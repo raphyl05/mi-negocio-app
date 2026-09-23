@@ -4,23 +4,27 @@ using System.Text;
 namespace Vendelo.Api.Common;
 
 /// Cifrado en reposo de los respaldos (AES-GCM). La clave se deriva de
-/// "Encryption__Key" (HMAC-SHA256) y en dev hay un valor por defecto.
+/// "Encryption__Key" (HMAC-SHA256). En desarrollo hay un valor por defecto;
+/// en producción la variable es obligatoria (el arranque falla si falta).
 public static class Cipher
 {
     private const int NonceSize = 12;
     private const int TagSize = 16;
 
-    private static byte[] Key(IConfiguration cfg)
+    private static byte[] Key(IConfiguration cfg, bool isDev)
     {
         var raw = cfg["Encryption__Key"];
         if (string.IsNullOrWhiteSpace(raw))
-            raw = "vendelo-dev-encryption-key-please-rotate-in-prod";
+        {
+            if (isDev) raw = "vendelo-dev-encryption-key-please-rotate-in-prod";
+            else throw new InvalidOperationException("Encryption__Key no está configurado.");
+        }
         return SHA256.HashData(Encoding.UTF8.GetBytes(raw));
     }
 
-    public static string Encrypt(IConfiguration cfg, string plainText)
+    public static string Encrypt(IConfiguration cfg, IHostEnvironment env, string plainText)
     {
-        var key = Key(cfg);
+        var key = Key(cfg, env.IsDevelopment());
         var nonce = RandomNumberGenerator.GetBytes(NonceSize);
         var plain = Encoding.UTF8.GetBytes(plainText);
         var cipher = new byte[plain.Length];
@@ -32,13 +36,13 @@ public static class Cipher
 
     /// Devuelve el texto claro o null si el payload no se pudo descifrar (por
     /// ejemplo, un respaldo legacy guardado antes de cifrar).
-    public static string? TryDecrypt(IConfiguration cfg, string enc)
+    public static string? TryDecrypt(IConfiguration cfg, IHostEnvironment env, string enc)
     {
         try
         {
             var raw = Convert.FromBase64String(enc);
             if (raw.Length < NonceSize + TagSize) return null;
-            var key = Key(cfg);
+            var key = Key(cfg, env.IsDevelopment());
             var nonce = raw.AsSpan(0, NonceSize);
             var tag = raw.AsSpan(NonceSize, TagSize);
             var cipher = raw.AsSpan(NonceSize + TagSize);

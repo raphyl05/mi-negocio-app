@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Vendelo.Api.Common;
 using Vendelo.Api.Data;
 
@@ -237,7 +238,7 @@ public static class BusinessEndpoints
         {
             Id = GenId.New("backup"),
             BusinessId = id,
-            PayloadJson = Cipher.Encrypt(cfg, Json.Ser(payload)),
+            PayloadJson = Cipher.Encrypt(cfg, http.RequestServices.GetRequiredService<IHostEnvironment>(), Json.Ser(payload)),
             CreatedAt = DateTimeOffset.UtcNow
         };
         db.Backups.Add(backup);
@@ -267,7 +268,7 @@ public static class BusinessEndpoints
         RateLimiter.Enforce(rl, $"bk:restore:b:{id}", 5, RlWindow);
         var b = await db.Backups.AsNoTracking().FirstOrDefaultAsync(x => x.Id == backupId && x.BusinessId == id, ct)
             ?? throw AppException.NotFound("backup");
-        var plain = Cipher.TryDecrypt(cfg, b.PayloadJson);
+        var plain = Cipher.TryDecrypt(cfg, http.RequestServices.GetRequiredService<IHostEnvironment>(), b.PayloadJson);
         var json = plain ?? (b.PayloadJson.TrimStart().StartsWith("{") ? b.PayloadJson : null)
             ?? throw new AppException("INTERNAL_ERROR", "Backup corrupto.", 500);
         var payload = Json.Des<BackupPayload>(json) ?? throw new AppException("INTERNAL_ERROR", "Backup corrupto.", 500);
@@ -302,7 +303,7 @@ public static class BusinessEndpoints
         {
             Id = "self-" + Guid.NewGuid().ToString("N"),
             BusinessId = id,
-            PayloadJson = Cipher.Encrypt(cfg, payload),
+            PayloadJson = Cipher.Encrypt(cfg, http.RequestServices.GetRequiredService<IHostEnvironment>(), payload),
             CreatedAt = now
         };
         db.Backups.Add(backup);
@@ -332,7 +333,7 @@ public static class BusinessEndpoints
             .Where(x => x.BusinessId == id && x.Id.StartsWith("self-"))
             .OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync(ct)
             ?? throw AppException.NotFound("respaldo en la nube");
-        var plain = Cipher.TryDecrypt(cfg, latest.PayloadJson)
+        var plain = Cipher.TryDecrypt(cfg, http.RequestServices.GetRequiredService<IHostEnvironment>(), latest.PayloadJson)
             ?? throw new AppException("INTERNAL_ERROR", "Respaldo corrupto.", 500);
         return Results.Ok(new
         {

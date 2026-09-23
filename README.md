@@ -507,7 +507,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 - [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
 
 ## Lo que falta
-**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Con **F3/F3.1** quedó implementado y auditado el **backend ASP.NET Core + PostgreSQL** (Source of Truth) — ver la sección **Backend** más abajo. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: sincronización cliente↔servidor (F5.1), sincronización multi-dispositivo (F6), múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF) y el respaldo en la nube. Con **F4** quedó completada la **autenticación server** (logout, cambio de contraseña con revocación por `changeEpoch`, `/auth/me`, reuso de refresh = 409 y rate limiting en login/registro/refresh) y con **F4.1** la **auditoría de seguridad** (IDOR, permisos, aislamiento multi-negocio, rate-limit en sync/backups, tokens y logs) — ver `docs/INFORME-F4.md` y `docs/INFORME-F4-1.md`.
+**El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Con **F3/F3.1** quedó implementado y auditado el **backend ASP.NET Core + PostgreSQL** (Source of Truth) — ver la sección **Backend** más abajo. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: sincronización cliente↔servidor (F5.1), sincronización multi-dispositivo (F6), múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF) y el respaldo en la nube. Con **F4** quedó completada la **autenticación server** (logout, cambio de contraseña con revocación por `changeEpoch`, `/auth/me`, reuso de refresh = 409 y rate limiting en login/registro/refresh) y con **F4.1** la **auditoría de seguridad** (IDOR, permisos, aislamiento multi-negocio, rate-limit en sync/backups, tokens y logs) — ver `docs/INFORME-F4.md` y `docs/INFORME-F4-1.md`. Con **F12** el backend quedó **listo para desplegar en un servidor público** (Dockerfile multi-etapa + migraciones automáticas `MigrateAsync` en Npgsql + config 100% por variables de entorno con fail-fast si faltan secretos) — ver la sección **Despliegue en servidor público** y `docs/INFORME-F12.md`.
 
 ## Cómo correr la app
 
@@ -536,6 +536,38 @@ dotnet ef migrations add <Name>           # genera migración Npgsql (Database__
 - Proveedor/config por env: `Database:Provider` (Npgsql | Sqlite), `ConnectionStrings:Vendelo`, `Jwt__Key`. En Development hay clave JWT local de respaldo (SIN uso en producción).
 - Estructura: `backend/src/Vendelo.Api/{Endpoints, Data, Auth, Common}` + `backend/tests/Vendelo.Api.Tests`.
 - Contratos y decisiones: `docs/API-CONTRACT.md`, `docs/BACKEND-F3-CONTRACT.md`; cierres de fase: `docs/INFORME-F3.md`, `docs/INFORME-F3-1.md`, `docs/INFORME-F4.md`, `docs/INFORME-F4-1.md`.
+
+### Despliegue en servidor público
+
+El backend está listo para contenedores: `backend/Dockerfile` (multi-etapa .NET 10, puerto 8080, healthcheck contra `/api/v1/health`) y `backend/docker-compose.yml` para probar API + PostgreSQL 17 en local.
+
+```bash
+cd backend
+docker compose up --build          # levanta PostgreSQL + API en http://localhost:8080
+docker build -t vendelo-api .      # o construir la imagen directamente
+```
+
+**En el arranque**: si `Database:Provider = Npgsql`, la API aplica solas las migraciones EF (`MigrateAsync`) — no hace falta correr `dotnet ef database update` en el servidor. En SQLite (dev/tests) usa `EnsureCreatedAsync` como siempre.
+
+**Variables de entorno obligatorias en producción** (sin ellas la API **no arranca**: fail-fast):
+| Variable | Descripción |
+|---|---|
+| `PORT` | puerto HTTP que asigna el host (Railway/Render/Fly lo inyectan; por defecto 8080) |
+| `ConnectionStrings__Vendelo` | cadena de conexión PostgreSQL remota |
+| `Database__Provider` | `Npgsql` |
+| `Jwt__Key` | secreto de firma JWT (≥ 32 bytes) |
+| `Encryption__Key` | secreto de cifrado AES-GCM de los respaldos |
+| `Jwt__Issuer` / `Jwt__Audience` | opcionales (default `vendelo-api` / `vendelo-app`) |
+
+> Los secretos de desarrollo (`vendelo-dev-...`) solo existen en `Development`; `appsettings.Production.json` ya no los define.
+
+**Pasos en el host** (Railway / Render / Fly.io / VPS genérico):
+1. Subir la carpeta `backend/` (o apuntar el build a `backend/Dockerfile`).
+2. Crear la base PostgreSQL y pegar su cadena en `ConnectionStrings__Vendelo`.
+3. Generar y fijar `Jwt__Key` y `Encryption__Key` (aleatorios, por ejemplo `openssl rand -hex 32`).
+4. Exponer la URL con HTTPS. Anotar esa URL para configurar la app.
+
+**Conectar la app**: la app lee la URL desde `EXPO_PUBLIC_API_URL` (ver `src/config/api.ts`); esa variable apunta el backend del dispositivo físico a tu servidor → `https://tu-api.../`.
 
 ## Decisiones técnicas ya acordadas (no cambiar sin discusión)
 

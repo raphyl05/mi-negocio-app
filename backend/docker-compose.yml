@@ -1,0 +1,39 @@
+# Vendelo API — pila local para desarrollo/prueba contra PostgreSQL real.
+# Uso: docker compose up --build
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: vendelo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - vendelo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vendelo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Vendelo: "Host=db;Port=5432;Database=vendelo;Username=postgres;Password=postgres;"
+      Database__Provider: Npgsql
+      Jwt__Key: "dev-local-compose-key-0123456789abcdef0123456789abcdef"
+      Jwt__Issuer: vendelo-api
+      Jwt__Audience: vendelo-app
+      Encryption__Key: "dev-local-compose-encryption-key-please-rotate-in-prod"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  vendelo_pgdata:
