@@ -1,0 +1,32 @@
+# Render Blueprint — depliega el backend de Vendelo (API + PostgreSQL) en un solo clic.
+# Importar desde: dashboard.render.com → New + → Blueprint → raphyl05/mi-negocio-app
+# Después del aplicar: añadir Jwt__Key y Encryption__Key en el Environment del web service.
+
+databases:
+  - name: vendelo-db
+    plan: free
+    region: oregon
+    databaseName: vendelo
+    user: vendelo
+
+services:
+  - type: web
+    name: vendelo-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: Database__Provider
+        value: Npgsql
+      - key: Jwt__Issuer
+        value: vendelo-api
+      - key: Jwt__Audience
+        value: vendelo-app
+      # Render inyecta aquí el Internal Connection String del PostgreSQL definido arriba.
+      - key: ConnectionStrings__Vendelo
+        fromDatabase:
+          name: vendelo-db
+          property: connectionstring
