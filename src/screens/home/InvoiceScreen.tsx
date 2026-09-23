@@ -103,7 +103,7 @@ export default function InvoiceScreen({ register }: InvoiceScreenProps) {
     setStockError(null);
   }, []);
 
-  const businessId = session?.businesses[0]?.id ?? '';
+  const businessId = session?.activeBusinessId ?? session?.businesses[0]?.id ?? '';
   const waitersEnabled = hasCapability(businessId, 'waiters');
   const kitchenEnabled = hasCapability(businessId, 'kitchen');
 

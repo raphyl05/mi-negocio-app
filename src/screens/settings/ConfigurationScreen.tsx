@@ -28,7 +28,7 @@ export default function ConfigurationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { statusLabel, available } = usePrinter();
   const { session, hasCapability, fetchCapabilities, setCapabilitiesCache } = useAuth();
-  const businessId = session?.businesses[0]?.id ?? '';
+  const businessId = session?.activeBusinessId ?? session?.businesses[0]?.id ?? '';
 
   const [localCaps, setLocalCaps] = useState<Record<string, boolean> | null>(null);
   const [saving, setSaving] = useState(false);

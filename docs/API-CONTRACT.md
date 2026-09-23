@@ -158,8 +158,9 @@ recibe `passwordHash`/`passwordSalt` locales (reforzar con test en el backend, v
 | Método/Path | Body | Requisitos | Respuestas |
 |---|---|---|---|
 | `POST /auth/register` | esquema en PARTE 32.7; transacción completa definida en PARTE 6.1 | público; rate-limit | `201` con tokens + user + businesses[] |
-| `POST /auth/login` | `{ identifier, password, deviceId, deviceName }` | público; rate-limit | `200` tokens + `businesses[]` |
-| `POST /auth/refresh` | `{ refreshToken }` | sesión activa | `200` tokens rotados (es `409` si fue ya rotado y reusado: señal de robo) |
+| `POST /auth/login` | `{ identifier, password, deviceId, deviceName, deviceRole? }` (`deviceRole` opcional ∈ Roles.All, se aplica al device) | público; rate-limit | `200` tokens + `businesses[]` |
+| `POST /auth/refresh` | `{ refreshToken, businessId? }` (`businessId` opcional conserva el negocio activo) | sesión activa | `200` tokens rotados (es `409` si fue ya rotado y reusado: señal de robo) |
+| `POST /auth/switch-business` | `{ businessId, deviceName? }` | autenticado; membresía activa en el negocio destino | `200` tokens + `businesses[]` (crea/asegura el device en el negocio destino; PK de Devices compuesta `(BusinessId, Id)`) |
 | `POST /auth/logout` | `{ refreshToken }` | sesión activa | `204`; revoca sesión y refresh en servidor/cliente |
 | `POST /auth/change-password` | `{ currentPassword, newPassword }` | autenticado | `204`; invalida otras sesiones |
 | `GET /auth/me` | — | autenticado | `200` perfil + membresías |

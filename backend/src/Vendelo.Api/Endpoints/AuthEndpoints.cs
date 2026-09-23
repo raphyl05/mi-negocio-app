@@ -20,6 +20,7 @@ public static class AuthEndpoints
         g.MapPost("/auth/register", RegisterAsync);
         g.MapPost("/auth/login", LoginAsync);
         g.MapPost("/auth/refresh", RefreshAsync);
+        g.MapPost("/auth/switch-business", SwitchBusinessAsync).RequireAuthorization();
         g.MapPost("/auth/logout", LogoutAsync);
         g.MapPost("/auth/change-password", ChangePasswordAsync).RequireAuthorization();
         g.MapGet("/auth/me", MeAsync).RequireAuthorization();
@@ -186,7 +187,7 @@ public static class AuthEndpoints
             .FirstAsync(x => x.UserId == user.Id && x.Active, ct);
         var business = await db.Businesses.AsNoTracking()
             .FirstAsync(x => x.Id == membership.BusinessId, ct);
-        var device = await EnsureDeviceAsync(db, business.Id, req.DeviceId, req.DeviceName, ct);
+        var device = await EnsureDeviceAsync(db, business.Id, req.DeviceId, req.DeviceName, req.DeviceRole, ct);
 
         var (pair, _) = await IssueSessionAsync(db, tokens, business.Id, user.Id, device.Id, ct);
 
@@ -230,15 +231,42 @@ public static class AuthEndpoints
             throw new AppException("INVALID_TOKEN", "Tu sesión fue revocada. Vuelve a iniciar sesión.", 401);
         }
 
-        var device = await db.Devices.FirstOrDefaultAsync(x => x.Id == session.DeviceId, ct);
+        var device = await db.Devices.FirstOrDefaultAsync(x => x.Id == session.DeviceId &&
+            (string.IsNullOrWhiteSpace(req.BusinessId) || x.BusinessId == req.BusinessId), ct);
         var membership = await db.Memberships.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.UserId == session.UserId && x.Active, ct);
+            .FirstOrDefaultAsync(
+                string.IsNullOrWhiteSpace(req.BusinessId)
+                    ? x => x.UserId == session.UserId && x.Active
+                    : x => x.UserId == session.UserId && x.BusinessId == req.BusinessId && x.Active,
+                ct);
         if (device is null || !device.Active || membership is null)
             throw new AppException("INVALID_TOKEN", "Dispositivo o membresía inválida.", 401);
 
         var business = await db.Businesses.FirstAsync(x => x.Id == membership.BusinessId, ct);
         session.Active = false;
         var (pair, _) = await IssueSessionAsync(db, tokens, membership.BusinessId, session.UserId, device.Id, ct);
+
+        return Results.Ok(await SessionPayloadAsync(db, pair, user, business, membership.Role, ct));
+    }
+
+    private static async Task<IResult> SwitchBusinessAsync(
+        SwitchBusinessRequestDto req, HttpContext http, VendeloDbContext db, TokenService tokens, CancellationToken ct)
+    {
+        var userId = http.User.UserIdOf() ?? throw AppException.Forbidden("Sesión incompleta.");
+        if (string.IsNullOrWhiteSpace(req.BusinessId))
+            throw new AppException("VALIDATION_ERROR", "businessId es obligatorio.", 400);
+
+        var membership = await db.Memberships.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.BusinessId == req.BusinessId && x.Active, ct)
+            ?? throw AppException.Forbidden("No tienes acceso a ese negocio.");
+        var business = await db.Businesses.AsNoTracking()
+            .FirstAsync(x => x.Id == membership.BusinessId, ct);
+
+        var deviceId = http.User.DeviceIdOf();
+        var device = await EnsureDeviceAsync(db, business.Id, deviceId, req.DeviceName, null, ct);
+
+        var (pair, _) = await IssueSessionAsync(db, tokens, business.Id, userId, device.Id, ct);
+        var user = await db.Users.AsNoTracking().FirstAsync(x => x.Id == userId, ct);
 
         return Results.Ok(await SessionPayloadAsync(db, pair, user, business, membership.Role, ct));
     }
@@ -434,18 +462,28 @@ public static class AuthEndpoints
     }
 
     private static async Task<Device> EnsureDeviceAsync(
-        VendeloDbContext db, string businessId, string? deviceId, string? deviceName, CancellationToken ct)
+        VendeloDbContext db, string businessId, string? deviceId, string? deviceName, string? deviceRole, CancellationToken ct)
     {
+        if (deviceRole is not null && !Roles.All.Contains(deviceRole))
+            throw new AppException("VALIDATION_ERROR", $"rol inválido. Válidos: {string.Join(", ", Roles.All)}.", 400);
         if (string.IsNullOrWhiteSpace(deviceId) || deviceId.Length > 64)
             deviceId = $"dev-{Guid.NewGuid():N}";
         var existing = await db.Devices.FirstOrDefaultAsync(x => x.Id == deviceId && x.BusinessId == businessId, ct);
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            if (deviceRole is not null)
+            {
+                existing.Role = deviceRole;
+                await db.SaveChangesAsync(ct);
+            }
+            return existing;
+        }
         var device = new Device
         {
             Id = deviceId,
             BusinessId = businessId,
             Name = string.IsNullOrWhiteSpace(deviceName) ? deviceId : deviceName,
-            Role = null,
+            Role = deviceRole,
             Active = true,
             RegisteredAt = DateTimeOffset.UtcNow
         };

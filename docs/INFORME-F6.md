@@ -1,7 +1,7 @@
 # Vendelo App — INFORME F6: Multi-device sync
 
 **Fase:** F6 — Registro/identidad/autorización de dispositivos, membresías, sync por dispositivo, roles.
-**Fecha:** 2026-09-22 (refactor completado 2026-09-23)
+**Fecha:** 2026-09-22 (refactor completado 2026-09-23; F6-1/2/3 UI completados 2026-09-23)
 **Base:** F5.1 (conexión cliente↔API) + F3/F3.1/F4/F4.1 (backend funcional).
 **Stack:** React Native + TypeScript + Expo + SQLite ↔ ASP.NET Core + Npgsql + PostgreSQL.
 
@@ -14,7 +14,7 @@
 - Sync pull desde servidor con cursor.
 - Auto-sync al recuperar conexión (reconexión o foreground).
 - Backend ya soporta device auth, devices CRUD, sync endpoints.
-- Tests: 341/341 pass (cliente, 39 suites) + 40/40 pass (backend). tsc limpio (0 errores). expo-doctor 21/21.
+- Tests: 341/341 pass (cliente, 39 suites) + 44/44 pass (backend). tsc limpio (0 errores). expo-doctor 21/21.
 
 ---
 
@@ -25,11 +25,13 @@
 | `npm run typecheck` (`tsc --noEmit`) | **0 errores** |
 | `npm test` (cliente) | **341/341 pass** (39 suites) |
 | `dotnet build` (backend) | **0 errores** (warnings CS8604 preexistentes) |
-| `dotnet test` (backend) | **40/40 pass** (1 suite, red de integración) |
+| `dotnet test` (backend) | **44/44 pass** (40 + 4 nuevos de switch business/devices) |
 | `npx expo-doctor` | **21/21 checks OK** |
 | `dotnet ef migrations add OrderVoidFields` | aplicado (Npgsql, snapshot actualizado) |
+| `dotnet ef migrations add DeviceCompositeKey` | aplicado (Npgsql: PK Devices global → compuesta `(BusinessId, Id)`) |
 | Backend sync endpoints | **OK** — `/sync/pull`, `/sync/push` |
 | Backend device endpoints | **OK** — `/devices`, `/devices/{id}/revoke` |
+| Backend switch-business | **OK** — `POST /auth/switch-business` (re-emite sesión para otra membresía) |
 | Cambios en `src/` | nuevos archivos + modificaciones |
 
 ---
@@ -184,6 +186,12 @@ El dispositivo se registra automáticamente en el backend al:
 | `POST /devices` | Registrar dispositivo | owner |
 | `PATCH /businesses/{id}/devices/{deviceId}/revoke` | Revocar dispositivo | owner |
 
+### Gestión de dispositivos en la app (F6-1 — resuelto)
+- **`DevicesScreen`** (`src/screens/settings/DevicesScreen.tsx`): lista dispositivos del negocio activo con rol, estado Activo/Revocado y badge "ESTE EQUIPO" (vía `getDeviceId`).
+- Revocar con confirmación (`Alert`) → `PATCH /businesses/{id}/devices/{deviceId}/revoke`, pull-to-refresh.
+- Acceso desde `SettingsScreen` → CONFIGURACIÓN → "Dispositivos".
+- Rutas `Devices` registradas en `RootNavigator`.
+
 ---
 
 ## 6. Roles de dispositivo
@@ -197,7 +205,11 @@ El backend soporta roles de dispositivo via `Access.ResolveAsync`:
 
 El dispositivo nunca amplía privilegios (`effectiveRole = intersection(membership.role, device.role)`).
 
-**Nota**: La UI actual no permite asignar roles de dispositivo. Se asignan por defecto según contexto. Esto se refinará en F7-F19.
+### Asignación de rol en login (F6-3 — resuelto)
+- La pantalla de login (`LoginScreen.tsx`) incluye un selector de rol (admin / cajero / mesero / cocina / impresora / "sin rol").
+- El rol elegido se envía como `deviceRole` en el body de `/auth/login` y `/auth/register` (`LoginRequestDto.deviceRole`).
+- Backend: `EnsureDeviceAsync` valida contra `Roles.All` y lo aplica tanto a devices nuevos como a devices existentes en esa empresa.
+- `useAutoSync` sigue registrando con `'admin'` de forma idempotente (el servidor responde 409 si el device ya existe, así que **no** sobrescribe el rol elegido en login).
 
 ---
 
@@ -208,7 +220,15 @@ El backend ya soporta membresías (users ↔ businesses):
 - El JWT lleva `businessId` activo
 - `GET /auth/me` devuelve perfil + membresías
 
-**Nota**: UI de cambio de negocio no implementada (F6 no lo requiere, F7+). El token actual es la única forma de cambiar de contexto.
+### Cambio de negocio (F6-2 — resuelto)
+- **Backend**: nuevo `POST /auth/switch-business` (`SwitchBusinessRequestDto { businessId?, deviceName? }`). Valida membresía activa del usuario para el negocio pedido, asegura el device **creándolo en el negocio destino** y re-emite access/refresh tokens con la nueva membresía (`SessionPayloadAsync` con todos los negocios del usuario).
+- **PK de Devices cambiada** a compuesta `(BusinessId, Id)` (migración `DeviceCompositeKey`): un mismo equipo físico puede ahora registrarse en varios negocios. Antes era PK global y el switch fallaba con `UNIQUE constraint failed: Devices.Id`.
+- **Refresh multi-negocio**: `/auth/refresh` acepta `businessId` opcional en el body para conservar el negocio activo al rotar tokens.
+- **Cliente**: `AuthContext` persiste `activeBusinessId` en SecureStore (`saveActiveBusinessId`), se restaura al arrancar y se manda en refrescos (`apiRefresh`/`tryRefresh`).
+- **`BusinessSwitcherScreen`** (`src/screens/settings/BusinessSwitcherScreen.tsx`): lista `session.businesses`, resalta el activo y llama `switchBusiness(businessId)`.
+- Acceso desde `SettingsScreen` → CONFIGURACIÓN → "Cambiar de negocio". Rutas `BusinessSwitcher` registradas en `RootNavigator`.
+- Las pantallas que usaban `session.businesses[0]?.id` ahora usan `session?.activeBusinessId ?? session?.businesses[0]?.id ?? ''` (`DatosYRespaldoScreen`, `ConfigurationScreen`, `KitchenScreen`, `InvoiceScreen`, `AuthContext`).
+- Tests: `SwitchBusinessAndDevicesTests.cs` (4): rol de device vía `deviceRole` en login, switch emite tokens y negocios esperados, 403 sin membresía, 400 sin businessId.
 
 ---
 
@@ -245,6 +265,17 @@ El backend ya soporta membresías (users ↔ businesses):
 | `__tests__/syncChangeQueue.test.ts`, `__tests__/syncMapper.test.ts` | Creados (F6.1) | 25 tests nuevos |
 | `jest.setup.js` + `package.json` | Creados/modificado (F6.1) | mock global AsyncStorage para jest |
 | `docs/INFORME-F6.md` | Creado | Este informe |
+| `src/services/authApi.ts` | Modificado (F6.1.x) | `businesses` en login/register, `apiListDevices`, `apiRevokeDevice`, `apiSwitchBusiness`, `businessId` en refresh, persistencia de `activeBusinessId` |
+| `src/contexts/AuthContext.tsx` | Modificado (F6.1.x) | `activeBusinessId`, `switchBusiness`, restore respeta negocio persistido |
+| `src/screens/settings/DevicesScreen.tsx` | Creado (F6.1.x) | F6-1: listar/revocar dispositivos |
+| `src/screens/settings/BusinessSwitcherScreen.tsx` | Creado (F6.1.x) | F6-2: cambio de negocio |
+| `src/screens/login/LoginScreen.tsx` | Modificado (F6.1.x) | F6-3: selector de rol de dispositivo |
+| `src/navigation/types.ts`, `src/navigation/RootNavigator.tsx` | Modificados (F6.1.x) | rutas `Devices` y `BusinessSwitcher` |
+| `backend/.../Common/Dtos.cs` | Modificado (F6.1.x) | `LoginRequestDto.deviceRole`, `SwitchBusinessRequestDto`, `RefreshRequestDto.businessId` |
+| `backend/.../Data/VendeloDbContext.cs` | Modificado (F6.1.x) | PK compuesta de Devices `(BusinessId, Id)` |
+| `backend/.../Migrations/20260923144742_DeviceCompositeKey.cs` | Creado (F6.1.x) | migración Npgsql del cambio de PK |
+| `backend/.../Endpoints/AuthEndpoints.cs` | Modificado (F6.1.x) | `POST /auth/switch-business`, `deviceRole` en login, refresh por businessId |
+| `backend/tests/.../SwitchBusinessAndDevicesTests.cs` | Creado (F6.1.x) | 4 tests de switch business + device roles |
 
 ---
 
@@ -256,9 +287,9 @@ El backend ya soporta membresías (users ↔ businesses):
 | ~~F6-5~~ | ~~Tombstones en sync pull (deletedAt)~~ | ~~Media~~ | ✓ resuelto (action delete + deletedAt derivado) |
 | ~~F6-6~~ | ~~Resolución orden number por dispositivo~~ | ~~Alta~~ | ✓ mitigado (numeración server-side al pagar) |
 | ~~F6-9~~ | ~~StockMovement `deviceId` en recordMovement~~ | ~~Media~~ | ✓ resuelto (ledger envía deviceId) |
-| F6-1 | Dispositivo management UI (listar/revocar) | Media | F7 |
-| F6-2 | Business switching UI (múltiples negocios) | Media | F7 |
-| F6-3 | Asignar roles de dispositivo en login/register | Media | F7 |
+| ~~F6-1~~ | ~~Dispositivo management UI (listar/revocar)~~ | Media | ✓ resuelto (DevicesScreen) |
+| ~~F6-2~~ | ~~Business switching UI (múltiples negocios)~~ | Media | ✓ resuelto (BusinessSwitcherScreen + POST /auth/switch-business) |
+| ~~F6-3~~ | ~~Asignar roles de dispositivo en login/register~~ | Media | ✓ resuelto (selector en LoginScreen + deviceRole) |
 | F6-7 | Rate limiter distribuido (E1) | Alta | F6.1/F7 (requiere Redis) |
 | F6-8 | Audit log integration en endpoints | Media | F6.1/F7 |
 

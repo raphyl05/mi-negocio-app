@@ -109,12 +109,20 @@ public sealed class LoginRequestDto
     [JsonPropertyName("password")] public string Password { get; set; } = "";
     [JsonPropertyName("deviceId")] public string? DeviceId { get; set; }
     [JsonPropertyName("deviceName")] public string? DeviceName { get; set; }
+    [JsonPropertyName("deviceRole")] public string? DeviceRole { get; set; }
 }
 
 public sealed class RefreshRequestDto
 {
     [JsonPropertyName("refreshToken")] public string RefreshToken { get; set; } = "";
     [JsonPropertyName("deviceId")] public string? DeviceId { get; set; }
+    [JsonPropertyName("businessId")] public string? BusinessId { get; set; }
+}
+
+public sealed class SwitchBusinessRequestDto
+{
+    [JsonPropertyName("businessId")] public string BusinessId { get; set; } = "";
+    [JsonPropertyName("deviceName")] public string? DeviceName { get; set; }
 }
 
 public sealed class LogoutRequestDto

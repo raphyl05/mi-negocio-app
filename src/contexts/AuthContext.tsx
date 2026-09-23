@@ -8,6 +8,9 @@ import {
   apiRefresh,
   apiRegister,
   apiGetCapabilities,
+  apiSwitchBusiness,
+  saveActiveBusinessId,
+  getActiveBusinessId,
   isApiReachable,
   getTokens,
   clearTokens,
@@ -34,6 +37,7 @@ export type AuthSession = {
   refreshToken: string;
   expiresIn: number;
   businesses: Array<{ id: string; name: string; role: string }>;
+  activeBusinessId?: string;
   offline?: boolean;
 };
 
@@ -49,10 +53,11 @@ type AuthContextValue = {
   session: AuthSession | null;
   loading: boolean;
   capabilities: Record<string, BusinessCapabilities>;
-  login: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
+  login: (identifier: string, password: string, deviceId: string, deviceRole?: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
   register: (name: string, username: string, password: string, deviceId: string, opts?: { email?: string; phone?: string }) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
+  switchBusiness: (businessId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>;
   fetchCapabilities: (businessId: string) => Promise<BusinessCapabilities | null>;
   setCapabilitiesCache: (businessId: string, caps: BusinessCapabilities) => void;
   hasCapability: (businessId: string, key: keyof BusinessCapabilities) => boolean;
@@ -70,6 +75,7 @@ const AuthContext = createContext<AuthContextValue>({
   register: async () => ({ ok: false }),
   logout: async () => {},
   refreshSession: async () => false,
+  switchBusiness: async () => ({ ok: false }),
   fetchCapabilities: async () => null,
   setCapabilitiesCache: () => {},
   hasCapability: () => false,
@@ -121,12 +127,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiSession();
       if (res.data && res.ok) {
         const tokens = await getTokens();
+        const stored = await getActiveBusinessId();
+        const businesses = res.data.businesses;
+        const activeBusinessId =
+          (stored && businesses.some((b) => b.id === stored))
+            ? stored
+            : businesses[0]?.id;
         storeSession({
           user: res.data.user,
           accessToken: tokens.access!,
           refreshToken: tokens.refresh!,
           expiresIn: 900,
-          businesses: res.data.businesses,
+          businesses,
+          activeBusinessId,
         });
       } else if (isOfflineError(res.error)) {
         const snapshot = await loadOfflineSession();
@@ -151,10 +164,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const current = sessionRef.current;
     if (current?.offline) return true;
     try {
-      const res = await apiRefresh();
+      const res = await apiRefresh(current?.activeBusinessId);
       if (res.data && res.ok) {
         storeSession((prev) =>
-          prev ? { ...prev, expiresIn: res.data!.expiresIn } : null
+          prev
+            ? {
+                ...prev,
+                expiresIn: res.data!.expiresIn,
+                activeBusinessId: current?.activeBusinessId ?? prev.activeBusinessId,
+              }
+            : null
         );
         return true;
       }
@@ -168,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    async (identifier: string, password: string, deviceId: string) => {
+    async (identifier: string, password: string, deviceId: string, deviceRole?: string) => {
       if (!(await isApiReachable())) {
         const local = await verifyLogin(identifier, password);
         if (local) {
@@ -184,15 +203,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         return { ok: false, error: { code: 'AUTH', message: 'Usuario o contraseña incorrectos.' } };
       }
-      const res = await apiLogin(identifier, password, deviceId);
+      const res = await apiLogin(identifier, password, deviceId, deviceRole);
       if (res.data) {
         const { accessToken, refreshToken, expiresIn } = res.data;
+        const businesses = res.data.businesses || [];
         storeSession({
           user: res.data.user,
           accessToken,
           refreshToken,
           expiresIn,
-          businesses: [],
+          businesses,
+          activeBusinessId: businesses[0]?.id,
         });
         scheduleRefresh(expiresIn);
         return { ok: true };
@@ -230,12 +251,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.data) {
         const { accessToken, refreshToken, expiresIn } = res.data;
+        const businesses = res.data.businesses || [];
         storeSession({
           user: res.data.user,
           accessToken,
           refreshToken,
           expiresIn,
-          businesses: res.data.businesses || [],
+          businesses,
+          activeBusinessId: businesses[0]?.id,
         });
         scheduleRefresh(expiresIn);
       }
@@ -250,6 +273,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearTokens();
     storeSession(null);
   }, []);
+
+  const switchBusiness = useCallback(
+    async (businessId: string): Promise<{ ok: boolean; error?: { code: string; message: string } }> => {
+      const current = sessionRef.current;
+      if (!current || current.offline) {
+        return { ok: false, error: { code: 'AUTH', message: 'Conecta tu cuenta y vuelve a intentarlo.' } };
+      }
+      const res = await apiSwitchBusiness(businessId);
+      if (res.data) {
+        const businesses = res.data.businesses || [];
+        storeSession({
+          user: res.data.user,
+          accessToken: res.data.accessToken,
+          refreshToken: res.data.refreshToken,
+          expiresIn: res.data.expiresIn,
+          businesses,
+          activeBusinessId: businessId,
+        });
+        scheduleRefresh(res.data.expiresIn);
+        return { ok: true };
+      }
+      return { ok: false, error: res.error };
+    },
+    [scheduleRefresh, storeSession]
+  );
 
   const fetchCapabilities = useCallback(async (businessId: string): Promise<BusinessCapabilities | null> => {
     try {
@@ -288,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session, loading, capabilities, login, register, logout, refreshSession, fetchCapabilities, setCapabilitiesCache, hasCapability }}>
+    <AuthContext.Provider value={{ session, loading, capabilities, login, register, logout, refreshSession, switchBusiness, fetchCapabilities, setCapabilitiesCache, hasCapability }}>
       {children}
     </AuthContext.Provider>
   );

@@ -32,7 +32,7 @@ export default function DatosYRespaldoScreen() {
   const [cloudLast, setCloudLast] = useState<string | null>(null);
   const [cloudLoaded, setCloudLoaded] = useState(false);
   const [cloudBusy, setCloudBusy] = useState<'upload' | 'restore' | null>(null);
-  const businessId = session?.businesses[0]?.id ?? '';
+  const businessId = session?.activeBusinessId ?? session?.businesses[0]?.id ?? '';
 
   const refreshStorage = useCallback(async () => {
     setStorage(await reportStorage());

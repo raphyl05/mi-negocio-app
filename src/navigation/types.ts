@@ -16,6 +16,8 @@ export type RootStackParamList = {
   DatosYRespaldo: undefined;
   Configuration: undefined;
   Kitchen: undefined;
+  Devices: undefined;
+  BusinessSwitcher: undefined;
 };
 
 export type TabParamList = {

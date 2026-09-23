@@ -114,7 +114,8 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **`src/hooks/useAutoSync.ts`**: auto-sync en reconexión/foreground — ensureSyncState + apiRegisterDevice + syncPushData + getLastCursor + syncPullData; estados y notificaciones.
 - **Repositorios + caja**: enqueue de cambios en product/customer/provider/order/stockMovement y en `closeRegister` (cashClosure); `upsertCashClosureRecord`.
 - Backend: device management (CRUD, roles), sync endpoints (pull/push) operativos; **`action=delete`** para product/customer/provider/order (soft delete + tombstone); órdenes con `paidAt/voidedAt/voidReason` (pull y push) y transición paid→voided; migración EF `OrderVoidFields`.
-- Tests: **341/341** (cliente, 39 suites) + **40/40** (backend). tsc: 0 errores. expo-doctor: 21/21. INFORME: `docs/INFORME-F6.md`.
+- **F6-1/2/3 (UI, 2026-09-23)**: `DevicesScreen` (listar/revocar, badge "ESTE EQUIPO") en Configuración; `BusinessSwitcherScreen` (cambio de negocio) + nuevo `POST /auth/switch-business` que re-emite sesión y crea el device en el negocio destino; PK de `Devices` ahora compuesta `(BusinessId, Id)` (migración `DeviceCompositeKey`) para que un equipo pueda pertenecer a varios negocios; refresh multi-negocio (`businessId` opcional en `POST /auth/refresh`, `activeBusinessId` persistido en el cliente); selector de rol de dispositivo en el login (`deviceRole` en login/register, validado contra `Roles.All` aplicado al device).
+- Tests: **341/341** (cliente, 39 suites) + **44/44** (backend). tsc: 0 errores. expo-doctor: 21/21. INFORME: `docs/INFORME-F6.md`.
 
 **Fase F7 COMPLETADA ✅ — Capacidades visibles:**
 

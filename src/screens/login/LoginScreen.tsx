@@ -51,14 +51,24 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   );
 }
 
-function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCloudForgot }: { onLogin: () => void; onAuthLogin: (identifier: string, password: string, deviceId: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>; netError: string | null; setNetError: (e: string | null) => void; onForgot?: () => void; onCloudForgot?: () => void }) {
+function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCloudForgot }: { onLogin: () => void; onAuthLogin: (identifier: string, password: string, deviceId: string, deviceRole?: string) => Promise<{ ok: boolean; error?: { code: string; message: string } }>; netError: string | null; setNetError: (e: string | null) => void; onForgot?: () => void; onCloudForgot?: () => void }) {
   const { colors, spacing, typography } = useTheme();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [deviceRole, setDeviceRole] = useState<string | undefined>(undefined);
+  const [roleOpen, setRoleOpen] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const roleOptions: Array<{ value: string; label: string; icon: 'shield-checkmark-outline' | 'cash-outline' | 'fast-food-outline' | 'restaurant-outline' | 'print-outline' }> = [
+    { value: 'admin', label: 'Administrador', icon: 'shield-checkmark-outline' },
+    { value: 'cashier', label: 'Cajero', icon: 'cash-outline' },
+    { value: 'waiter', label: 'Mesero', icon: 'fast-food-outline' },
+    { value: 'kitchen', label: 'Cocina', icon: 'restaurant-outline' },
+    { value: 'printer', label: 'Impresora', icon: 'print-outline' },
+  ];
 
   const handleSubmit = async () => {
     const nextErrors = validateLogin({ username, password });
@@ -70,7 +80,7 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCl
     setLoading(true);
     try {
       const deviceId = await getDeviceId();
-      const res = await onAuthLogin(username, password, deviceId);
+      const res = await onAuthLogin(username, password, deviceId, deviceRole);
       if (res.ok) {
         onLogin();
       } else if (res.error?.code === 'NETWORK') {
@@ -140,6 +150,71 @@ function LoginForm({ onLogin, onAuthLogin, netError, setNetError, onForgot, onCl
                 secureTextEntry
                 placeholder="Tu contraseña"
               />
+            </View>
+
+            <View style={styles.roleBlock}>
+              <Pressable
+                onPress={() => setRoleOpen((open) => !open)}
+                style={({ pressed }) => [
+                  styles.roleToggle,
+                  { backgroundColor: colors.surfaceMuted, borderColor: roleOpen ? colors.primary : colors.border, opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <View style={styles.roleToggleRow}>
+                  <Ionicons name="tablet-portrait-outline" size={18} color={deviceRole ? colors.primary : colors.textSecondary} />
+                  <Text style={{ color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: '600', flex: 1 }}>
+                    Rol de este dispositivo
+                  </Text>
+                  <Text style={{ color: deviceRole ? colors.primary : colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '700' }}>
+                    {deviceRole ? roleOptions.find((r) => r.value === deviceRole)?.label : 'Sin asignar'}
+                  </Text>
+                  <Ionicons name={roleOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
+                </View>
+              </Pressable>
+
+              {roleOpen ? (
+                <View style={[styles.roleList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  {roleOptions.map((role) => {
+                    const active = deviceRole === role.value;
+                    return (
+                      <Pressable
+                        key={role.value}
+                        onPress={() => {
+                          setDeviceRole(active ? undefined : role.value);
+                          setRoleOpen(false);
+                        }}
+                        style={({ pressed }) => [
+                          styles.roleOption,
+                          { borderColor: active ? colors.primary : colors.border, opacity: pressed ? 0.8 : 1 },
+                        ]}
+                      >
+                        <View style={[styles.roleIcon, { backgroundColor: active ? colors.primaryLight : colors.surfaceMuted }]}>
+                          <Ionicons name={role.icon} size={18} color={active ? colors.primary : colors.textSecondary} />
+                        </View>
+                        <Text style={{ color: active ? colors.primary : colors.textPrimary, fontSize: typography.sizes.body, fontWeight: active ? '700' : '500', flex: 1 }}>
+                          {role.label}
+                        </Text>
+                        {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
+                      </Pressable>
+                    );
+                  })}
+                  <Pressable
+                    onPress={() => {
+                      setDeviceRole(undefined);
+                      setRoleOpen(false);
+                    }}
+                    style={({ pressed }) => [styles.roleClear, { opacity: pressed ? 0.8 : 1 }]}
+                  >
+                    <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: '600' }}>
+                      Quitar rol (acceso completo)
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.caption, marginLeft: 4 }}>
+                Define qué puede hacer este dispositivo al entrar.
+              </Text>
             </View>
 
             <View style={styles.action}>
@@ -627,6 +702,48 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 16,
+  },
+  roleBlock: {
+    gap: 8,
+    marginTop: 20,
+  },
+  roleToggle: {
+    minHeight: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  roleToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  roleList: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 8,
+    gap: 6,
+  },
+  roleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 46,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 10,
+  },
+  roleIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleClear: {
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   card: {
     gap: 16,

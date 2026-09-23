@@ -158,6 +158,20 @@ export default function SettingsScreen() {
             subtitle="Impresión, clientes, proveedores, respaldos y más"
             onPress={() => navigation.navigate('Configuration')}
           />
+          <RowDivider />
+          <SettingsRow
+            icon="tablet-portrait-outline"
+            title="Dispositivos"
+            subtitle="Ver y revocar equipos con acceso"
+            onPress={() => navigation.navigate('Devices')}
+          />
+          <RowDivider />
+          <SettingsRow
+            icon="swap-horizontal-outline"
+            title="Cambiar de negocio"
+            subtitle="Trabaja con otro negocio de tu cuenta"
+            onPress={() => navigation.navigate('BusinessSwitcher')}
+          />
         </Card>
 
         <Pressable

@@ -5,17 +5,25 @@ const TOKEN_KEY_ACCESS = 'micaja.accessToken';
 const TOKEN_KEY_REFRESH = 'micaja.refreshToken';
 const TOKEN_KEY_EXP = 'micaja.accessExp';
 const USER_KEY = 'micaja.sessionUser';
+const ACTIVE_BUSINESS_KEY = 'micaja.activeBusinessId';
+
+export type DeviceInfo = {
+  id: string;
+  name: string;
+  role: string | null;
+  active: boolean;
+  registeredAt: string;
+};
 
 export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
   user: { id: string; username: string; createdAt: string };
-};
-
-export type RegisterResponse = LoginResponse & {
   businesses: Array<{ id: string; name: string; role: string }>;
 };
+
+export type RegisterResponse = LoginResponse;
 
 export type RefreshResponse = {
   accessToken: string;
@@ -65,7 +73,16 @@ async function clearTokens(): Promise<void> {
     SecureStore.deleteItemAsync(TOKEN_KEY_REFRESH),
     SecureStore.deleteItemAsync(TOKEN_KEY_EXP),
     SecureStore.deleteItemAsync(USER_KEY),
+    SecureStore.deleteItemAsync(ACTIVE_BUSINESS_KEY),
   ]);
+}
+
+export async function saveActiveBusinessId(businessId: string): Promise<void> {
+  await SecureStore.setItemAsync(ACTIVE_BUSINESS_KEY, businessId);
+}
+
+export async function getActiveBusinessId(): Promise<string | null> {
+  return SecureStore.getItemAsync(ACTIVE_BUSINESS_KEY);
 }
 
 function getAuthHeaders(accessToken?: string | null): Record<string, string> {
@@ -144,7 +161,7 @@ async function tryRefresh(): Promise<boolean> {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders(access) },
-      body: JSON.stringify({ refreshToken: refresh }),
+      body: JSON.stringify({ refreshToken: refresh, businessId: (await getActiveBusinessId()) || undefined }),
     });
     if (res.ok) {
       const body = (await res.json()) as RefreshResponse;
@@ -161,15 +178,19 @@ async function tryRefresh(): Promise<boolean> {
 export async function apiLogin(
   identifier: string,
   password: string,
-  deviceId: string
+  deviceId: string,
+  deviceRole?: string
 ): Promise<{ ok: boolean; data?: LoginResponse; error?: { code: string; message: string } }> {
   const res = await apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: { identifier, password, deviceId },
+    body: { identifier, password, deviceId, deviceRole: deviceRole || undefined },
     timeout: 8000,
   });
   if (res.data) {
     await saveTokens(res.data.accessToken, res.data.refreshToken, res.data.expiresIn);
+    if (res.data.businesses[0]?.id) {
+      await saveActiveBusinessId(res.data.businesses[0].id);
+    }
   }
   return { ok: !!res.data, data: res.data, error: res.error };
 }
@@ -202,6 +223,9 @@ export async function apiRegister(
   });
   if (res.data) {
     await saveTokens(res.data.accessToken, res.data.refreshToken, res.data.expiresIn);
+    if (res.data.businesses[0]?.id) {
+      await saveActiveBusinessId(res.data.businesses[0].id);
+    }
   }
   return { ok: !!res.data, data: res.data, error: res.error };
 }
@@ -296,10 +320,13 @@ export async function apiUpdateCapabilities(
   return { ok: !!res.data, data: res.data, error: res.error };
 }
 
-export async function apiRefresh(): Promise<{ ok: boolean; data?: RefreshResponse; error?: { code: string; message: string } }> {
+export async function apiRefresh(businessId?: string): Promise<{ ok: boolean; data?: RefreshResponse; error?: { code: string; message: string } }> {
   const { refresh } = await getTokens();
   if (!refresh) return { ok: false };
-  const res = await apiFetch<RefreshResponse>('/auth/refresh', { method: 'POST', body: { refreshToken: refresh } });
+  const res = await apiFetch<RefreshResponse>('/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken: refresh, businessId: businessId || undefined },
+  });
   if (res.data) {
     await saveTokens(res.data.accessToken, res.data.refreshToken, res.data.expiresIn);
   }
@@ -313,6 +340,40 @@ export async function apiSession(): Promise<{ ok: boolean; data?: SessionRespons
 
 export async function apiGetCapabilities(businessId: string): Promise<{ ok: boolean; data?: CapabilitiesResponse; error?: { code: string; message: string } }> {
   const res = await apiFetch<CapabilitiesResponse>(`/businesses/${businessId}/capabilities`);
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiListDevices(
+  businessId: string
+): Promise<{ ok: boolean; data?: DeviceInfo[]; error?: { code: string; message: string } }> {
+  const res = await apiFetch<DeviceInfo[]>(`/businesses/${businessId}/devices`);
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiRevokeDevice(
+  businessId: string,
+  deviceId: string
+): Promise<{ ok: boolean; data?: { revoked: boolean; deviceId: string }; error?: { code: string; message: string } }> {
+  const res = await apiFetch<{ revoked: boolean; deviceId: string }>(
+    `/businesses/${businessId}/devices/${deviceId}/revoke`,
+    { method: 'PATCH' }
+  );
+  return { ok: !!res.data, data: res.data, error: res.error };
+}
+
+export async function apiSwitchBusiness(
+  businessId: string,
+  deviceName?: string
+): Promise<{ ok: boolean; data?: LoginResponse; error?: { code: string; message: string } }> {
+  const res = await apiFetch<LoginResponse>('/auth/switch-business', {
+    method: 'POST',
+    body: { businessId, deviceName: deviceName || undefined },
+    timeout: 8000,
+  });
+  if (res.data) {
+    await saveTokens(res.data.accessToken, res.data.refreshToken, res.data.expiresIn);
+    await saveActiveBusinessId(businessId);
+  }
   return { ok: !!res.data, data: res.data, error: res.error };
 }
 

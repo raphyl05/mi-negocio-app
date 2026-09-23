@@ -35,7 +35,7 @@ export default function KitchenScreen() {
   const { hasCapability, session } = useAuth();
   const { clear } = useCart();
   const { notify } = useNotifications();
-  const businessId = session?.businesses[0]?.id ?? '';
+  const businessId = session?.activeBusinessId ?? session?.businesses[0]?.id ?? '';
   const kitchenEnabled = hasCapability(businessId, 'kitchen');
 
   const [orders, setOrders] = useState<Order[]>([]);

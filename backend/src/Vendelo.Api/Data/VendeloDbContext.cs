@@ -51,8 +51,8 @@ public sealed class VendeloDbContext(DbContextOptions<VendeloDbContext> options)
 
         b.Entity<Device>(e =>
         {
-            e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.BusinessId, x.Id }).IsUnique();
+            // PK compuesta: un mismo equipo físico (deviceId) puede pertenecer a varios negocios.
+            e.HasKey(x => new { x.BusinessId, x.Id });
             e.Property(x => x.Id).HasMaxLength(64);
             e.Property(x => x.BusinessId).HasMaxLength(64);
             e.Property(x => x.Role).HasMaxLength(16);
