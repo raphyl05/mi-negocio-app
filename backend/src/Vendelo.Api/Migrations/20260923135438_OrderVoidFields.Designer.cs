@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Vendelo.Api.Data;
@@ -11,9 +12,11 @@ using Vendelo.Api.Data;
 namespace Vendelo.Api.Migrations
 {
     [DbContext(typeof(VendeloDbContext))]
-    partial class VendeloDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923135438_OrderVoidFields")]
+    partial class OrderVoidFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

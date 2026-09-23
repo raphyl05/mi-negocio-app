@@ -300,6 +300,8 @@ public sealed class OrderDto
     [JsonPropertyName("deleted")] public bool Deleted { get; set; }
     [JsonPropertyName("createdAt")] public string CreatedAt { get; set; } = "";
     [JsonPropertyName("paidAt")] public string? PaidAt { get; set; }
+    [JsonPropertyName("voidedAt")] public string? VoidedAt { get; set; }
+    [JsonPropertyName("voidReason")] public string? VoidReason { get; set; }
     [JsonPropertyName("updatedAt")] public string UpdatedAt { get; set; } = "";
 
     public static OrderDto From(Order o) => new()
@@ -314,6 +316,8 @@ public sealed class OrderDto
         PaymentMethod = o.PaymentMethod, Overventa = o.Overventa, KitchenTicketId = o.KitchenTicketId,
         Seq = o.Seq, Deleted = o.Deleted, CreatedAt = o.CreatedAt.ToString("O"),
         PaidAt = o.PaidAt == default ? null : o.PaidAt.ToString("O"),
+        VoidedAt = o.VoidedAt == default ? null : o.VoidedAt.ToString("O"),
+        VoidReason = o.VoidReason,
         UpdatedAt = o.UpdatedAt.ToString("O")
     };
 }

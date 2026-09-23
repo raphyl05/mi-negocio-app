@@ -175,6 +175,8 @@ public sealed class Order : SyncRow
     public long Seq { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset PaidAt { get; set; }
+    public DateTimeOffset VoidedAt { get; set; }
+    public string? VoidReason { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? KitchenTicketId { get; set; }
 }

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import type { Product } from '../models/product';
 import { SEED_PRODUCTS } from '../data/seedProducts';
 import { generateId } from '../utils/password';
+import { enqueueSyncChange } from '../services/syncChangeQueue';
 import { createSqliteProductRepository } from './sqliteProductRepository';
 
 export interface ProductRepository {
@@ -150,23 +151,34 @@ class LazyProductRepository implements ProductRepository {
   }
 
   async create(product: Product) {
-    return (await this.ready()).create(product);
+    const created = await (await this.ready()).create(product);
+    await enqueueSyncChange('product', created.id, 'upsert');
+    return created;
   }
 
   async update(product: Product) {
-    return (await this.ready()).update(product);
+    const updated = await (await this.ready()).update(product);
+    await enqueueSyncChange('product', updated.id, 'upsert');
+    return updated;
   }
 
   async remove(id: string) {
-    return (await this.ready()).remove(id);
+    await (await this.ready()).remove(id);
+    await enqueueSyncChange('product', id, 'delete');
   }
 
   async hardRemove(id: string) {
-    return (await this.ready()).hardRemove(id);
+    await (await this.ready()).hardRemove(id);
+    await enqueueSyncChange('product', id, 'delete');
   }
 
   async removeByCategory(category: string) {
-    return (await this.ready()).removeByCategory(category);
+    const impl = await this.ready();
+    const affected = (await impl.listIncludingDeleted())
+      .filter((p) => p.category === category && !p.deletedAt);
+    const count = await impl.removeByCategory(category);
+    for (const p of affected) await enqueueSyncChange('product', p.id, 'delete');
+    return count;
   }
 
   async decreaseStock(id: string, quantity: number) {

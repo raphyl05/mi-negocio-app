@@ -67,9 +67,9 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 **Fase F3 COMPLETADA ✅ — backend Source of Truth (ASP.NET Core + EF Core 10 + PostgreSQL):**
 
 - **Nuevo `backend/`** con API **ASP.NET Core Minimal API (net10.0)** + **EF Core 10** + **PostgreSQL 17** (en tests, SQLite por `Database:Provider`): se implementa el contrato `docs/API-CONTRACT.md` según `docs/BACKEND-F3-CONTRACT.md` (decisiones D1–D17).
-- **Módulos:** auth (register/login/refresh/session, JWT 15 min + refresh rotativo 48 h/30 días, Argon2id server-side, recuperación placeholder), negocios (`businesses`) con `capabilities`/`settings`/`capabilityVersion` y `FEATURE_DISABLED`, dispositivos con rol propio (rol efectivo = membresía ∩ dispositivo), catálogo (productos/clientes/proveedores con tombstones), órdenes (create/pay/void, `invoiceNumber` secuencial del servidor, sobreventa flaggeada, anti-anónima), stock por ledger append-only (`stock_movements`), caja/cierres append-only, **sync pull/push** (cursor `seq:N`, dedupe por `requestId`, bootstrap único `initial`, tombstones) y **backups** snapshot/restore.
+- **Módulos:** auth (register/login/refresh/session, JWT 15 min + refresh rotativo 48 h/30 días, Argon2id server-side, recuperación placeholder), negocios (`businesses`) con `capabilities`/`settings`/`capabilityVersion` y `FEATURE_DISABLED`, dispositivos con rol propio (rol efectivo = membresía ∩ dispositivo), catálogo (productos/clientes/proveedores con tombstones), órdenes (create/pay/void con `paidAt`/`voidedAt`/`voidReason`, `invoiceNumber` secuencial del servidor, sobreventa flaggeada, anti-anónima), stock por ledger append-only (`stock_movements`), caja/cierres append-only, **sync pull/push** (cursor `seq:N`, dedupe por `requestId`, `action=delete` para soft-delete, bootstrap único `initial`, tombstones) y **backups** snapshot/restore.
 - **Adopción del historial local:** el nuevo dispositivo de un negocio sube el snapshot inicial vía `opType='initial'` (Modo B); el servidor valida, aplica y responde el delta.
-- **Tests de integración:** `dotnet test` → **27/27 pass** (auth, permisos/roles, VERSION_MISMATCH, dedupe sync, sobreventa, restore). Build limpio. App cliente intacta (298 tests + `tsc --noEmit` + `expo-doctor` 21/21).
+- **Tests de integración:** `dotnet test` → **40/40 pass** (auth, permisos/roles, VERSION_MISMATCH, dedupe sync, sobreventa, restore, sync delete + paid/void). Build limpio. App cliente intacta (341 tests + `tsc --noEmit` + `expo-doctor` 21/21).
 - Informe de cierre: `docs/INFORME-F3.md`.
 
 **Fase F3.1 COMPLETADA ✅ — auditoría del backend:**
@@ -86,7 +86,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **PostgreSQL 17** conectado y funcionando (Host: 127.0.0.1, Puerto: 5432, DB: `vendelo`, User: postgres, Auth: trust IPv4 / scram-sha-256 IPv6).
 - **EF Core migration pipeline**: `dotnet ef migrations add InitialCreate` → `dotnet ef database update` → 15 tablas + audit_log aplicadas en PostgreSQL.
 - **`appsettings.json` / `appsettings.Production.json`**: ConnectionStrings (Npgsql), Database:Provider, JWT config.
-- **`Program.cs`**: `MigrateAsync` (Npgsql) / `EnsureCreatedAsync` (SQLite) conditional.
+- **`Program.cs`**: `EnsureCreatedAsync` (esquema desde el modelo EF; las migraciones se generan con `dotnet ef migrations add Database__Provider=Npgsql` y aplican en despliegue/Postgres, no en runtime).
 - **Audit log** (E3): `backend/deploy/001_create_audit_log.sql` — tabla + índices.
 - **Deploy script**: `backend/deploy/deploy.ps1`.
 - **Hardening**: logging 500 errores, JWT tokens secure, no sensitive data logged.
@@ -106,14 +106,15 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 - **`src/services/syncQueue.ts`**: Added syncPushData + API sync in processQueue.
 - Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F5.1.md`.
 
-**Fase F6 COMPLETADA ✅ — Multi-device sync:**
+**Fase F6 COMPLETADA ✅ — Multi-device sync (refactor completo 2026-09-23):**
 
-- **`src/services/syncService.ts`**: Core sync service — syncPushData (7 entity types with field mapping), syncPullData (cursor-based), syncFull, getLastCursor.
-- **`src/hooks/useAutoSync.ts`**: Auto-sync on network reconnect / foreground return.
-- **`src/services/syncQueue.ts`**: Updated to use syncService for real data push (was empty batches).
-- Backend device management: devices CRUD, device roles (admin/cashier/waiter/kitchen/printer), device-based access control, sync endpoints (pull/push) operational.
-- Device auto-registration on login/register.
-- Tests: 298/298 pass, 35 suites. tsc: 0 errores. INFORME: `docs/INFORME-F6.md`.
+- **`src/services/syncService.ts`**: Core sync service — syncPushData (desde cola real de cambios, 7 entity types, dedupe + chunking + markSynced), syncPullData (cursor-based, tombstones y server-wins), getLastCursor.
+- **`src/services/syncChangeQueue.ts`**: cola de cambios pendientes (AsyncStorage, coalesce por `type:id`, `delete` gana) + `setSyncTrackingEnabled` (apagado durante pull/restore para evitar loops).
+- **`src/utils/syncMapper.ts`**: mapeos puros cliente↔servidor (push `buildXBatch` / pull `xFromServer`), tombstones, `paidAt/voidedAt/voidReason`.
+- **`src/hooks/useAutoSync.ts`**: auto-sync en reconexión/foreground — ensureSyncState + apiRegisterDevice + syncPushData + getLastCursor + syncPullData; estados y notificaciones.
+- **Repositorios + caja**: enqueue de cambios en product/customer/provider/order/stockMovement y en `closeRegister` (cashClosure); `upsertCashClosureRecord`.
+- Backend: device management (CRUD, roles), sync endpoints (pull/push) operativos; **`action=delete`** para product/customer/provider/order (soft delete + tombstone); órdenes con `paidAt/voidedAt/voidReason` (pull y push) y transición paid→voided; migración EF `OrderVoidFields`.
+- Tests: **341/341** (cliente, 39 suites) + **40/40** (backend). tsc: 0 errores. expo-doctor: 21/21. INFORME: `docs/INFORME-F6.md`.
 
 **Fase F7 COMPLETADA ✅ — Capacidades visibles:**
 

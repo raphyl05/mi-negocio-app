@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import type { Provider } from '../models/provider';
 import { generateId } from '../utils/password';
+import { enqueueSyncChange } from '../services/syncChangeQueue';
 import { createSqliteProviderRepository } from './sqliteProviderRepository';
 
 export type ProviderInput = Omit<Provider, 'id'> & { id?: string };
@@ -97,19 +98,25 @@ class LazyProviderRepository implements ProviderRepository {
   }
 
   async create(provider: ProviderInput) {
-    return (await this.ready()).create(provider);
+    const created = await (await this.ready()).create(provider);
+    await enqueueSyncChange('provider', created.id, 'upsert');
+    return created;
   }
 
   async update(provider: Provider) {
-    return (await this.ready()).update(provider);
+    const updated = await (await this.ready()).update(provider);
+    await enqueueSyncChange('provider', updated.id, 'upsert');
+    return updated;
   }
 
   async remove(id: string) {
-    return (await this.ready()).remove(id);
+    await (await this.ready()).remove(id);
+    await enqueueSyncChange('provider', id, 'delete');
   }
 
   async hardRemove(id: string) {
-    return (await this.ready()).hardRemove(id);
+    await (await this.ready()).hardRemove(id);
+    await enqueueSyncChange('provider', id, 'delete');
   }
 }
 

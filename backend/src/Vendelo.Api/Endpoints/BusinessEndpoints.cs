@@ -476,6 +476,7 @@ public static class DbBackup
                     TotalCents = d.TotalCents, ReceivedCents = d.ReceivedCents, ChangeCents = d.ChangeCents,
                     PaymentMethod = d.PaymentMethod, Overventa = d.Overventa, Deleted = d.Deleted, Seq = d.Seq,
                     CreatedAt = Parse(d.CreatedAt), PaidAt = d.PaidAt is null ? default : Parse(d.PaidAt),
+                    VoidedAt = d.VoidedAt is null ? default : Parse(d.VoidedAt), VoidReason = d.VoidReason,
                     UpdatedAt = Parse(d.UpdatedAt), KitchenTicketId = d.KitchenTicketId
                 });
             }

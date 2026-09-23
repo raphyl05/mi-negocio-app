@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import type { Order } from '../models/order';
 import { assertOrderTransition } from '../utils/orderState';
 import { generateId } from '../utils/password';
+import { enqueueSyncChange } from '../services/syncChangeQueue';
 import { createSqliteOrderRepository } from './sqliteOrderRepository';
 
 export interface OrderRepository {
@@ -105,7 +106,9 @@ class LazyOrderRepository implements OrderRepository {
   }
 
   async save(order: Order) {
-    return (await this.ready()).save(order);
+    const saved = await (await this.ready()).save(order);
+    await enqueueSyncChange('order', saved.id, 'upsert');
+    return saved;
   }
 
   async getById(id: string) {
@@ -129,15 +132,19 @@ class LazyOrderRepository implements OrderRepository {
   }
 
   async update(order: Order) {
-    return (await this.ready()).update(order);
+    const updated = await (await this.ready()).update(order);
+    await enqueueSyncChange('order', updated.id, 'upsert');
+    return updated;
   }
 
   async remove(id: string) {
-    return (await this.ready()).remove(id);
+    await (await this.ready()).remove(id);
+    await enqueueSyncChange('order', id, 'delete');
   }
 
   async hardRemove(id: string) {
-    return (await this.ready()).hardRemove(id);
+    await (await this.ready()).hardRemove(id);
+    await enqueueSyncChange('order', id, 'delete');
   }
 }
 

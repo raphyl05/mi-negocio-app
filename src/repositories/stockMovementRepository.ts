@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import type { StockMovement, StockMovementInput } from '../models/stockMovement';
 import { generateId } from '../utils/password';
+import { enqueueSyncChange } from '../services/syncChangeQueue';
 import { createSqliteStockMovementRepository } from './sqliteStockMovementRepository';
 
 export interface StockMovementRepository {
@@ -73,7 +74,9 @@ class LazyStockMovementRepository implements StockMovementRepository {
   }
 
   async recordMovement(input: StockMovementInput) {
-    return (await this.ready()).recordMovement(input);
+    const created = await (await this.ready()).recordMovement(input);
+    await enqueueSyncChange('stockMovement', created.id, 'upsert');
+    return created;
   }
 
   async listByProduct(productId: string) {

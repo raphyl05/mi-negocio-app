@@ -17,14 +17,19 @@ export type PullResponse = {
   };
 };
 
+export type SyncAction = 'upsert' | 'delete';
+
+export type PushBatch = {
+  entityType: string;
+  action: SyncAction;
+  id: string;
+  entity: Record<string, unknown>;
+};
+
 export type PushRequest = {
   requestId?: string;
   opType: 'initial' | 'incremental';
-  batches: Array<{
-    entityType: string;
-    id: string;
-    entity: Record<string, unknown>;
-  }>;
+  batches: PushBatch[];
 };
 
 export type PushResponse = {
@@ -35,6 +40,8 @@ export type PushResponse = {
   accepted: number;
   rejected: number;
 };
+
+export type DeviceRole = 'admin' | 'cashier' | 'waiter' | 'kitchen' | 'printer';
 
 export async function syncPull(
   businessId: string,
@@ -56,16 +63,17 @@ export async function syncPush(
   return { ok: !!res.data, data: res.data, error: res.error };
 }
 
-export async function syncPushBatch(
+export async function apiRegisterDevice(
   businessId: string,
-  opType: 'initial' | 'incremental',
-  entityType: string,
-  id: string,
-  entity: Record<string, unknown>
-): Promise<{ ok: boolean; data?: PushResponse; error?: { code: string; message: string } }> {
-  return syncPush(businessId, {
-    requestId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    opType,
-    batches: [{ entityType, id, entity }],
-  });
+  role: DeviceRole,
+): Promise<{ ok: boolean; data?: { id: string; businessId: string; deviceId: string; role: string }; error?: { code: string; message: string } }> {
+  const deviceId = await getDeviceId();
+  const res = await apiFetch<{ id: string; businessId: string; deviceId: string; role: string }>(
+    '/devices',
+    {
+      method: 'POST',
+      body: { deviceId, businessId, role },
+    },
+  );
+  return { ok: !!res.data, data: res.data, error: res.error };
 }

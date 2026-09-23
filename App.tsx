@@ -13,7 +13,13 @@ import ToastHost from './src/components/ToastHost';
 import { printerService } from './src/services/printerService';
 import { isSetupDone } from './src/services/setupService';
 import { initStorageMaintenance, runStartupStorageMaintenance } from './src/services/storageMaintenance';
+import { useAutoSync } from './src/hooks/useAutoSync';
 import { ThemeProvider, useTheme } from './src/theme';
+
+function SyncEngine() {
+  useAutoSync();
+  return null;
+}
 
 type BootStatus = 'loading' | 'setup' | 'ready';
 
@@ -48,11 +54,12 @@ function BootGate() {
     return <SetupScreen onCompleted={() => setStatus('ready')} />;
   }
 
-  if (!session) {
-    return <LoginScreen onLogin={() => {}} />;
-  }
-
-  return <RootNavigator />;
+  return (
+    <>
+      {session ? <SyncEngine /> : null}
+      {!session ? <LoginScreen onLogin={() => {}} /> : <RootNavigator />}
+    </>
+  );
 }
 
 function ThemedApp() {

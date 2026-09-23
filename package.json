@@ -52,6 +52,9 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ],
     "moduleNameMapper": {
       "^(\\.\\.?/.*)\\.native$": "$1.ts",
       "^(\\.\\.?/.*Sqlite(?:Product|Order|Customer|Provider|StockMovement|SyncState)Repository)$": "$1.ts",

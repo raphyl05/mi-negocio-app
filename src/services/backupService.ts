@@ -18,6 +18,7 @@ import { customerRepository, resetCustomerRepository } from '../repositories/cus
 import { providerRepository, resetProviderRepository } from '../repositories/providerRepository';
 import { resetStockMovementRepository } from '../repositories/stockMovementRepository';
 import { resetSyncStateRepository } from '../repositories/syncStateRepository';
+import { setSyncTrackingEnabled, clearSyncChanges } from './syncChangeQueue';
 import { parseBackup, sanitizeUserForBackup, serializeBackup, validateBackupData, type BackupBundle } from '../utils/backup';
 
 const KEYS = ['@micaja/business', '@micaja/cashRegister', '@micaja/cashClosures', '@micaja/printer'];
@@ -132,22 +133,28 @@ export async function applyRestoredBundle(bundle: BackupBundle): Promise<void> {
     await deleteDatabaseFileNative();
     resetAllRepositories();
 
-    const pairs: [string, string][] = [
-      ['@micaja/business', JSON.stringify(bundle.business ?? {})],
-      ['@micaja/cashRegister', JSON.stringify(bundle.cashRegister ?? {})],
-      ['@micaja/cashClosures', JSON.stringify(bundle.cashClosures ?? [])],
-      ['@micaja/printer', JSON.stringify(bundle.printer ?? {})],
-    ];
-    const toSave = pairs.filter(([, v]) => v !== '{}' && v !== '[]');
-    await AsyncStorage.multiSet(toSave);
-    await savePrinterConfig(bundle.printer ?? { enabled: false });
-    if (bundle.business) await saveBusiness(bundle.business);
-    if (bundle.user) await writeSecureUser(JSON.stringify(bundle.user));
+    setSyncTrackingEnabled(false);
+    try {
+      const pairs: [string, string][] = [
+        ['@micaja/business', JSON.stringify(bundle.business ?? {})],
+        ['@micaja/cashRegister', JSON.stringify(bundle.cashRegister ?? {})],
+        ['@micaja/cashClosures', JSON.stringify(bundle.cashClosures ?? [])],
+        ['@micaja/printer', JSON.stringify(bundle.printer ?? {})],
+      ];
+      const toSave = pairs.filter(([, v]) => v !== '{}' && v !== '[]');
+      await AsyncStorage.multiSet(toSave);
+      await savePrinterConfig(bundle.printer ?? { enabled: false });
+      if (bundle.business) await saveBusiness(bundle.business);
+      if (bundle.user) await writeSecureUser(JSON.stringify(bundle.user));
 
-    await restoreRepo(productRepository, bundle.products);
-    await restoreRepo(customerRepository, bundle.customers);
-    await restoreRepo(providerRepository, bundle.providers);
-    await restoreOrders(orderRepository, bundle.orders);
+      await restoreRepo(productRepository, bundle.products);
+      await restoreRepo(customerRepository, bundle.customers);
+      await restoreRepo(providerRepository, bundle.providers);
+      await restoreOrders(orderRepository, bundle.orders);
+    } finally {
+      setSyncTrackingEnabled(true);
+      await clearSyncChanges();
+    }
 
     Alert.alert('Restauración completa', 'Los datos del respaldo se cargaron correctamente.');
   } catch (err) {
@@ -185,5 +192,6 @@ export async function deleteAccountAndData(): Promise<void> {
   await clearAppStorage();
   await deleteDatabaseFileNative();
   resetAllRepositories();
+  await clearSyncChanges();
   await removeSecureUser();
 }

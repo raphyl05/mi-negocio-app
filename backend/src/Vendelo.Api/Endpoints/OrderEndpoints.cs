@@ -217,6 +217,7 @@ public static class OrderEndpoints
             throw AppException.InvalidState("En F3 solo se anulan órdenes pendientes (post-pago: F11).");
         var now = DateTimeOffset.UtcNow;
         o.Status = OrderStatus.Voided;
+        o.VoidedAt = now;
         var events = Json.Des<List<object>>(o.EventsJson) ?? [];
         events.Add(new { type = "cancelled", at = now.ToString("O") });
         o.EventsJson = Json.Ser(events);

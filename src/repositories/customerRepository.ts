@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import type { Customer } from '../models/customer';
 import { generateId } from '../utils/password';
+import { enqueueSyncChange } from '../services/syncChangeQueue';
 import { createSqliteCustomerRepository } from './sqliteCustomerRepository';
 
 export type CustomerInput = Omit<Customer, 'id'> & { id?: string };
@@ -97,19 +98,25 @@ class LazyCustomerRepository implements CustomerRepository {
   }
 
   async create(customer: CustomerInput) {
-    return (await this.ready()).create(customer);
+    const created = await (await this.ready()).create(customer);
+    await enqueueSyncChange('customer', created.id, 'upsert');
+    return created;
   }
 
   async update(customer: Customer) {
-    return (await this.ready()).update(customer);
+    const updated = await (await this.ready()).update(customer);
+    await enqueueSyncChange('customer', updated.id, 'upsert');
+    return updated;
   }
 
   async remove(id: string) {
-    return (await this.ready()).remove(id);
+    await (await this.ready()).remove(id);
+    await enqueueSyncChange('customer', id, 'delete');
   }
 
   async hardRemove(id: string) {
-    return (await this.ready()).hardRemove(id);
+    await (await this.ready()).hardRemove(id);
+    await enqueueSyncChange('customer', id, 'delete');
   }
 }
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -165,12 +166,23 @@ public static class SyncEndpoints
     private static async Task<bool> UpsertProductAsync(string businessId, PushBatchDto b, VendeloDbContext db, CancellationToken ct)
     {
         var p = ((JsonElement)b.Entity!).Deserialize<ProductPushDto>();
-        if (p is null || string.IsNullOrWhiteSpace(p.Id) || string.IsNullOrWhiteSpace(p.Name) || p.PriceCents < 0)
-            return false;
+        if (p is null || string.IsNullOrWhiteSpace(p.Id)) return false;
         if (b.Id != p.Id) return false;
 
         var existing = await db.Products.FirstOrDefaultAsync(x => x.Id == p.Id && x.BusinessId == businessId, ct);
         var seq = await db.NextSeqAsync(businessId, ct);
+
+        if (b.Action == "delete")
+        {
+            if (existing is null) return false;
+            existing.Deleted = true;
+            existing.Seq = seq;
+            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(p.Name) || p.PriceCents < 0) return false;
+
         if (existing is null)
         {
             existing = new Product
@@ -201,11 +213,22 @@ public static class SyncEndpoints
     private static async Task<bool> UpsertCustomerAsync(string businessId, PushBatchDto b, VendeloDbContext db, CancellationToken ct)
     {
         var c = ((JsonElement)b.Entity!).Deserialize<NamedPushDto>();
-        if (c is null || string.IsNullOrWhiteSpace(c.Id) || string.IsNullOrWhiteSpace(c.Name)) return false;
+        if (c is null || string.IsNullOrWhiteSpace(c.Id)) return false;
         if (b.Id != c.Id) return false;
         var existing = await db.Customers.FirstOrDefaultAsync(x => x.Id == c.Id && x.BusinessId == businessId, ct);
         var seq = await db.NextSeqAsync(businessId, ct);
         var now = DateTimeOffset.UtcNow;
+
+        if (b.Action == "delete")
+        {
+            if (existing is null) return false;
+            existing.Deleted = true;
+            existing.Seq = seq;
+            existing.UpdatedAt = now;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(c.Name)) return false;
         if (existing is null)
         {
             existing = new Customer { Id = c.Id, BusinessId = businessId, Name = c.Name.Trim(), Phone = c.Phone, Address = c.Address, Description = c.Description, Seq = seq, CreatedAt = now, UpdatedAt = now };
@@ -226,11 +249,22 @@ public static class SyncEndpoints
     private static async Task<bool> UpsertProviderAsync(string businessId, PushBatchDto b, VendeloDbContext db, CancellationToken ct)
     {
         var p = ((JsonElement)b.Entity!).Deserialize<NamedPushDto>();
-        if (p is null || string.IsNullOrWhiteSpace(p.Id) || string.IsNullOrWhiteSpace(p.Name)) return false;
+        if (p is null || string.IsNullOrWhiteSpace(p.Id)) return false;
         if (b.Id != p.Id) return false;
         var existing = await db.Providers.FirstOrDefaultAsync(x => x.Id == p.Id && x.BusinessId == businessId, ct);
         var seq = await db.NextSeqAsync(businessId, ct);
         var now = DateTimeOffset.UtcNow;
+
+        if (b.Action == "delete")
+        {
+            if (existing is null) return false;
+            existing.Deleted = true;
+            existing.Seq = seq;
+            existing.UpdatedAt = now;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(p.Name)) return false;
         if (existing is null)
         {
             existing = new Provider { Id = p.Id, BusinessId = businessId, Name = p.Name.Trim(), Phone = p.Phone, Address = p.Address, Description = p.Description, Seq = seq, CreatedAt = now };
@@ -251,19 +285,30 @@ public static class SyncEndpoints
     private static async Task<bool> UpsertOrderAsync(string businessId, PushBatchDto b, VendeloDbContext db, CancellationToken ct)
     {
         var o = ((JsonElement)b.Entity!).Deserialize<OrderPushDto>();
-        if (o is null || string.IsNullOrWhiteSpace(o.Id) || o.Items is null || o.Items.Count == 0) return false;
+        if (o is null || string.IsNullOrWhiteSpace(o.Id)) return false;
         if (b.Id != o.Id) return false;
+
+        var existing = await db.Orders.FirstOrDefaultAsync(x => x.Id == o.Id && x.BusinessId == businessId, ct);
+        var now = DateTimeOffset.UtcNow;
+
+        if (b.Action == "delete")
+        {
+            if (existing is null) return false;
+            existing.Deleted = true;
+            existing.Seq = await db.NextSeqAsync(businessId, ct);
+            existing.UpdatedAt = now;
+            return true;
+        }
+
+        if (o.Items is null || o.Items.Count == 0) return false;
         if (o.Items.Any(i => i.ProductId is null || i.ProductId.Length is 0 or > 64 || i.Quantity <= 0 || i.UnitPriceCents < 0))
             return false;
         if (o.Status is not (OrderStatus.Pending or OrderStatus.Paid or OrderStatus.Voided)) return false;
         if (o.OrderType == "waiter" && string.IsNullOrWhiteSpace(o.WaiterId)) return false;
 
-        var existing = await db.Orders.FirstOrDefaultAsync(x => x.Id == o.Id && x.BusinessId == businessId, ct);
-        var now = DateTimeOffset.UtcNow;
-
         if (existing is not null)
         {
-            if (existing.Status == OrderStatus.Paid && existing.Status != o.Status) return false;
+            if (existing.Status == OrderStatus.Paid && o.Status == OrderStatus.Pending) return false;
             existing.ItemsJson = Json.Ser(o.Items);
             existing.TotalCents = o.Items.Sum(i => i.LineTotalCents);
             if (o.PrepStatus is not null) existing.PrepStatus = o.PrepStatus;
@@ -301,12 +346,20 @@ public static class SyncEndpoints
             existing.Number = business.NextOrderNumber;
             business.NextOrderNumber++;
             existing.Status = OrderStatus.Paid;
-            existing.PaidAt = now;
+            existing.PaidAt = ParseIso(o.PaidAt) ?? now;
             existing.Overventa = false;
         }
-        else if (o.Status == OrderStatus.Voided && existing.Status == OrderStatus.Pending)
+        else if (o.Status == OrderStatus.Voided && existing.Status != OrderStatus.Voided)
         {
+            if (existing.Status == OrderStatus.Paid)
+            {
+                var events = Json.Des<List<object>>(existing.EventsJson) ?? [];
+                events.Add(new { type = "cancelled", at = now.ToString("O") });
+                existing.EventsJson = Json.Ser(events);
+            }
             existing.Status = OrderStatus.Voided;
+            existing.VoidedAt = ParseIso(o.VoidedAt) ?? now;
+            if (o.VoidReason is not null) existing.VoidReason = o.VoidReason;
         }
 
         if (existing.Status == OrderStatus.Paid &&
@@ -413,6 +466,9 @@ public static class SyncEndpoints
         return long.TryParse(s, out var v) && v >= 0 ? v : 0;
     }
 
+    private static DateTimeOffset? ParseIso(string? s) =>
+        DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var v) ? v : null;
+
     private static string SeqCursor(long v) => $"seq:{v}";
 
     private static async Task<long> CurrentSeqAsync(VendeloDbContext db, string businessId, CancellationToken ct)
@@ -467,6 +523,9 @@ public sealed class OrderPushDto
     [JsonPropertyName("customerAddress")] public string? CustomerAddress { get; set; }
     [JsonPropertyName("customerDescription")] public string? CustomerDescription { get; set; }
     [JsonPropertyName("paymentMethod")] public string? PaymentMethod { get; set; }
+    [JsonPropertyName("paidAt")] public string? PaidAt { get; set; }
+    [JsonPropertyName("voidedAt")] public string? VoidedAt { get; set; }
+    [JsonPropertyName("voidReason")] public string? VoidReason { get; set; }
     [JsonPropertyName("items")] public List<OrderPushItemDto>? Items { get; set; }
 }
 

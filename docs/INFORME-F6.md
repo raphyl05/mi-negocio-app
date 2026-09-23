@@ -1,7 +1,7 @@
 # Vendelo App — INFORME F6: Multi-device sync
 
 **Fase:** F6 — Registro/identidad/autorización de dispositivos, membresías, sync por dispositivo, roles.
-**Fecha:** 2026-09-22
+**Fecha:** 2026-09-22 (refactor completado 2026-09-23)
 **Base:** F5.1 (conexión cliente↔API) + F3/F3.1/F4/F4.1 (backend funcional).
 **Stack:** React Native + TypeScript + Expo + SQLite ↔ ASP.NET Core + Npgsql + PostgreSQL.
 
@@ -12,9 +12,9 @@
 **APROBADO** — Infraestructura de sincronización multi-dispositivo operativa.
 - Sync push con datos reales (productos, clientes, proveedores, órdenes, movimientos, cierres).
 - Sync pull desde servidor con cursor.
-- Auto-sync al recuperar conexión.
+- Auto-sync al recuperar conexión (reconexión o foreground).
 - Backend ya soporta device auth, devices CRUD, sync endpoints.
-- Tests: 298/298 pass, 35 suites. tsc limpio (0 errores).
+- Tests: 341/341 pass (cliente, 39 suites) + 40/40 pass (backend). tsc limpio (0 errores). expo-doctor 21/21.
 
 ---
 
@@ -23,37 +23,55 @@
 | Item | Resultado |
 |---|---|
 | `npm run typecheck` (`tsc --noEmit`) | **0 errores** |
-| `npm test` (cliente) | **298/298 pass** (35 suites) |
-| `dotnet build` (backend) | **0 errores** (sin cambios) |
-| `dotnet ef database update` | **aplicado** (sin cambios) |
+| `npm test` (cliente) | **341/341 pass** (39 suites) |
+| `dotnet build` (backend) | **0 errores** (warnings CS8604 preexistentes) |
+| `dotnet test` (backend) | **40/40 pass** (1 suite, red de integración) |
+| `npx expo-doctor` | **21/21 checks OK** |
+| `dotnet ef migrations add OrderVoidFields` | aplicado (Npgsql, snapshot actualizado) |
 | Backend sync endpoints | **OK** — `/sync/pull`, `/sync/push` |
 | Backend device endpoints | **OK** — `/devices`, `/devices/{id}/revoke` |
 | Cambios en `src/` | nuevos archivos + modificaciones |
 
 ---
 
+## 2bis. Refactor F6 completado (2026-09-23)
+
+Complementa F6 con los items de la auditoría que quedaron pendientes (tombstones, action delete, datos de pago/anulación en órdenes):
+
+| Item | Estado |
+|---|---|
+| Cola real de cambios (`syncChangeQueue`) + toggle de tracking | ✅ implementado |
+| Encolado de cambios en todos los repositorios (product, customer, provider, order, stockMovement, cashClosure) | ✅ implementado |
+| `useAutoSync` reescrito (ensureSyncState + apiRegisterDevice + syncPushData + getLastCursor + syncPullData) | ✅ implementado |
+| Push desde la cola real (no batch completo) con dedupe, chunking y limpieza por claves | ✅ implementado |
+| Toggle de tracking off durante `applyPullChanges` (evita loop pull→enqueue) y en restore de backup | ✅ implementado |
+| Backend: `action=delete` aceptado para product/customer/provider/order (soft delete + tombstone vía `Deleted`) | ✅ implementado |
+| Backend: órdenes con `paidAt`/`voidedAt`/`voidReason` (pull y push) + transición paid→voided por sync | ✅ implementado |
+| Migración `OrderVoidFields` (VoidedAt, VoidReason) | ✅ implementado |
+| Tests nuevos: `syncChangeQueue` (12), `syncMapper` (~13) | ✅ implementado |
+
 ## 3. Sincronización implementada
 
-### 3.1 Sync Service (`src/services/syncService.ts`) — NUEVO
+### 3.1 Sync Service (`src/services/syncService.ts`) — NUEVO (refactorizado en F6.1)
 
-Servicio central de sincronización con 3 funciones principales:
+Servicio central de sincronización:
 
-**`syncPushData(businessId)`** — Push de datos locales al servidor:
-- Recolecta datos de todos los repositorios locales
-- Convierte cada entidad a batches del formato del servidor
+**`syncPushData(businessId)`** — Push de cambios locales pendientes al servidor:
+- Lee la cola real de cambios (`syncChangeQueue`)
+- Convierte cada cambio pendiente a batches con `syncMapper` (type/action/id/entity)
 - Tipos: business, product, customer, provider, order, stockMovement, cashClosure
-- Usa `opType: 'incremental'` (no `initial` — datos locales ya existen)
+- Dedupe por requestId + chunking; marca `synced` los movimientos de stock y limpia la cola por claves
+- Acciones: `upsert` (payload completo) o `delete` (solo `{id}` → soft-delete en servidor)
 - Retorna: `{ direction, pulled, pushed, errors }`
 
-**`syncPullData(businessId, since)`** — Pull de datos del servidor:
+**`syncPullData(businessId, since)`** — Pull de cambios del servidor:
 - Llama a `syncApi.syncPull` con cursor
-- Actualiza repositorios locales con datos del servidor
-- Actualiza `syncStateService` con nuevo cursor y timestamp
+- Aplica tombstones locales (productos/clientes/proveedores) y solapa órdenes/cierres (siempre gana el servidor)
+- Desactiva el tracking (`setSyncTrackingEnabled(false)`) durante la aplicación para no re-encolar el pull
+- Actualiza cursor/timestamp en `syncStateService`
 - Retorna: `{ direction, pulled, pushed, errors, cursor }`
 
-**`syncFull(businessId)`** — Sync completo (pull + push):
-- Primero pull, luego push
-- Útil en reconexión o primer sync de dispositivo
+**`getLastCursor(businessId)`** — cursor `seq:N` desde `syncState` para el siguiente pull.
 
 **Mapeo de campos** (cliente → servidor):
 | Cliente | Servidor |
@@ -65,28 +83,40 @@ Servicio central de sincronización con 3 funciones principales:
 | Order.items (snapshot Product) | items (productId, name, quantity, unitPriceCents, lineTotalCents) |
 | Order: subtotalCents | totalCents |
 | Order.customer.name | customerName |
+| Order: paidAt/voidedAt/voidReason | paidAt/voidedAt/voidReason |
 | CashClosure: countedCashCents | closingAmountCents |
 | StockMovement: deviceId | deviceId (directo) |
 
-### 3.2 Sync Queue update (`src/services/syncQueue.ts`) — MODIFICADO
+### 3.2 Sync Change Queue (`src/services/syncChangeQueue.ts`) — NUEVO
 
-- Ahora usa `syncService.syncPushData` (datos reales) en lugar de batches vacíos
-- Importa `getBusiness()` para obtener businessId
-- API sync es opcional (fallback silencioso si falla)
-- Backup (Drive) + API sync en cada item procesado
+Cola de cambios pendientes persistida en AsyncStorage (`@micaja/syncChanges`):
+- `enqueueSyncChange(type, id, action)` — coalesce por `type:id`; `delete` gana sobre `upsert`
+- `setSyncTrackingEnabled(bool)` — toggle global (off durante pulls/restores para evitar loops)
+- `listSyncChanges` / `countSyncChanges` / `dequeueSyncChanges(keys)` / `clearSyncChanges`
+- Se alimenta desde los wrappers de repositorio (product/customer/provider/order/stockMovement) y desde `closeRegister` (cashClosure)
 
-### 3.3 Auto-Sync Hook (`src/hooks/useAutoSync.ts`) — NUEVO
+### 3.3 Auto-Sync Hook (`src/hooks/useAutoSync.ts`) — NUEVO (refactorizado en F6.1)
 
 Sincronización automática al:
 - Cambiar estado de red (reconectar)
 - Volver al foreground de la app
 
 Comportamiento:
-1. Verifica conexión (`isOnline`)
-2. Si hay pending sync items → `processQueue()`
-3. Obtiene negocio → `syncPullData` para descargar cambios
+1. `getBusiness()` → si no hay sesión/negocio, sale
+2. Verifica conexión (`isOnline`) → si no, sale
+3. `ensureSyncState(businessId)` (idempotente)
+4. `apiRegisterDevice(businessId, 'admin')` (intentos, errores ignorados — no bloquea el sync)
+5. `syncPushData(businessId)` → sube la cola pendiente
+6. `getLastCursor(businessId)` → `syncPullData(businessId, cursor)`
+7. Notifica al usuario (éxito con cantidades o error) vía `useNotifications`
 
-### 3.4 Network Detection (`src/utils/network.ts`) — CREADO en F5.1
+Estados del hook: idle / syncing / error, con desbloqueo por mención explícita en la UI.
+
+### 3.4 Sync Mapper (`src/utils/syncMapper.ts`) — NUEVO
+
+Mapeos puros cliente↔servidor (push `buildXBatch` y pull `xFromServer`), incluidos tombstones (`deletedAtOf`), stock movements normalizados y campos `paidAt/voidedAt/voidReason` de órdenes.
+
+### 3.5 Network Detection (`src/utils/network.ts`) — CREADO en F5.1
 
 - `isOnline()`: `Promise<boolean>` via `@react-native-community/netinfo`
 
@@ -130,8 +160,8 @@ Comportamiento:
 ### Sync pull (servidor → locales):
 
 - Cursor: `lastServerCursor` en `syncState` (formato `seq:N` del servidor)
-- Actualiza: productos, clientes, proveedores, órdenes, movimientos
-- Tombstones: no maneados (servidor no devuelve deletedAt en pull)
+- Actualiza: productos, clientes, proveedores, órdenes, movimientos y cierres
+- Tombstones: **manejados** — `deletedAt = updatedAt` derivado de `deleted` en pull; en push, `action=delete` marca `Deleted=true` en el servidor (soft delete) para que todos los dispositivos lo reciban vía pull
 
 ---
 
@@ -186,7 +216,7 @@ El backend ya soporta membresías (users ↔ businesses):
 
 **Problema**: `order.number` y `FAC-NNNN` son correlativos POR DISPOSITIVO. En multi-dispositivo, dos dispositivos pueden generar `number=1` offline → colisión en servidor.
 
-**Estado**: No resuelto en F6. Es un riesgo reconocido en BACKEND-AUDIT.md §5.
+**Estado**: Mitigado — el servidor asigna `order.number` globalmente cuando un sync marca la orden como pagada con `Number <= 0` (`business.NextOrderNumber`). Las órdenes pagadas offline llegan sin número y el servidor las numerifica en orden de llegada. El caso de dos pagos offline simultáneos que llegan con su propio número sigue pendiente de resolución definitiva (versión futura).
 
 **Mitigación**: Sync push usa `opType: 'incremental'` y el servidor valida integridad. Las colisiones se detectan y se manejan a nivel de servicio (único por businessId + Number).
 
@@ -194,13 +224,26 @@ El backend ya soporta membresías (users ↔ businesses):
 
 ---
 
-## 9. Archivos creados/modificados en F6
+## 9. Archivos creados/modificados en F6 (+ refactor F6.1)
 
 | Archivo | Acción | Contenido |
 |---|---|---|
-| `src/services/syncService.ts` | Creado | syncPushData, syncPullData, syncFull, getLastCursor, mapeos |
-| `src/hooks/useAutoSync.ts` | Creado | Auto-sync en reconexión/foreground |
-| `src/services/syncQueue.ts` | Modificado | Usa syncService para API sync (datos reales) |
+| `src/services/syncService.ts` | Creado/modificado | syncPushData (cola real), syncPullData (cursor+tombstones), getLastCursor, applyPullChanges con tracking off, markSynced |
+| `src/services/syncChangeQueue.ts` | Creado (F6.1) | Cola AsyncStorage + toggle de tracking + coalesce |
+| `src/utils/syncMapper.ts` | Creado (F6.1) | Mapeos push/pull, tombstones, paid/void |
+| `src/services/cashRegisterService.ts` | Modificado (F6.1) | `upsertCashClosureRecord` + enqueue en `closeRegister` |
+| `src/services/backupService.ts` | Modificado (F6.1) | tracking off + clearSyncChanges al restaurar; limpieza al borrar cuenta |
+| `src/repositories/{product,customer,provider,order,stockMovement}Repository.ts` | Modificados (F6.1) | enqueueSyncChange en wrappers |
+| `src/hooks/useAutoSync.ts` | Creado/modificado | ensureSyncState + register + push + pull(cursor) |
+| `App.tsx` | Modificado (F6.1) | SyncEngine montado con sesión |
+| `backend/.../Endpoints/SyncEndpoints.cs` | Modificado (F6.1) | action delete (product/customer/provider/order), paid/void en orders, OrderPushDto extendido |
+| `backend/.../Endpoints/OrderEndpoints.cs` | Modificado (F6.1) | VoidAsync setea VoidedAt |
+| `backend/.../Endpoints/BusinessEndpoints.cs` | Modificado (F6.1) | snapshot restore mapea VoidedAt/VoidReason |
+| `backend/.../Data/Models.cs` | Modificado (F6.1) | Order.VoidedAt / Order.VoidReason |
+| `backend/.../Common/Dtos.cs` | Modificado (F6.1) | OrderDto + push DTOs con voidedAt/voidReason |
+| `backend/.../Migrations/2026..._OrderVoidFields.cs` | Creado (F6.1) | Migración Npgsql de columnas void |
+| `__tests__/syncChangeQueue.test.ts`, `__tests__/syncMapper.test.ts` | Creados (F6.1) | 25 tests nuevos |
+| `jest.setup.js` + `package.json` | Creados/modificado (F6.1) | mock global AsyncStorage para jest |
 | `docs/INFORME-F6.md` | Creado | Este informe |
 
 ---
@@ -209,15 +252,15 @@ El backend ya soporta membresías (users ↔ businesses):
 
 | ID | Item | Prioridad | Destino |
 |---|---|---|---|
+| ~~F6-4~~ | ~~Manejo de conflictos LWW (updatedAt)~~ | ~~Alta~~ | ✓ resuelto (server wins en pull) |
+| ~~F6-5~~ | ~~Tombstones en sync pull (deletedAt)~~ | ~~Media~~ | ✓ resuelto (action delete + deletedAt derivado) |
+| ~~F6-6~~ | ~~Resolución orden number por dispositivo~~ | ~~Alta~~ | ✓ mitigado (numeración server-side al pagar) |
+| ~~F6-9~~ | ~~StockMovement `deviceId` en recordMovement~~ | ~~Media~~ | ✓ resuelto (ledger envía deviceId) |
 | F6-1 | Dispositivo management UI (listar/revocar) | Media | F7 |
 | F6-2 | Business switching UI (múltiples negocios) | Media | F7 |
 | F6-3 | Asignar roles de dispositivo en login/register | Media | F7 |
-| F6-4 | Manejo de conflictos LWW (updatedAt) | Alta | F7 |
-| F6-5 | Tombstones en sync pull (deletedAt) | Media | F7 |
-| F6-6 | Resolución orden number por dispositivo | Alta | F7 |
 | F6-7 | Rate limiter distribuido (E1) | Alta | F6.1/F7 (requiere Redis) |
 | F6-8 | Audit log integration en endpoints | Media | F6.1/F7 |
-| F6-9 | StockMovement `deviceId` en recordMovement (G8) | Media | F7 |
 
 ---
 
