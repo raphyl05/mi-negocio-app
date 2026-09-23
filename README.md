@@ -529,7 +529,8 @@ Servidor API **Source of Truth** del historial: ASP.NET Core Minimal API (net10.
 cd backend
 dotnet restore
 dotnet run --project src/Vendelo.Api      # Development → http://localhost:5243 (OpenAPI en /openapi/v1.json)
-dotnet test Vendelo.slnx                  # 40/40 tests de integración
+dotnet test Vendelo.slnx                  # 44/44 tests de integración
+dotnet ef migrations add <Name>           # genera migración Npgsql (Database__Provider=Npgsql)
 ```
 
 - Proveedor/config por env: `Database:Provider` (Npgsql | Sqlite), `ConnectionStrings:Vendelo`, `Jwt__Key`. En Development hay clave JWT local de respaldo (SIN uso en producción).
