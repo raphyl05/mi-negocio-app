@@ -56,7 +56,7 @@ Repositorios (src/repositories)  orderRepository, productRepository, customerRep
       └── Memoria (arrays)      *.ts          → web (y Jest)
       ↓
 Persistencia
-  ├── SQLite (micaja.db)            productos, órdenes, clientes, proveedores, order_meta
+  ├── SQLite (vendelo.db)            productos, órdenes, clientes, proveedores, order_meta
   ├── AsyncStorage                   negocio, caja abierta, cierres, config impresora, token Drive, cola
   └── SecureStore (Keychain/Keystore) usuario (hash/sal/pregunta de seguridad)
 ```
@@ -71,8 +71,8 @@ Persistencia
   siempre con validación y reserva/liberación de stock en el mismo lance (rollback completo si algo falla).
 - **Singleton de servicio de órdenes**: `orderService` se crea con `orderRepository` + `productRepository` por defecto;
   los tests inyectan repositorios en memoria.
-- **Estado de la caja y cierres NO viven en SQLite**: `@micaja/cashRegister` (caja abierta),
-  `@micaja/cashClosures` (array de cierres) en AsyncStorage.
+- **Estado de la caja y cierres NO viven en SQLite**: `@vendelo/cashRegister` (caja abierta),
+  `@vendelo/cashClosures` (array de cierres) en AsyncStorage.
 - **El usuario NO viven en SQLite**: SecureStore (`vendelo.user`), con fallback/migración de AsyncStorage.
 
 ### Flujo de arranque real (App.tsx)
@@ -88,7 +88,7 @@ BootGate: splash → isSetupDone()?
 
 ## 3. Persistencia local (esquemas verificados en el código)
 
-### 3.1 SQLite — `micaja.db` (`src/repositories/database.native.ts`)
+### 3.1 SQLite — `vendelo.db` (`src/repositories/database.native.ts`)
 
 `PRAGMA journal_mode = WAL`. Tablas creadas con `CREATE TABLE IF NOT EXISTS` y migraciones ad-hoc
 (`ensureColumn` con allowlist de identificadores, `sqlIdentifier.ts`):
@@ -147,18 +147,18 @@ BootGate: splash → isSetupDone()?
 
 | Llave                    | Contenido                                  |
 | ------------------------ | ------------------------------------------ |
-| `@micaja/business`       | `Business` (nombre, datos, logo, mensaje factura) |
-| `@micaja/cashRegister`   | `CashRegister` activa (id, openingAmountCents, openedAt) |
-| `@micaja/cashClosures`   | `CashClosureRecord[]` (histórico de cierres) |
-| `@micaja/printer`        | `PrinterConfig` (dispositivo)              |
-| `@micaja/driveToken`     | token OAuth Google (dormido)               |
-| `@micaja/pendingSync`    | cola `string[]` de razones de sync (Drive, dormido) |
+| `@vendelo/business`       | `Business` (nombre, datos, logo, mensaje factura) |
+| `@vendelo/cashRegister`   | `CashRegister` activa (id, openingAmountCents, openedAt) |
+| `@vendelo/cashClosures`   | `CashClosureRecord[]` (histórico de cierres) |
+| `@vendelo/printer`        | `PrinterConfig` (dispositivo)              |
+| `@vendelo/driveToken`     | token OAuth Google (dormido)               |
+| `@vendelo/pendingSync`    | cola `string[]` de razones de sync (Drive, dormido) |
 
 ### 3.3 SecureStore (Keychain/Keystore en nativo)
 
 - Llave `vendelo.user` → `User` en JSON: `{ id, username, passwordHash, passwordSalt, securityQuestion,
   securityAnswerHash, securityAnswerSalt, createdAt }`.
-- En **web** degrada a AsyncStorage (`@micaja/user`) — documentado en el código — y **migra** el legado a
+- En **web** degrada a AsyncStorage (`@vendelo/user`) — documentado en el código — y **migra** el legado a
   SecureStore en el primer acceso (`secureStore.ts`).
 
 ---
@@ -167,15 +167,15 @@ BootGate: splash → isSetupDone()?
 
 | Entidad | Tabla/Almacén | PK | Relaciones | createdAt | updatedAt | Estado | Eliminable | Campos calculados/derivados |
 | ------- | ------------- | -- | ---------- | --------- | --------- | ------ | ---------- | ---------------------------- |
-| Business | AsyncStorage `@micaja/business` | ninguno (único) | 1 usuario, 1 dispositivo | `createdAt` | **no** | activo | sí (borrar cuenta) | logo, mensaje factura |
+| Business | AsyncStorage `@vendelo/business` | ninguno (único) | 1 usuario, 1 dispositivo | `createdAt` | **no** | activo | sí (borrar cuenta) | logo, mensaje factura |
 | User | SecureStore `vendelo.user` | `id` (UUID) | 1 negocio, 1 dispositivo | `createdAt` | **no** | activo | sí (borrar cuenta) | hash/sal PBKDF2, pregunta de seguridad |
 | Product | SQLite `products` | `id` (TEXT) | ítem de Order (snapshot), provider (denormalizado) | `createdAt` | **no** | `active` 0/1 | sí (DELETE duro) | precio→centavos; stock→cantidad |
 | Customer | SQLite `customers` | `id` (TEXT) | datos de Order.customer (copia) | `createdAt` | **no** | — | sí (DELETE duro) | — |
 | Provider | SQLite `providers` | `id` (TEXT) | products.provider (copia denormalizada) | `createdAt` | **no** | — | sí (DELETE duro) | — |
 | Order | SQLite `orders` | `id` (TEXT) | items (snapshot de Product), customer (copia), stock (reserva) | `createdAt` + `paidAt`/`voidedAt` | **no** | pending/paid/voided | pendientes sí (DELETE); paid/voided NO | `number` (correlativo), `subtotalCents` (congelado), cambio |
-| CashRegister (caja abierta) | AsyncStorage `@micaja/cashRegister` | `id` (UUID) | órdenes por `paidAt ≥ openedAt` (lógico) | `openedAt` | **no** | abierta | se borra al cerrar | — |
-| CashClosureRecord | AsyncStorage `@micaja/cashClosures` | `id` (UUID) | snapshot del turno (sin FK) | `closedAt` | **no** | inmutable | no (histórico) | esperado, diferencia, ventas por método |
-| PrinterConfig | AsyncStorage `@micaja/printer` | ninguno | dispositivo | `connectedAt` | **no** | enabled/state | — | es dispositivo-local |
+| CashRegister (caja abierta) | AsyncStorage `@vendelo/cashRegister` | `id` (UUID) | órdenes por `paidAt ≥ openedAt` (lógico) | `openedAt` | **no** | abierta | se borra al cerrar | — |
+| CashClosureRecord | AsyncStorage `@vendelo/cashClosures` | `id` (UUID) | snapshot del turno (sin FK) | `closedAt` | **no** | inmutable | no (histórico) | esperado, diferencia, ventas por método |
+| PrinterConfig | AsyncStorage `@vendelo/printer` | ninguno | dispositivo | `connectedAt` | **no** | enabled/state | — | es dispositivo-local |
 | order_meta.nextNumber | SQLite `order_meta` | key | correlativo por dispositivo | — | **no** | — | — | derivado de max(number)+1 al restaurar |
 | DriveToken | AsyncStorage | ninguno | Google OAuth | `updatedAt` | sí | conectado/no | sí | dormido |
 

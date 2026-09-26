@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, FlatList, StyleSheet, Text, View } from 'react-native';
 import Screen from '../../components/Screen';
 import { useTheme } from '../../theme';
 import { orderRepository } from '../../repositories/orderRepository';
@@ -139,25 +139,31 @@ export default function KitchenScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold }]}>
-          Cocina
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
-          {orders.filter((o) => o.kitchenTicketId).length} comandas activas
-        </Text>
-      </View>
+      <FlatList
+        data={orders}
+        keyExtractor={(order) => order.id}
+        ListHeaderComponent={
+          <>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.textPrimary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold }]}>
+                Cocina
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: typography.sizes.body }]}>
+                {orders.filter((o) => o.kitchenTicketId).length} comandas activas
+              </Text>
+            </View>
 
-      {orders.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
-            No hay comandas en cocina.
-          </Text>
-        </View>
-      ) : null}
-
-      {orders.map((order) => (
-        <View key={order.id} style={[styles.card, { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border }]}>
+            {orders.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={{ color: colors.textSecondary, fontSize: typography.sizes.body }}>
+                  No hay comandas en cocina.
+                </Text>
+              </View>
+            ) : null}
+          </>
+        }
+        renderItem={({ item: order }) => (
+          <View style={[styles.card, { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
             <Text style={[styles.orderNumber, { color: colors.textPrimary, fontSize: typography.sizes.h2, fontWeight: '700' }]}>
               #{order.number}
@@ -227,7 +233,8 @@ export default function KitchenScreen() {
             ) : null}
           </View>
         </View>
-      ))}
+      )}
+    />
     </Screen>
   );
 }

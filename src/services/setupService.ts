@@ -4,7 +4,7 @@ import type { SessionUser, User } from '../models/user';
 import { generateId, generateSalt, hashPassword, isLegacySha256Hash, verifyPassword } from '../utils/password';
 import { readSecureUser, removeSecureUser, writeSecureUser } from '../utils/secureStore';
 
-const BUSINESS_KEY = '@micaja/business';
+const BUSINESS_KEY = '@vendelo/business';
 
 export type SetupPayload = {
   name: string;

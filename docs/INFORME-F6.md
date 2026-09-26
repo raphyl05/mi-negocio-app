@@ -91,7 +91,7 @@ Servicio central de sincronización:
 
 ### 3.2 Sync Change Queue (`src/services/syncChangeQueue.ts`) — NUEVO
 
-Cola de cambios pendientes persistida en AsyncStorage (`@micaja/syncChanges`):
+Cola de cambios pendientes persistida en AsyncStorage (`@vendelo/syncChanges`):
 - `enqueueSyncChange(type, id, action)` — coalesce por `type:id`; `delete` gana sobre `upsert`
 - `setSyncTrackingEnabled(bool)` — toggle global (off durante pulls/restores para evitar loops)
 - `listSyncChanges` / `countSyncChanges` / `dequeueSyncChanges(keys)` / `clearSyncChanges`
@@ -175,7 +175,7 @@ El dispositivo se registra automáticamente en el backend al:
 - `apiRegister` → crea device como parte de la transacción
 
 ### Identidad del dispositivo
-- `deviceId`: UUID generado en primer uso, persistido en AsyncStorage (`@micaja/deviceId`)
+- `deviceId`: UUID generado en primer uso, persistido en AsyncStorage (`@vendelo/deviceId`)
 - `getDeviceId()` desde `src/utils/syncIdentity.ts`
 - Se envía en login/register payload y en JWT claims (`dev`)
 

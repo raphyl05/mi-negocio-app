@@ -21,7 +21,7 @@ import { resetSyncStateRepository } from '../repositories/syncStateRepository';
 import { setSyncTrackingEnabled, clearSyncChanges } from './syncChangeQueue';
 import { parseBackup, sanitizeUserForBackup, serializeBackup, validateBackupData, type BackupBundle } from '../utils/backup';
 
-const KEYS = ['@micaja/business', '@micaja/cashRegister', '@micaja/cashClosures', '@micaja/printer'];
+const KEYS = ['@vendelo/business', '@vendelo/cashRegister', '@vendelo/cashClosures', '@vendelo/printer'];
 
 async function clearAppStorage(): Promise<void> {
   await AsyncStorage.multiRemove(KEYS);
@@ -51,8 +51,8 @@ export async function buildBackupBundle(): Promise<BackupBundle> {
   const [business, user, register, closures, printer] = await Promise.all([
     getBusiness(),
     getUser(),
-    AsyncStorage.getItem('@micaja/cashRegister'),
-    AsyncStorage.getItem('@micaja/cashClosures'),
+    AsyncStorage.getItem('@vendelo/cashRegister'),
+    AsyncStorage.getItem('@vendelo/cashClosures'),
     loadPrinterConfig(),
   ]);
   return {
@@ -136,10 +136,10 @@ export async function applyRestoredBundle(bundle: BackupBundle): Promise<void> {
     setSyncTrackingEnabled(false);
     try {
       const pairs: [string, string][] = [
-        ['@micaja/business', JSON.stringify(bundle.business ?? {})],
-        ['@micaja/cashRegister', JSON.stringify(bundle.cashRegister ?? {})],
-        ['@micaja/cashClosures', JSON.stringify(bundle.cashClosures ?? [])],
-        ['@micaja/printer', JSON.stringify(bundle.printer ?? {})],
+        ['@vendelo/business', JSON.stringify(bundle.business ?? {})],
+        ['@vendelo/cashRegister', JSON.stringify(bundle.cashRegister ?? {})],
+        ['@vendelo/cashClosures', JSON.stringify(bundle.cashClosures ?? [])],
+        ['@vendelo/printer', JSON.stringify(bundle.printer ?? {})],
       ];
       const toSave = pairs.filter(([, v]) => v !== '{}' && v !== '[]');
       await AsyncStorage.multiSet(toSave);

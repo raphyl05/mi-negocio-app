@@ -19,7 +19,7 @@ export type SyncChange = {
   at: string;
 };
 
-const CHANGES_KEY = '@micaja/syncChanges';
+const CHANGES_KEY = '@vendelo/syncChanges';
 let trackingEnabled = true;
 
 export function setSyncTrackingEnabled(enabled: boolean): void {

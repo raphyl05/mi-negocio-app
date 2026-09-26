@@ -39,7 +39,7 @@ function BootGate() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Text style={{ color: colors.primary, fontSize: typography.sizes.h1, fontWeight: typography.weights.extrabold }}>
-          MiCaja
+          Vendelo App
         </Text>
         <ActivityIndicator style={styles.spinner} color={colors.primary} />
       </View>

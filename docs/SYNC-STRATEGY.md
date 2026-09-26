@@ -544,7 +544,7 @@ Es correcto con matices:
 ┌─────────────────────────────────────────────┐
 │             React Native (Vendelo)          │
 │                                             │
-│        SQLite (micaja.db)                   │
+│        SQLite (vendelo.db)                   │
 │   products/customers/providers (+upd/del)   │
 │   orders + cash_closures (docs inmutables)  │
 │   stock_movements (outbox/ledger)           │

@@ -82,7 +82,7 @@ describe('identidad del dispositivo y del negocio', () => {
     const first = await getDeviceId();
     const second = await getDeviceId();
     expect(second).toBe(first);
-    expect(await AsyncStorage.getItem('@micaja/deviceId')).toBe(first);
+    expect(await AsyncStorage.getItem('@vendelo/deviceId')).toBe(first);
   });
 
   it('un dispositivo limpio genera una identidad nueva', async () => {

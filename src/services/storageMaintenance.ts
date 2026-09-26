@@ -4,7 +4,7 @@ import type { AppStateStatus } from 'react-native';
 import { productRepository } from '../repositories/productRepository';
 import { planCacheCleanup } from '../utils/backupPrune';
 
-const LAST_VACUUM_KEY = '@micaja/lastVacuumAt';
+const LAST_VACUUM_KEY = '@vendelo/lastVacuumAt';
 
 const VACUUM_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MOVEMENTS_RETENTION_DAYS = 180;
@@ -167,9 +167,9 @@ export async function reportStorage(): Promise<StorageReport> {
   try {
     const { documentDirectory, cacheDirectory, readDirectoryAsync, getInfoAsync } = require('expo-file-system/legacy');
 
-    const dbPath = `${documentDirectory}SQLite/micaja.db`;
-    const walPath = `${documentDirectory}SQLite/micaja.db-wal`;
-    const shmPath = `${documentDirectory}SQLite/micaja.db-shm`;
+    const dbPath = `${documentDirectory}SQLite/vendelo.db`;
+    const walPath = `${documentDirectory}SQLite/vendelo.db-wal`;
+    const shmPath = `${documentDirectory}SQLite/vendelo.db-shm`;
 
     const [dbInfo, walInfo, shmInfo] = await Promise.all([
       getPathInfo(dbPath),

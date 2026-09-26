@@ -59,8 +59,8 @@
 | Identificador | Generado por | Formato | Persistencia local | Notas |
 |---|---|---|---|---|
 | `userId` | servidor | UUID v4 (opaco) | — | identidad de cuenta |
-| `businessId` | cliente (app) o servidor al crear | id opaco ≤ 64 `[A-Za-z0-9_-]` | `@micaja/business.id` | 1 usuario → 1..n negocios |
-| `deviceId` | cliente (app) | id opaco, estable por instalación | `@micaja/deviceId` | **se regenera al reinstalar**; NO viaja en backups |
+| `businessId` | cliente (app) o servidor al crear | id opaco ≤ 64 `[A-Za-z0-9_-]` | `@vendelo/business.id` | 1 usuario → 1..n negocios |
+| `deviceId` | cliente (app) | id opaco, estable por instalación | `@vendelo/deviceId` | **se regenera al reinstalar**; NO viaja en backups |
 | `productId`, `customerId`, `providerId`, `orderId` | cliente (app) | id opaco (hoy UUID v4 con fallback) | SQLite | PK por negocio |
 | `movementId` | cliente (app) | id opaco (UUID) | SQLite `stock_movements.id` | PK global (idempotencia) |
 | `closureId` | cliente (app) | id opaco (UUID) | hoy AsyncStorage; GAP → SQLite en F3/F4 | idempotencia por id |
@@ -177,7 +177,7 @@ recibe `passwordHash`/`passwordSalt` locales (reforzar con test en el backend, v
 
 ## PARTE 6 — Negocios (Business)
 
-La entidad local es `Business` (`@micaja/business`): `{ id, name, ownerName?, phone?, address?,
+La entidad local es `Business` (`@vendelo/business`): `{ id, name, ownerName?, phone?, address?,
 logoBase64?, invoiceMessage?, createdAt, updatedAt? }`. El contrato la refleja **y añade** lo mínimo
 necesario del multiusuario y de las **capacidades** (PARTE 40).
 
@@ -224,7 +224,7 @@ necesario del multiusuario y de las **capacidades** (PARTE 40).
 
 **Reglas:**
 - `id` tiene que matchear `${'business-'}` opcional + id opaco; si el cliente lo omite, el servidor lo genera.
-- el **`id` local se conserva** (no se regera nunca): es la clave de unión entre `@micaja/business` y el servidor.
+- el **`id` local se conserva** (no se regera nunca): es la clave de unión entre `@vendelo/business` y el servidor.
 - `logoBase64` puede ser pesado; se acepta ≤ 1 MB; sincronización de imágenes fuera de scope (ver PARTE 36-G7).
 - `updatedAt` se envía siempre (local), usado como LWW de configuración.
 - **Tipo ≠ permisos:** `businessType` es informativo (PARTE 40.1). Las capacidades (`capabilities`) son
@@ -254,7 +254,7 @@ que crea un negocio adicional (con `owner.../admin` de su cuenta).
 
 | Campo | Tipo | Obligatorio | Regla |
 |---|---|---|---|
-| `businessId` | string ≤64 `[A-Za-z0-9_-]`, prefijo opcional `business-` | no | si se omite, el servidor lo genera; **se conserva** el id local de `@micaja/business` (clave de unión) |
+| `businessId` | string ≤64 `[A-Za-z0-9_-]`, prefijo opcional `business-` | no | si se omite, el servidor lo genera; **se conserva** el id local de `@vendelo/business` (clave de unión) |
 | `name` | string 1..120 | **sí** | |
 | `ownerName` | string ≤120 | no | |
 | `businessType` | enum P.40.1 | no | default `COMMERCE`; **informativo, nunca autoriza** |
@@ -606,7 +606,7 @@ envelope de sync), pero **F4 debe fijar `deviceId` en `recordMovement`** y consi
 
 ## PARTE 13 — Caja y cierres (Cash registers & closures)
 
-**Apertura (register):** hoy es **local por dispositivo** (`@micaja/cashRegister`): `{ id,
+**Apertura (register):** hoy es **local por dispositivo** (`@vendelo/cashRegister`): `{ id,
 openingAmountCents, openedAt }`. Decisión: **la caja abierta NO se sincroniza** (cada banda/caja física
 es local). Solo se sincronizan los **cierres** (inmutables).
 
@@ -641,7 +641,7 @@ es local). Solo se sincronizan los **cierres** (inmutables).
 | Pagado o transferencia | `transferSalesCents` separa pagos no-efectivo |
 | Idempotencia | por `id` del cierre |
 
-**GAP estructural confirmado:** hoy los cierres viven en **AsyncStorage** (`@micaja/cashClosures`), no en
+**GAP estructural confirmado:** hoy los cierres viven en **AsyncStorage** (`@vendelo/cashClosures`), no en
 SQLite, por lo que no están en el outbox. **F3/F4** deben migrarlos a SQLite (mismo esquema, sin cambios
 de semántica) para poder sincronizarlos. Mientras tanto el contrato queda definido y estable.
 
@@ -1335,7 +1335,7 @@ POST /auth/register
 | `password` | string | **sí** | mínimo 8; Argon2/bcrypt en servidor; **nunca** el hash local PBKDF2 |
 | `deviceId` | string | **sí** | el `deviceId` local de la app (X-Device-Id) |
 | `deviceName` | string | **sí** | nombre visible del dispositivo |
-| `businessId` | string ≤64 | no | id local de `@micaja/business`; si se omite, el servidor genera |
+| `businessId` | string ≤64 | no | id local de `@vendelo/business`; si se omite, el servidor genera |
 | `name` / `ownerName` | string | `name` **sí** | nombre del negocio inicial |
 | `businessType` | enum P.40.1 | no | default `COMMERCE`; informativo, no autoriza |
 | `capabilities` | objeto P.40.2 | no | default OFF; **solo el bootstrap del dueño** puede activarlas en el mismo paso |

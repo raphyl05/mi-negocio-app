@@ -93,7 +93,16 @@ export function buildTicket(order: Order, business: Business): PrintTicket {
 
 export function logoDataUri(logoBase64?: string): string | null {
   if (!logoBase64) return null;
-  return `data:image/png;base64,${logoBase64}`;
+  return `data:${detectImageMime(logoBase64)};base64,${logoBase64}`;
+}
+
+export function detectImageMime(base64: string): string {
+  if (!base64) return 'image/png';
+  if (base64.startsWith('/9j/') || base64.startsWith('/9k/')) return 'image/jpeg';
+  if (base64.startsWith('iVBOR')) return 'image/png';
+  if (base64.startsWith('R0lG')) return 'image/gif';
+  if (base64.startsWith('UklGR')) return 'image/webp';
+  return 'image/png';
 }
 
 export function renderTicketText(ticket: PrintTicket): string {

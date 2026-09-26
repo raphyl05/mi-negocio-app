@@ -5,7 +5,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import type { BackupBundle } from '../utils/backup';
 import { buildBackupBundle, applyRestoredBundle } from './backupService';
 
-const TOKEN_KEY = '@micaja/driveToken';
+const TOKEN_KEY = '@vendelo/driveToken';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';

@@ -15,10 +15,10 @@ jest.mock('../src/utils/secureStore', () => {
   const mockStore = jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock');
   return {
     SECURE_USER_KEY: 'vendelo.user',
-    LEGACY_USER_KEY: '@micaja/user',
-    readSecureUser: async () => mockStore.getItem('@micaja/user'),
-    writeSecureUser: async (value: string) => mockStore.setItem('@micaja/user', value),
-    removeSecureUser: async () => mockStore.removeItem('@micaja/user'),
+    LEGACY_USER_KEY: '@vendelo/user',
+    readSecureUser: async () => mockStore.getItem('@vendelo/user'),
+    writeSecureUser: async (value: string) => mockStore.setItem('@vendelo/user', value),
+    removeSecureUser: async () => mockStore.removeItem('@vendelo/user'),
   };
 });
 

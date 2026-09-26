@@ -10,7 +10,7 @@ import {
   sessionFromSnapshot,
 } from '../src/utils/sessionStore';
 
-const SESSION_SNAPSHOT_KEY = 'micaja.offlineSession';
+const SESSION_SNAPSHOT_KEY = 'vendelo.offlineSession';
 
 describe('sessionStore', () => {
   beforeEach(async () => {

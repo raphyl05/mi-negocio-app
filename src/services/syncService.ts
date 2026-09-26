@@ -58,7 +58,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries: number = SYNC_MAX_
   throw lastErr;
 }
 
-const SYNC_REQUEST_KEYS = '@micaja/syncRequestKeys';
+const SYNC_REQUEST_KEYS = '@vendelo/syncRequestKeys';
 
 async function getSyncRequestKeys(): Promise<string[]> {
   try {

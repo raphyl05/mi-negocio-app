@@ -63,9 +63,9 @@ type AuthContextValue = {
   hasCapability: (businessId: string, key: keyof BusinessCapabilities) => boolean;
 };
 
-const TOKEN_KEY_ACCESS = 'micaja.accessToken';
-const TOKEN_KEY_REFRESH = 'micaja.refreshToken';
-const TOKEN_KEY_EXP = 'micaja.accessExp';
+const TOKEN_KEY_ACCESS = 'vendelo.accessToken';
+const TOKEN_KEY_REFRESH = 'vendelo.refreshToken';
+const TOKEN_KEY_EXP = 'vendelo.accessExp';
 
 const AuthContext = createContext<AuthContextValue>({
   session: null,

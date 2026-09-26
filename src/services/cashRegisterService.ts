@@ -4,8 +4,8 @@ import { generateId } from '../utils/password';
 import { enqueueSyncChange } from './syncChangeQueue';
 import { createLocalAutoBackup } from './autoBackupService';
 
-const REGISTER_KEY = '@micaja/cashRegister';
-const CLOSURES_KEY = '@micaja/cashClosures';
+const REGISTER_KEY = '@vendelo/cashRegister';
+const CLOSURES_KEY = '@vendelo/cashClosures';
 
 export type CashClosureRecord = {
   id: string;

@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { SEED_PRODUCTS } from '../data/seedProducts';
 import { isValidSqlIdentifier } from './sqlIdentifier';
 
-export const DATABASE_NAME = 'micaja.db';
+export const DATABASE_NAME = 'vendelo.db';
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 

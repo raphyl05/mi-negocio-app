@@ -1,4 +1,4 @@
-import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
@@ -23,7 +23,12 @@ export default function Screen({ children, style }: ScreenProps) {
 
   return (
     <SafeAreaView edges={EDGES} style={[styles.safe, { backgroundColor: colors.background }]}>
-      <View style={[styles.content, style, { maxWidth: contentMaxWidth }]}>{children}</View>
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={[styles.content, style, { maxWidth: contentMaxWidth }]}>{children}</View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

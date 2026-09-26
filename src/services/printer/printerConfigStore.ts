@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PrinterConfig } from './types';
 
-const KEY = '@micaja/printer';
+const KEY = '@vendelo/printer';
 
 export async function loadPrinterConfig(): Promise<PrinterConfig | null> {
   try {

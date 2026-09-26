@@ -5,7 +5,7 @@ import { uploadBackup } from './driveService';
 import { syncPushData, type SyncResult } from './syncService';
 import { getBusiness } from './setupService';
 
-const PENDING_KEY = '@micaja/pendingSync';
+const PENDING_KEY = '@vendelo/pendingSync';
 
 export type SyncPushResult = { ok: boolean; accepted: number; rejected: number };
 export { type SyncResult } from './syncService';

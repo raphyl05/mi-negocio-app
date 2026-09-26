@@ -104,14 +104,14 @@ describe('syncChangeQueue', () => {
   });
 
   it('tolera datos corruptos en AsyncStorage y arranca vacío', async () => {
-    await AsyncStorage.setItem('@micaja/syncChanges', '{no-es-json');
+    await AsyncStorage.setItem('@vendelo/syncChanges', '{no-es-json');
     await enqueueSyncChange('product', 'p1', 'upsert');
     expect(await countSyncChanges()).toBe(1);
   });
 
-  it('persiste en AsyncStorage bajo @micaja/syncChanges', async () => {
+  it('persiste en AsyncStorage bajo @vendelo/syncChanges', async () => {
     await enqueueSyncChange('product', 'p1', 'upsert');
-    const raw = await AsyncStorage.getItem('@micaja/syncChanges');
+    const raw = await AsyncStorage.getItem('@vendelo/syncChanges');
     expect(raw).toBeDefined();
     expect(JSON.parse(raw as string)).toHaveProperty('product:p1');
   });

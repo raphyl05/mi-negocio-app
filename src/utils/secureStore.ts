@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 export const SECURE_USER_KEY = 'vendelo.user';
-export const LEGACY_USER_KEY = '@micaja/user';
+export const LEGACY_USER_KEY = '@vendelo/user';
 
 function useSecureStore(): boolean {
   return Platform.OS !== 'web';

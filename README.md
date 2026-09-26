@@ -198,7 +198,7 @@ React Native + Expo + TypeScript. Funciona 100% offline (MVP).
 
 **Fase D (sesión offline persistente) COMPLETADA ✅ — ya no se pide login de nuevo al reabrir/refrescar:**
 
-- **Nuevo `src/utils/sessionStore.ts`**: persiste un snapshot de la sesión (usuario + marca offline) en AsyncStorage (`micaja.offlineSession`); `sessionFromSnapshot()` lo convierte en la sesión sin tokens lista para reabrir. Puro y testeado (7 tests).
+- **Nuevo `src/utils/sessionStore.ts`**: persiste un snapshot de la sesión (usuario + marca offline) en AsyncStorage (`vendelo.offlineSession`); `sessionFromSnapshot()` lo convierte en la sesión sin tokens lista para reabrir. Puro y testeado (7 tests).
 - **`AuthContext` atado al arranque**: `restoreSession()` ahora, sin tokens, restaura la sesión guardada (offline o no) → el usuario vuelve a entrar sin tocar login. Con tokens pero servidor caído, **no borra nada**: conserva los tokens para reconectar y abre en modo offline con el snapshot. Solo desloguea ante rechazo de auth explícito o logout.
 - **El snapshot se actualiza en cada sesión** (`storeSession`): al hacer login online se guarda `offline:false`, al entrar offline `offline:true`; `logout` lo elimina. Así un usuario que estuvo bien online ayer, hoy sin red, abre la app y sigue trabajando.
 - Tests: **316 en total, 37 suites, pasando** + `tsc --noEmit` limpio.
@@ -258,7 +258,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 **Fase 7 COMPLETADA ✅** — credenciales en SecureStore (Keychain/Keystore):
 - **Dependencia añadida**: `expo-secure-store` `~57.0.4` (la versión exacta de SDK 57, instalada con `npm install`; `npx expo install` falló por el reporte de `npm audit`, la versión correcta se comprobó contra `expo/bundledNativeModules.json`).
 - **El usuario (hash, sal y pregunta de seguridad) ya NO vive en AsyncStorage en texto plano**: nuevo `src/utils/secureStore.ts` (llave segura `vendelo.user`). `setupService` guarda/lee/borra el usuario a través de esta capa → iOS Keychain / Android Keystore, protegido por el hardware del dispositivo.
-- **Migración automática sin fricción**: la primera vez que se lee el usuario (login, boot, seguridad), si todavía hay un usuario legado en `@micaja/user` se **migra a SecureStore y se borra del lugar anterior**. Si SecureStore no está disponible (raro en Expo Go/dispositivos modernos), degrada a AsyncStorage con el comportamiento previo (no peor que antes). En **web** (sin keychain) sigue usando AsyncStorage, documentado.
+- **Migración automática sin fricción**: la primera vez que se lee el usuario (login, boot, seguridad), si todavía hay un usuario legado en `@vendelo/user` se **migra a SecureStore y se borra del lugar anterior**. Si SecureStore no está disponible (raro en Expo Go/dispositivos modernos), degrada a AsyncStorage con el comportamiento previo (no peor que antes). En **web** (sin keychain) sigue usando AsyncStorage, documentado.
 - **Restaurar/borrar cuenta coherentes**: `applyRestoredBundle` escribe el usuario restaurado vía SecureStore y `deleteAccountAndData`/`clearSession` lo eliminan también del almacén seguro.
 - **Tests nuevos (244 en total, 27 suites):** escribir/leer/borrar en SecureStore, migración del legado (se mueve y se limpia), prioridad del dato seguro sobre el legado, y que el hash de contraseña viaja por el almacén seguro (no por AsyncStorage). `tsc --noEmit` limpio.
 
@@ -327,7 +327,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 - [x] Theme centralizado en `src/theme/`: colores (turquesa `#00B8A9`), espaciados, tipografía, sombras, `ThemeProvider` + hook `useTheme`.
 - [x] `src/utils/money.ts`: `formatMoney` (RD$ con miles y centavos, permite negativos y ocultar decimales) + `calcSubtotal`, `calcChange`, `calcDifference`. Todo en **centavos (int)**.
 - [x] Componentes base del sistema visual: `Card` (blanca, redondeada, sombra suave), `PrimaryButton` (grande, variantes primary/outline, feedback al tocar), `MoneyDisplay` (números grandes tabulares).
-- [x] Pantalla de previsualización del tema en `App.tsx` (marca MiCaja + tarjeta de ventas + botones) para verlo en el navegador.
+- [x] Pantalla de previsualización del tema en `App.tsx` (marca Vendelo App + tarjeta de ventas + botones) para verlo en el navegador.
 - [x] Testing con **Jest** (`jest-expo`): 9 tests de dinero, 100% pasando. Scripts `npm test` y `npm run typecheck`.
 - [x] Dependencia nueva justificada: `react-native-safe-area-context` (oficial Expo, áreas seguras en teléfonos; la navegación la usará).
 
@@ -336,7 +336,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 - [x] Navegación con **React Navigation 7**: `@react-navigation/native` + `bottom-tabs` + `native-stack` + `react-native-screens` (versiones fijadas por npm directo, ver nota EALLOWSCRIPTS).
 - [x] `src/navigation/types.ts` con `RootStackParamList` (stack raíz; aquí se conectan después Setup/Login/Apertura de caja) y `TabParamList` (4 pestañas).
 - [x] `RootNavigator` (NavigationContainer + stack) y `BottomTabs` (Inicio, Ventas, Productos, Más) con iconos `@expo/vector-icons` (Ionicons), color activo turquesa y barra blanca.
-- [x] Pantallas base conectadas al tema: `HomeScreen` (previsualización MiCaja), `SalesScreen`, `ProductsScreen`, `SettingsScreen` (con `EmptyState`).
+- [x] Pantallas base conectadas al tema: `HomeScreen` (previsualización Vendelo App), `SalesScreen`, `ProductsScreen`, `SettingsScreen` (con `EmptyState`).
 - [x] Componentes auxiliares: `Screen` (SafeArea + fondo del tema) y `EmptyState` (placeholder elegante).
 - [x] Verificado: typecheck OK, 9 tests OK, bundle web compila.
 
@@ -415,7 +415,7 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 
 ### Hecho (Fase 11)
 
-- [x] **SQLite** con `expo-sqlite@~57.0.3` (android/ios/Expo Go, sin configuración extra): BD `micaja.db` con tablas `products`, `orders` y `order_meta` (números consecutivos), índices por estado y fecha, `PRAGMA journal_mode = WAL` y **migración automática** (crea tablas y siembra el catálogo si la BD está vacía).
+- [x] **SQLite** con `expo-sqlite@~57.0.3` (android/ios/Expo Go, sin configuración extra): BD `vendelo.db` con tablas `products`, `orders` y `order_meta` (números consecutivos), índices por estado y fecha, `PRAGMA journal_mode = WAL` y **migración automática** (crea tablas y siembra el catálogo si la BD está vacía).
 - [x] **Repositorios con dos implementaciones**: `createSqliteProductRepository` / `createSqliteOrderRepository` (SQLite) y las de **en memoria** (web). Los singletons `productRepository` y `orderRepository` son **fachadas perezosas**: en Android/iOS abren SQLite; en el navegador siguen en memoria. Las pantallas no cambian.
 - [x] Datos de ventas/stock ya **persisten entre reinicios** en el teléfono (productos creados, stock, órdenes guardadas y pagadas). Web sigue siendo por sesión (opción acordada).
 - [x] La capa SQLite vive en archivos `.native.ts` (+ stubs `.ts`): **`expo-sqlite` jamás entra al bundle web** (verificado grepeando el export).
@@ -514,6 +514,18 @@ Intervención controlada sobre la base de la auditoría del 19/09/2026 (plan BLO
 - [x] **Respaldo/restore offline**: desde **Más → Datos y respaldo** se exporta un JSON (negocio, usuario, caja, cierres, impresora, productos, pedidos, clientes, proveedores) vía hoja de sistema y se restaura importándolo; se advierte que el archivo es tan sensible como la contraseña.
 - [x] **Borrar cuenta**: desde **Más → Datos y respaldo** se eliminan todos los datos locales (storage + SQLite) y se vuelve a la pantalla de setup.
 - [x] `expo-file-system@~57.0.7`, `expo-sharing@~57.0.21`, `expo-document-picker@~57.0.2` instaladas para la operación. Total: **171 tests, 21 suites, pasando**.
+
+## Renombre de la app: MiCaja → Vendelo App
+
+La marca visible, el nombre de la app (`app.json`, `package.json`, bundle IDs) y el backend ya usan **Vendelo App**. Este cambio completa el renombre en las claves de persistencia y en la base de datos, que también llevaban el nombre de la marca:
+
+- **AsyncStorage**: `@micaja/business`, `@micaja/cashRegister`, `@micaja/cashClosures`, `@micaja/printer`, `@micaja/driveToken`, `@micaja/pendingSync`, `@micaja/syncChanges`, `@micaja/syncRequestKeys`, `@micaja/deviceId`, `@micaja/theme`, `@micaja/lastVacuumAt`, `@micaja/user` y `micaja.offlineSession` → `@vendelo/*` / `vendelo.*`.
+- **SecureStore**: `micaja.accessToken`, `micaja.refreshToken`, `micaja.accessExp`, `micaja.sessionUser`, `micaja.activeBusinessId` → `vendelo.*`.
+- **SQLite**: `micaja.db` → `vendelo.db` (junto con sus archivos `-wal` y `-shm`).
+
+Para no perder los datos de las instalaciones ya existentes, `src/utils/storageMigration.ts` corre **antes de montar la app** (en `index.ts`, con el splash todavía visible): copia cada clave vieja a la nueva, borra la vieja, renombra el archivo de la base y se marca con `@vendelo/legacyStorageMigrated` para no repetir el trabajo. Reglas de seguridad: si la clave nueva ya tiene valor, **manda la nueva** (no se pisa con un dato más viejo); un fallo puntual en una clave no aborta el resto; y si el renombrado de la base falla (web, o archivo inexistente) la app arranca igual. Tests en `__tests__/storageMigration.test.ts`.
+
+Los **respaldos exportados** no se ven afectados: el archivo JSON guarda campos con nombre (`business`, `cashRegister`, `cashClosures`, `printer`), no claves de almacenamiento, así que un respaldo creado antes del renombre se sigue restaurando bien.
 
 ## Lo que falta
 **El MVP está completo.** Con la Fase 28 ya se imprime por el sistema/integrada y la impresora térmica Bluetooth (BLE) quedó implementada (react-native-ble-plx en una app compilada; en Expo Go usa la impresión por sistema), la Fase 29 añadió impresión rápida desde Ventas, soporte tablet, respaldo/restore offline por archivo y borrado de cuenta, la Fase 31 dejó Google Drive fuera de la vista (el servicio queda listo para retomar el respaldo en nube en una próxima versión) y la Fase 32 dejó las pantallas de formulario listas para iPad/tablet (columna centrada 560dp). Con **F3/F3.1** quedó implementado y auditado el **backend ASP.NET Core + PostgreSQL** (Source of Truth) — ver la sección **Backend** más abajo. Lo siguiente en la lista de "Posteriores" puede retomarse cualquier día: sincronización cliente↔servidor (F5.1), sincronización multi-dispositivo (F6), múltiples cajas/sucursales, códigos de barras, facturación electrónica (DGII/NCF) y el respaldo en la nube. Con **F4** quedó completada la **autenticación server** (logout, cambio de contraseña con revocación por `changeEpoch`, `/auth/me`, reuso de refresh = 409 y rate limiting en login/registro/refresh) y con **F4.1** la **auditoría de seguridad** (IDOR, permisos, aislamiento multi-negocio, rate-limit en sync/backups, tokens y logs) — ver `docs/INFORME-F4.md` y `docs/INFORME-F4-1.md`. Con **F12** el backend quedó **listo para desplegar en un servidor público** (Dockerfile multi-etapa + migraciones automáticas `MigrateAsync` en Npgsql + config 100% por variables de entorno con fail-fast si faltan secretos) — ver la sección **Despliegue en servidor público** y `docs/INFORME-F12.md`.

@@ -7,7 +7,7 @@ import { spacing } from './spacing';
 import { typography } from './typography';
 import { shadows } from './shadows';
 
-const THEME_KEY = '@micaja/theme';
+const THEME_KEY = '@vendelo/theme';
 
 export type Theme = {
   colors: Colors;

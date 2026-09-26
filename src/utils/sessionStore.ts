@@ -5,7 +5,7 @@ export type OfflineSessionSnapshot = {
   offline: boolean;
 };
 
-const SESSION_SNAPSHOT_KEY = 'micaja.offlineSession';
+const SESSION_SNAPSHOT_KEY = 'vendelo.offlineSession';
 
 export async function saveOfflineSession(snapshot: OfflineSessionSnapshot): Promise<void> {
   await AsyncStorage.setItem(SESSION_SNAPSHOT_KEY, JSON.stringify(snapshot));

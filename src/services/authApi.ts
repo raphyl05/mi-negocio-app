@@ -1,11 +1,11 @@
 import { apiUrl, API_PREFIX } from '../config/api';
 import * as SecureStore from 'expo-secure-store';
 
-const TOKEN_KEY_ACCESS = 'micaja.accessToken';
-const TOKEN_KEY_REFRESH = 'micaja.refreshToken';
-const TOKEN_KEY_EXP = 'micaja.accessExp';
-const USER_KEY = 'micaja.sessionUser';
-const ACTIVE_BUSINESS_KEY = 'micaja.activeBusinessId';
+const TOKEN_KEY_ACCESS = 'vendelo.accessToken';
+const TOKEN_KEY_REFRESH = 'vendelo.refreshToken';
+const TOKEN_KEY_EXP = 'vendelo.accessExp';
+const USER_KEY = 'vendelo.sessionUser';
+const ACTIVE_BUSINESS_KEY = 'vendelo.activeBusinessId';
 
 export type DeviceInfo = {
   id: string;

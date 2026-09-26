@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateId } from './password';
 
-export const DEVICE_ID_KEY = '@micaja/deviceId';
+export const DEVICE_ID_KEY = '@vendelo/deviceId';
 
 let cachedDeviceId: string | null = null;
 
